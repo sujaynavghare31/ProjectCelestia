@@ -9,3 +9,7 @@ coverage/
 .env
 .env.*
 !.env.example
+lib/generated/prisma/
+
+/lib/generated/prisma
+.clerk/

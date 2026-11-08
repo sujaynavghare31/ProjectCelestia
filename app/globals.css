@@ -2,56 +2,88 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-:root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --card: #ffffff;
-  --muted: #64748b;
-  --border: #e2e8f0;
-  --gold: #a16207;
-  --cyan: #0e7490;
-  --chart-panel: #ffffff;
-  --chart-line: #cbd5e1;
-  --chart-muted: #64748b;
-  --chart-body: #334155;
-  --chart-transit: #0891b2;
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-chart-lines: hsl(var(--chart-lines));
+  --color-gold-accent: hsl(var(--gold-accent));
+  --color-gold-foreground: hsl(var(--gold-foreground));
+  --radius-xl: var(--radius);
 }
 
-.dark {
-  --background: #020617;
-  --foreground: #f1f5f9;
-  --card: #0f172a;
-  --muted: #94a3b8;
-  --border: #1e293b;
-  --gold: #eab308;
-  --cyan: #22d3ee;
-  --chart-panel: #0f172a;
-  --chart-line: #475569;
-  --chart-muted: #94a3b8;
-  --chart-body: #e2e8f0;
-  --chart-transit: #22d3ee;
-}
+@layer base {
+  :root {
+    color-scheme: light;
+    --background: 210 40% 98%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --accent: 189 94% 43%;
+    --accent-foreground: 210 40% 98%;
+    --chart-lines: 215 16% 47%;
+    --gold-accent: 43 74% 49%;
+    --gold-foreground: 43 85% 30%;
+    --radius: 0.75rem;
+    --chart-panel: hsl(var(--card));
+    --chart-line: hsl(var(--chart-lines));
+    --chart-muted: hsl(var(--chart-lines));
+    --chart-body: hsl(var(--foreground));
+    --chart-transit: hsl(var(--accent));
+    --gold: hsl(var(--gold-accent));
+    --cyan: hsl(var(--accent));
+    --body-glow: rgb(37 99 235 / 0.5);
+  }
 
-* {
-  box-sizing: border-box;
-}
+  .dark {
+    color-scheme: dark;
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 217.2 32.6% 17.5%;
+    --card-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --primary: 189 94% 43%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --chart-lines: 215 20.2% 65.1%;
+    --gold-accent: 43 74% 60%;
+    --gold-foreground: var(--gold-accent);
+    --chart-panel: hsl(var(--card));
+    --chart-line: hsl(var(--chart-lines));
+    --chart-muted: hsl(var(--chart-lines));
+    --chart-body: hsl(var(--foreground));
+    --chart-transit: hsl(189 94% 43%);
+    --gold: hsl(var(--gold-accent));
+    --cyan: hsl(189 94% 43%);
+    --body-glow: rgb(6 182 212 / 0.8);
+  }
 
-html {
-  color-scheme: light;
-}
+  * {
+    box-sizing: border-box;
+  }
 
-html.dark {
-  color-scheme: dark;
-}
+  body {
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings: "ss01" on, "cv11" on;
+  }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-feature-settings: "ss01" on, "cv11" on;
-}
-
-::selection {
-  background: rgb(34 211 238 / 0.25);
+  ::selection {
+    background: hsl(var(--accent) / 0.25);
+  }
 }
 
 .cosmic-grid {
@@ -65,4 +97,8 @@ body {
 
 input[type="date"]::-webkit-calendar-picker-indicator {
   opacity: 0.65;
+}
+
+html {
+  scrollbar-color: hsl(var(--chart-lines)) hsl(var(--background));
 }

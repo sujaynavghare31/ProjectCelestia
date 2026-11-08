@@ -5,16 +5,17 @@ import { useTheme } from "next-themes";
 import {
   ArrowDownRight,
   ArrowRight,
+  Bookmark,
   CalendarCheck2,
   CalendarDays,
   CarFront,
   Check,
-  ChevronDown,
   CircleHelp,
   Clock3,
   Compass,
   Gem,
   Heart,
+  Home as HomeIcon,
   Moon,
   Orbit,
   PanelTop,
@@ -30,14 +31,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KundaliDashboard } from "@/components/kundali-dashboard";
+import { AuthActions } from "@/components/auth-actions";
 import { useKundaliStore } from "@/lib/kundali-store";
-
-const profiles = [
-  { name: "Sujay Navghare", dob: "31 Aug 1996", initials: "SN" },
-  { name: "Arjun Sharma", dob: "15 Aug 1992", initials: "AS" },
-  { name: "Meera Iyer", dob: "23 Nov 1995", initials: "MI" },
-  { name: "Add a profile", dob: "", initials: "+" },
-];
 
 const gridNumbers = [4, 9, 2, 3, 5, 7, 8, 1, 6];
 const masterNumbers = new Set([11, 22, 33]);
@@ -92,6 +87,15 @@ const arrowCoordinates: Record<number, [number, number]> = {
   7: [250, 150], 8: [50, 250], 9: [150, 50],
 };
 
+const navigationItems = [
+  { id: "home", label: "Home", icon: HomeIcon },
+  { id: "kundali", label: "Kundali", icon: Compass },
+  { id: "numerology", label: "Numerology", icon: Sparkles },
+  { id: "saved-charts", label: "Saved Charts", icon: Bookmark },
+  { id: "matchmaking", label: "Matchmaking", icon: Heart },
+  { id: "panchang", label: "Panchang", icon: CalendarDays },
+] as const;
+
 function digitSum(value: number) {
   return String(Math.abs(Math.trunc(value))).split("").reduce((sum, digit) => sum + Number(digit), 0);
 }
@@ -131,18 +135,8 @@ function parseBirthDate(value: string) {
   return { year, month, day };
 }
 
-function getDisplayDate(value: string) {
-  const date = parseBirthDate(value);
-  if (!date) return value ? "Enter a valid date" : "Choose a birth date";
-  return new Date(date.year, date.month - 1, date.day).toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-}
-
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.17em] text-slate-500 dark:text-slate-400">{children}</p>;
+  return <p className="mb-3 text-xs font-semibold uppercase tracking-[0.17em] text-slate-600 dark:text-slate-400">{children}</p>;
 }
 
 function CardHeading({
@@ -162,7 +156,7 @@ function CardHeading({
         </span>
         <CardTitle>{title}</CardTitle>
       </div>
-      {detail && <span className="text-[11px] text-slate-500 dark:text-slate-400">{detail}</span>}
+      {detail && <span className="text-xs text-slate-600 dark:text-slate-400">{detail}</span>}
     </div>
   );
 }
@@ -222,14 +216,14 @@ export default function Home() {
   const birthProfile = useKundaliStore((state) => state.profile);
   const setBirthProfile = useKundaliStore((state) => state.setProfile);
   const [mounted, setMounted] = useState(false);
-  const [selectedProfile, setSelectedProfile] = useState(0);
   const [system, setSystem] = useState(false);
   const fullName = birthProfile.name;
   const dateOfBirth = birthProfile.date;
   const [kuaGender, setKuaGender] = useState<"male" | "female">("male");
-  const [activeTab, setActiveTab] = useState("numerology");
+  const [activeTab, setActiveTab] = useState("kundali");
+  const [activeNavigation, setActiveNavigation] = useState("kundali");
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
-  const isDark = mounted ? resolvedTheme === "dark" : true;
+  const isDark = mounted ? resolvedTheme === "dark" : false;
   const currentYear = new Date().getFullYear();
 
   useEffect(() => setMounted(true), []);
@@ -338,6 +332,46 @@ export default function Home() {
   const luckyDates = numerology.mulank
     ? [numerology.mulank, numerology.mulank + 9, numerology.mulank + 18, numerology.mulank + 27].filter((day) => day <= 31)
     : [];
+  const navigate = (destination: typeof navigationItems[number]["id"]) => {
+    setActiveNavigation(destination);
+    if (destination === "home" || destination === "kundali" || destination === "saved-charts") {
+      setActiveTab("kundali");
+    } else {
+      setActiveTab(destination);
+    }
+    window.requestAnimationFrame(() => {
+      const scroller = document.getElementById("dashboard-scroll");
+      if (!scroller) return;
+      const targetId = destination === "saved-charts"
+        ? "saved-charts"
+        : destination === "kundali"
+          ? "kundali-charts"
+          : null;
+      const target = targetId ? document.getElementById(targetId) : null;
+      if (target) {
+        const scrollerTop = scroller.getBoundingClientRect().top;
+        const targetTop = target.getBoundingClientRect().top;
+        scroller.scrollTo({ top: scroller.scrollTop + targetTop - scrollerTop - 16, behavior: "smooth" });
+      } else {
+        scroller.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    });
+  };
+  const renderNavigationItems = (compact = false) => navigationItems.map(({ id, label, icon: Icon }) => {
+    const active = activeNavigation === id;
+    return (
+      <button
+        key={id}
+        type="button"
+        onClick={() => navigate(id)}
+        aria-current={active ? "page" : undefined}
+        className={`flex h-9 items-center gap-2 rounded-lg text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${compact ? "min-w-max px-3" : "w-full px-3"} ${active ? "bg-primary/10 text-blue-700 dark:bg-primary/15 dark:text-cyan-300" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"}`}
+      >
+        <Icon className="size-4 shrink-0" aria-hidden="true" />
+        {label}
+      </button>
+    );
+  });
   const relationship = numerology.mulank && numerology.bhagyank
     ? numerology.mulank === numerology.bhagyank
       ? "Friendly"
@@ -349,73 +383,51 @@ export default function Home() {
     : "—";
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-slate-50/90 backdrop-blur-xl dark:border-slate-800/80 dark:bg-slate-950/90">
-        <div className="mx-auto flex h-[68px] max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-7 lg:px-10">
-          <a href="#" className="flex min-w-0 items-center gap-3" aria-label="Project Celestia home">
-            <span className="relative grid size-9 shrink-0 place-items-center rounded-xl bg-slate-900 text-yellow-400 dark:bg-slate-800"><Orbit className="size-[19px]" /><span className="absolute right-[7px] top-[7px] size-1 rounded-full bg-cyan-400" /></span>
+    <main className="flex h-screen min-w-0 flex-col overflow-hidden bg-background text-foreground">
+        <header className="z-30 flex min-h-[60px] shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 sm:px-6">
+          <a href="#" onClick={(event) => { event.preventDefault(); navigate("home"); }} className="flex min-w-0 items-center gap-2.5" aria-label="Project Celestia home">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-900 dark:bg-slate-800">
+              <svg viewBox="0 0 36 36" aria-hidden="true" className="size-5">
+                <circle cx="18" cy="18" r="6.5" fill="#f59e0b" />
+                <path d="M18 3.5v5M18 27.5v5M3.5 18h5M27.5 18h5M7.75 7.75l3.6 3.6M24.65 24.65l3.6 3.6M28.25 7.75l-3.6 3.6M11.35 24.65l-3.6 3.6" stroke="#fbbf24" strokeWidth="2.2" strokeLinecap="round" />
+                <circle cx="27.5" cy="9" r="1.5" fill="#22d3ee" />
+              </svg>
+            </span>
             <span className="min-w-0">
               <span className="block truncate text-[13px] font-semibold tracking-[0.02em]">Project Celestia</span>
-              <span className="hidden text-[10px] tracking-wide text-slate-500 sm:block">YOUR PERSONAL COSMIC COMPASS</span>
+              <span className="hidden text-xs tracking-wide text-slate-600 sm:block dark:text-slate-400">YOUR PERSONAL COSMIC COMPASS</span>
             </span>
           </a>
-
-          <div className="flex items-center gap-2 sm:gap-3">
-            <label className="relative flex h-10 max-w-[230px] items-center gap-2 rounded-xl border border-slate-200 bg-white pl-3 pr-8 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-cyan-100 text-[9px] font-bold text-cyan-800 dark:bg-cyan-400/15 dark:text-cyan-200">{profiles[selectedProfile].initials}</span>
-              <span className="min-w-0">
-                <span className="block truncate text-xs font-medium">{profiles[selectedProfile].name}</span>
-                <span className="block truncate text-[10px] text-slate-500 dark:text-slate-400">{selectedProfile === profiles.length - 1 ? "Create a profile" : getDisplayDate(birthProfile.date)}</span>
-              </span>
-              <select
-                aria-label="Select profile"
-                value={selectedProfile}
-                onChange={(event) => {
-                  const index = Number(event.target.value);
-                  setSelectedProfile(index);
-                  if (index === 0) {
-                    setBirthProfile({ id: "sujay-navghare", name: "Sujay Navghare", date: "1996-08-31" });
-                  } else if (index === 1) {
-                    setBirthProfile({ id: "arjun-sharma", name: "Arjun Sharma", date: "1992-08-15" });
-                  } else if (index === 2) {
-                    setBirthProfile({ id: "meera-iyer", name: "Meera Iyer", date: "1995-11-23" });
-                  } else {
-                    setBirthProfile({ id: "new-profile", name: "New profile", date: "" });
-                  }
-                }}
-                className="absolute inset-0 w-full cursor-pointer opacity-0"
-              >
-                {profiles.map((profile, index) => <option key={profile.name} value={index}>{profile.name}{profile.dob && ` | ${profile.dob}`}</option>)}
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2.5 size-3.5 text-slate-500 dark:text-slate-400" />
-            </label>
+          <div className="ml-auto flex items-center gap-2 sm:gap-3">
+            <AuthActions />
             <button
               type="button"
               onClick={() => setTheme(isDark ? "light" : "dark")}
-              className="grid size-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-cyan-300 hover:text-cyan-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-cyan-800 dark:hover:text-cyan-300"
+              className="grid size-10 shrink-0 place-items-center rounded-xl border border-border bg-card text-slate-600 shadow-sm transition hover:border-primary hover:text-primary dark:text-slate-300"
               aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
               title={`Switch to ${isDark ? "light" : "dark"} mode`}
             >
               {!mounted || isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </button>
           </div>
-        </div>
-      </header>
+        </header>
+        <nav aria-label="Main navigation" className="flex shrink-0 gap-1 overflow-x-auto border-b border-border bg-card px-3 py-1.5">
+          {renderNavigationItems(true)}
+        </nav>
 
-      <div className="cosmic-grid min-h-[calc(100vh-68px)]">
-        <div className="mx-auto max-w-[1600px] px-4 pb-10 sm:px-7 lg:px-10">
-          <div className="pt-7 sm:pt-9">
-            <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+        <div id="dashboard-scroll" className="cosmic-grid min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          <div className="mx-auto max-w-[1750px]">
+          <div id="dashboard-home" className="pt-0">
+            <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
               <div>
-                <div className="mb-2 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-cyan-800 dark:text-cyan-300"><span className="size-1.5 rounded-full bg-cyan-500" /> Your celestial overview</div>
-                <h1 className="text-2xl font-semibold tracking-tight sm:text-[30px]">A little more aligned.</h1>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Explore the patterns and possibilities written in your numbers.</p>
+                <h1 className="text-2xl font-semibold tracking-tight sm:text-[30px]">{activeTab === "kundali" ? "Your celestial map, at a glance." : "A little more aligned."}</h1>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{activeTab === "kundali" ? "Birth chart, Panchang, and planetary transits in one place." : "Explore the patterns and possibilities written in your numbers."}</p>
               </div>
-              <div className="hidden items-center gap-2 text-xs text-slate-600 sm:flex dark:text-slate-400"><CalendarDays className="size-3.5" /> Personal profile <span className="text-slate-400 dark:text-slate-700">/</span> Vedic numerology</div>
+              <div className="hidden items-center gap-2 text-xs text-slate-600 sm:flex dark:text-slate-400"><CalendarDays className="size-3.5" /> {activeTab === "kundali" ? "Birth profile" : "Personal profile"} <span className="text-slate-400 dark:text-slate-700">/</span> {activeTab === "kundali" ? "Kundali" : "Vedic numerology"}</div>
             </div>
 
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList aria-label="Dashboard sections">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="min-w-0 max-w-full overflow-x-clip">
+              <TabsList aria-label="Dashboard sections" className="hidden">
                 <TabsTrigger value="numerology"><Sparkles className="size-3.5" /> Numerology</TabsTrigger>
                 <TabsTrigger value="kundali"><Compass className="size-3.5" /> Kundali &amp; Charts</TabsTrigger>
                 <TabsTrigger value="matchmaking"><Heart className="size-3.5" /> Matchmaking</TabsTrigger>
@@ -430,23 +442,23 @@ export default function Home() {
                       <CardContent>
                         <div className="space-y-3.5">
                           <label className="block">
-                            <span className="mb-1.5 block text-[11px] font-medium text-slate-600 dark:text-slate-400">Full name</span>
+                            <span className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">Full name</span>
                             <input value={fullName} onChange={(event) => setBirthProfile({ name: event.target.value })} placeholder="Enter your full name" className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/10 dark:border-slate-700 dark:bg-slate-950 dark:focus:border-cyan-400" />
                           </label>
                           <label className="block">
-                            <span className="mb-1.5 block text-[11px] font-medium text-slate-600 dark:text-slate-400">Date of birth</span>
+                            <span className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">Date of birth</span>
                             <span className="relative block">
                               <input type="date" value={dateOfBirth} onChange={(event) => setBirthProfile({ date: event.target.value })} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 pr-10 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/10 dark:border-slate-700 dark:bg-slate-950 dark:focus:border-cyan-400" />
-                              <CalendarDays className="pointer-events-none absolute right-3 top-3 size-4 text-slate-500" />
+                              <CalendarDays className="pointer-events-none absolute right-3 top-3 size-4 text-slate-600" />
                             </span>
                           </label>
                         </div>
                         <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 dark:border-slate-800">
-                          <div><p className="text-xs font-medium">Name calculation</p><p className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">{system ? "Pythagorean" : "Chaldean"}</p></div>
+                          <div><p className="text-xs font-medium">Name calculation</p><p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">{system ? "Pythagorean" : "Chaldean"}</p></div>
                           <div className="flex items-center gap-2.5">
-                            <span className={`text-[10px] ${system ? "text-slate-500" : "font-medium text-slate-800 dark:text-slate-200"}`}>Chaldean</span>
+                            <span className={`text-xs ${system ? "text-slate-600" : "font-medium text-slate-800 dark:text-slate-200"}`}>Chaldean</span>
                             <Switch checked={system} onCheckedChange={setSystem} aria-label="Toggle Chaldean or Pythagorean system" />
-                            <span className={`text-[10px] ${system ? "font-medium text-slate-800 dark:text-slate-200" : "text-slate-500"}`}>Pythagorean</span>
+                            <span className={`text-xs ${system ? "font-medium text-slate-800 dark:text-slate-200" : "text-slate-600"}`}>Pythagorean</span>
                           </div>
                         </div>
                       </CardContent>
@@ -501,19 +513,19 @@ export default function Home() {
                                   className={`relative z-0 flex flex-col items-center justify-center rounded-xl border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 ${count > 0 ? "border-cyan-200 bg-cyan-50/90 dark:border-cyan-900 dark:bg-cyan-950/70" : "border-slate-200 bg-white/80 opacity-30 dark:border-slate-800 dark:bg-slate-900/70"} ${selectedNumber === number ? "ring-2 ring-cyan-500 ring-offset-2 ring-offset-white dark:ring-cyan-400 dark:ring-offset-slate-900" : ""}`}
                                   aria-label={`Number ${number}, ${count === 0 ? "missing" : `present ${count} times`}`}
                                 >
-                                  <span className={`font-serif text-3xl ${count > 0 ? "text-cyan-800 dark:text-cyan-200" : "text-slate-500 dark:text-slate-400"}`}>{count ? String(number).repeat(count) : number}</span>
-                                  {count > 0 && <span className="mt-1 text-[9px] text-cyan-800 dark:text-cyan-300">{count}×</span>}
+                                  <span className={`font-serif text-3xl ${count > 0 ? "text-cyan-800 dark:text-cyan-200" : "text-slate-600 dark:text-slate-400"}`}>{count ? String(number).repeat(count) : number}</span>
+                                  {count > 0 && <span className="mt-1 text-xs text-cyan-800 dark:text-cyan-300">{count}×</span>}
                                 </button>
                               );
                             })}
                           </div>
-                          <div className="absolute -bottom-5 left-0 right-0 flex justify-center gap-4 text-[9px] text-slate-600 dark:text-slate-400">
+                          <div className="absolute -bottom-5 left-0 right-0 flex justify-center gap-4 text-xs text-slate-600 dark:text-slate-400">
                             <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-cyan-500" /> Spirituality</span>
                             <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-yellow-500" /> Willpower</span>
                             <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-violet-500" /> Intuition</span>
                           </div>
                         </div>
-                        <p className="mt-9 text-center text-[10px] text-slate-500 dark:text-slate-400">
+                        <p className="mt-9 text-center text-xs text-slate-600 dark:text-slate-400">
                           {!numerology.birth ? "Enter a valid date to populate the grid" : selectedNumber === null ? "Repeated digits are shown together · select a cell to inspect" : `Number ${selectedNumber} appears ${numerology.digitCounts[selectedNumber] ?? 0} ${(numerology.digitCounts[selectedNumber] ?? 0) === 1 ? "time" : "times"} in this date`}
                         </p>
                       </CardContent>
@@ -527,9 +539,9 @@ export default function Home() {
                             <div key={arrow.label} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2.5 dark:bg-slate-950/60">
                               <div>
                                 <p className="text-xs font-medium">{arrow.numbers.join(" – ")} <span className="font-normal text-slate-600 dark:text-slate-400">{arrow.label}</span></p>
-                                <p className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">{arrow.explanation}</p>
+                                <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">{arrow.explanation}</p>
                               </div>
-                              <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[9px] font-medium ${arrow.complete ? "bg-cyan-100 text-cyan-900 dark:bg-cyan-400/10 dark:text-cyan-300" : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"}`}>
+                              <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${arrow.complete ? "bg-cyan-100 text-cyan-900 dark:bg-cyan-400/10 dark:text-cyan-300" : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"}`}>
                                 {arrow.complete && <Check className="size-3" />}{arrow.complete ? "Complete" : `${arrow.count}/3`}
                               </span>
                             </div>
@@ -544,14 +556,14 @@ export default function Home() {
                         <div className="grid grid-cols-3 gap-2">
                           {planes.map((plane) => (
                             <div key={plane.name} className={`rounded-lg border p-2.5 ${plane.complete ? "border-cyan-200 bg-cyan-50 dark:border-cyan-900 dark:bg-cyan-950/40" : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/40"}`}>
-                              <p className="text-[10px] text-slate-600 dark:text-slate-400">{plane.name}</p>
+                              <p className="text-xs text-slate-600 dark:text-slate-400">{plane.name}</p>
                               <p className={`mt-1 text-base font-semibold ${plane.complete ? "text-cyan-800 dark:text-cyan-300" : ""}`}>{plane.count}/3</p>
                             </div>
                           ))}
                         </div>
                         <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
-                          <span className="text-[11px] text-slate-600 dark:text-slate-400">Missing numbers</span>
-                          <div className="flex gap-1.5">{missingNumbers.length ? missingNumbers.map((number) => <span key={number} className="grid size-6 place-items-center rounded-md bg-rose-100 text-[10px] font-semibold text-rose-800 dark:bg-rose-400/10 dark:text-rose-300">{number}</span>) : <span className="text-[10px] text-slate-500">{numerology.birth ? "None" : "Enter DOB"}</span>}</div>
+                          <span className="text-xs text-slate-600 dark:text-slate-400">Missing numbers</span>
+                          <div className="flex gap-1.5">{missingNumbers.length ? missingNumbers.map((number) => <span key={number} className="grid size-6 place-items-center rounded-md bg-rose-100 text-xs font-semibold text-rose-800 dark:bg-rose-400/10 dark:text-rose-300">{number}</span>) : <span className="text-xs text-slate-600">{numerology.birth ? "None" : "Enter DOB"}</span>}</div>
                         </div>
                       </CardContent>
                     </Card>
@@ -564,21 +576,21 @@ export default function Home() {
                         <div className="flex items-end justify-between gap-3">
                           <div>
                             <span className="font-serif text-[64px] leading-none tracking-[-0.08em] text-amber-600 dark:text-yellow-400">{numerology.nameNumber ?? "—"}</span>
-                            <p className="mt-1 text-[10px] text-slate-600 dark:text-slate-400">Name vibration {numerology.nameTrace && `· ${numerology.nameTrace}`}</p>
+                            <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">Name vibration {numerology.nameTrace && `· ${numerology.nameTrace}`}</p>
                           </div>
                           <div className="mb-1 text-right">
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-yellow-400/10 dark:text-yellow-300"><Orbit className="size-3.5" /> {nameInfo?.planet ?? "—"}</span>
-                            <p className="mt-2 text-[10px] text-slate-600 dark:text-slate-400">Compound value <strong className="text-slate-900 dark:text-slate-200">{numerology.nameCompound ?? "—"}</strong></p>
+                            <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">Compound value <strong className="text-slate-900 dark:text-slate-200">{numerology.nameCompound ?? "—"}</strong></p>
                           </div>
                         </div>
                         <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800">
-                          <div className="mb-2 flex items-center justify-between"><SectionLabel>Letter values · {fullName.trim() || "enter a name"}</SectionLabel><span className="text-[9px] text-slate-500">{system ? "A–Z" : "CHALDEAN"}</span></div>
+                          <div className="mb-2 flex items-center justify-between"><SectionLabel>Letter values · {fullName.trim() || "enter a name"}</SectionLabel><span className="text-xs text-slate-600">{system ? "A–Z" : "CHALDEAN"}</span></div>
                           <div className="flex flex-wrap gap-1.5">
                             {numerology.letters.length ? numerology.letters.map(({ character, value, index }) => (
                               <div key={`${character}-${index}`} className="min-w-8 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-1 text-center dark:border-slate-800 dark:bg-slate-950/60">
-                                <span className="block text-[9px] font-medium text-slate-800 dark:text-slate-200">{character}</span><span className="block text-[9px] text-slate-500">{value}</span>
+                                <span className="block text-xs font-medium text-slate-800 dark:text-slate-200">{character}</span><span className="block text-xs text-slate-600">{value}</span>
                               </div>
-                            )) : <p className="text-[10px] text-slate-500">Enter letters to calculate your name number.</p>}
+                            )) : <p className="text-xs text-slate-600">Enter letters to calculate your name number.</p>}
                           </div>
                         </div>
                       </CardContent>
@@ -595,27 +607,27 @@ export default function Home() {
                           ].map(({ icon: Icon, label, number }) => (
                             <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-800 dark:bg-slate-950/50">
                               <Icon className="size-4 text-cyan-700 dark:text-cyan-300" />
-                              <p className="mt-2 text-[9px] text-slate-600 dark:text-slate-400">{label}</p>
+                              <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">{label}</p>
                               <p className="mt-0.5 text-xs font-semibold">{number ? `Ends in ${number}` : "—"}</p>
                             </div>
                           ))}
                         </div>
                         <div className="space-y-3">
                           <div className="flex items-center justify-between gap-3">
-                            <div><p className="text-[11px] text-slate-600 dark:text-slate-400">Kua number · {numerology.birth?.year ?? "—"}</p><p className="mt-0.5 text-[10px] text-slate-500">Feng Shui personal direction number</p></div>
-                            <select aria-label="Kua calculation gender" value={kuaGender} onChange={(event) => setKuaGender(event.target.value as "male" | "female")} className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[10px] dark:border-slate-700 dark:bg-slate-950">
+                            <div><p className="text-xs text-slate-600 dark:text-slate-400">Kua number · {numerology.birth?.year ?? "—"}</p><p className="mt-0.5 text-xs text-slate-600">Feng Shui personal direction number</p></div>
+                            <select aria-label="Kua calculation gender" value={kuaGender} onChange={(event) => setKuaGender(event.target.value as "male" | "female")} className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-950">
                               <option value="male">Male · {numerology.kuaMaleNumber ?? "—"}</option><option value="female">Female · {numerology.kuaFemaleNumber ?? "—"}</option>
                             </select>
                           </div>
                           <div className="border-t border-slate-100 pt-3 dark:border-slate-800">
-                            <div className="flex items-center justify-between"><div><p className="text-[11px] text-slate-600 dark:text-slate-400">Personal year · {currentYear}</p><p className="mt-0.5 text-[10px] text-slate-500">{numerology.personalYearTrace || "Enter a valid date of birth"}</p></div><span className="grid size-8 shrink-0 place-items-center rounded-lg bg-cyan-50 text-sm font-semibold text-cyan-800 dark:bg-cyan-400/10 dark:text-cyan-300">{numerology.personalYear ?? "—"}</span></div>
+                            <div className="flex items-center justify-between"><div><p className="text-xs text-slate-600 dark:text-slate-400">Personal year · {currentYear}</p><p className="mt-0.5 text-xs text-slate-600">{numerology.personalYearTrace || "Enter a valid date of birth"}</p></div><span className="grid size-8 shrink-0 place-items-center rounded-lg bg-cyan-50 text-sm font-semibold text-cyan-800 dark:bg-cyan-400/10 dark:text-cyan-300">{numerology.personalYear ?? "—"}</span></div>
                             <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800" role="progressbar" aria-label="Personal year progress" aria-valuenow={mounted ? Math.round(numerology.personalYearProgress) : 0} aria-valuemin={0} aria-valuemax={100}>
                               <div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-teal-400 transition-[width]" style={{ width: `${mounted ? Math.round(numerology.personalYearProgress) : 0}%` }} />
                             </div>
-                            <p className="mt-1 text-right text-[9px] text-slate-500">{mounted ? Math.round(numerology.personalYearProgress) : 0}% through birthday year</p>
+                            <p className="mt-1 text-right text-xs text-slate-600">{mounted ? Math.round(numerology.personalYearProgress) : 0}% through birthday year</p>
                           </div>
                         </div>
-                        <p className="mt-3 border-t border-slate-100 pt-3 text-[9px] leading-relaxed text-slate-500 dark:border-slate-800 dark:text-slate-400">Numerology and Feng Shui traditions vary; use these as reflective prompts.</p>
+                        <p className="mt-3 border-t border-slate-100 pt-3 text-xs leading-relaxed text-slate-600 dark:border-slate-800 dark:text-slate-400">Numerology and Feng Shui traditions vary; use these as reflective prompts.</p>
                       </CardContent>
                     </Card>
 
@@ -626,12 +638,12 @@ export default function Home() {
                           <div>
                             <SectionLabel>Supportive colors</SectionLabel>
                             <div className="flex flex-wrap gap-2">
-                              {(mulankInfo?.colors ?? []).map((color, index) => <span key={color} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-2 py-1 text-[10px] dark:border-slate-700"><span className={`size-3 rounded-full ${mulankInfo?.swatches[index]}`} />{color}</span>)}
-                              {!mulankInfo && <span className="text-[10px] text-slate-500">Enter a valid date to see colors.</span>}
+                              {(mulankInfo?.colors ?? []).map((color, index) => <span key={color} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-2 py-1 text-xs dark:border-slate-700"><span className={`size-3 rounded-full ${mulankInfo?.swatches[index]}`} />{color}</span>)}
+                              {!mulankInfo && <span className="text-xs text-slate-600">Enter a valid date to see colors.</span>}
                             </div>
                           </div>
                           <div className="flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
-                            <span className="text-[11px] text-slate-600 dark:text-slate-400">Traditional gemstone</span><span className="text-xs font-medium">{mulankInfo?.gemstone ?? "—"}</span>
+                            <span className="text-xs text-slate-600 dark:text-slate-400">Traditional gemstone</span><span className="text-xs font-medium">{mulankInfo?.gemstone ?? "—"}</span>
                           </div>
                         </div>
                       </CardContent>
@@ -644,9 +656,9 @@ export default function Home() {
                           <div className="flex items-start gap-2.5">
                             <span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-md bg-amber-100 text-amber-800 dark:bg-amber-400/10 dark:text-amber-300"><CircleHelp className="size-3.5" /></span>
                             <div className="min-w-0">
-                              <p className="text-[11px] font-semibold text-amber-950 dark:text-amber-200">Numbers to approach thoughtfully</p>
-                              <p className="mt-1 text-[10px] leading-relaxed text-amber-900/80 dark:text-amber-200/80">{enemyNumbers.length ? `Mulank ${numerology.mulank} traditions often advise extra care with: ${enemyNumbers.join(", ")}.` : numerology.mulank ? "No specific enemy numbers are listed for this Mulank." : "Enter a valid birth date to see your guidance."}</p>
-                              {mulankInfo && <p className="mt-2 text-[10px] leading-relaxed text-amber-900/80 dark:text-amber-200/80">Colors sometimes used sparingly: {mulankInfo.unfavorableColors.join(", ")}.</p>}
+                              <p className="text-xs font-semibold text-amber-950 dark:text-amber-200">Numbers to approach thoughtfully</p>
+                              <p className="mt-1 text-xs leading-relaxed text-amber-900/80 dark:text-amber-200/80">{enemyNumbers.length ? `Mulank ${numerology.mulank} traditions often advise extra care with: ${enemyNumbers.join(", ")}.` : numerology.mulank ? "No specific enemy numbers are listed for this Mulank." : "Enter a valid birth date to see your guidance."}</p>
+                              {mulankInfo && <p className="mt-2 text-xs leading-relaxed text-amber-900/80 dark:text-amber-200/80">Colors sometimes used sparingly: {mulankInfo.unfavorableColors.join(", ")}.</p>}
                             </div>
                           </div>
                         </div>
@@ -658,15 +670,15 @@ export default function Home() {
                       <CardContent>
                         <div className="space-y-3">
                           <div className="flex items-center justify-between gap-3">
-                            <div><p className="text-[11px] text-slate-600 dark:text-slate-400">Mulank ↔ Bhagyank</p><p className="mt-0.5 text-xs font-medium">{numerology.mulank ?? "—"} <span className="text-slate-500">with</span> {numerology.bhagyank ?? "—"}</p></div>
-                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-medium ${relationship === "Friendly" ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-400/10 dark:text-emerald-300" : relationship === "Enemy" ? "bg-rose-100 text-rose-800 dark:bg-rose-400/10 dark:text-rose-300" : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"}`}>{relationship}</span>
+                            <div><p className="text-xs text-slate-600 dark:text-slate-400">Mulank ↔ Bhagyank</p><p className="mt-0.5 text-xs font-medium">{numerology.mulank ?? "—"} <span className="text-slate-600">with</span> {numerology.bhagyank ?? "—"}</p></div>
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${relationship === "Friendly" ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-400/10 dark:text-emerald-300" : relationship === "Enemy" ? "bg-rose-100 text-rose-800 dark:bg-rose-400/10 dark:text-rose-300" : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"}`}>{relationship}</span>
                           </div>
                           <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
-                            <div><p className="text-[11px] text-slate-600 dark:text-slate-400">Lucky dates</p><p className="mt-1 text-xs font-medium">{luckyDates.length ? luckyDates.map((day) => `${day}${day === 1 || day === 21 || day === 31 ? "st" : day === 2 || day === 22 ? "nd" : day === 3 || day === 23 ? "rd" : "th"}`).join(" · ") : "—"}</p></div>
-                            <ArrowRight className="size-4 shrink-0 text-slate-500" />
+                            <div><p className="text-xs text-slate-600 dark:text-slate-400">Lucky dates</p><p className="mt-1 text-xs font-medium">{luckyDates.length ? luckyDates.map((day) => `${day}${day === 1 || day === 21 || day === 31 ? "st" : day === 2 || day === 22 ? "nd" : day === 3 || day === 23 ? "rd" : "th"}`).join(" · ") : "—"}</p></div>
+                            <ArrowRight className="size-4 shrink-0 text-slate-600" />
                           </div>
                           <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
-                            <div><p className="text-[11px] text-slate-600 dark:text-slate-400">Lucky day</p><p className="mt-1 text-xs font-medium">{mulankInfo?.luckyDay ?? "—"}</p></div>
+                            <div><p className="text-xs text-slate-600 dark:text-slate-400">Lucky day</p><p className="mt-1 text-xs font-medium">{mulankInfo?.luckyDay ?? "—"}</p></div>
                             <CalendarCheck2 className="size-4 shrink-0 text-cyan-700 dark:text-cyan-300" />
                           </div>
                         </div>
@@ -674,21 +686,21 @@ export default function Home() {
                     </Card>
                   </section>
                 </div>
-                <div className="mt-5 flex items-center justify-center gap-1.5 text-[10px] text-slate-500 dark:text-slate-400"><CircleHelp className="size-3" /> Calculations update as you type. Interpretations are traditional and for personal reflection.</div>
+                <div className="mt-5 flex items-center justify-center gap-1.5 text-xs text-slate-600 dark:text-slate-400"><CircleHelp className="size-3" /> Calculations update as you type. Interpretations are traditional and for personal reflection.</div>
               </TabsContent>
 
-              <TabsContent value="kundali" className="mt-6 focus-visible:outline-none"><KundaliDashboard /></TabsContent>
+              <TabsContent value="kundali" className="mt-3 focus-visible:outline-none"><KundaliDashboard /></TabsContent>
               <TabsContent value="matchmaking" className="mt-6 focus-visible:outline-none"><PlaceholderPanel title="Matchmaking" /></TabsContent>
               <TabsContent value="panchang" className="mt-6 focus-visible:outline-none"><PlaceholderPanel title="Panchang" /></TabsContent>
             </Tabs>
           </div>
 
-          <footer className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/70 pt-4 text-[10px] text-slate-500 dark:border-slate-800/70 dark:text-slate-400">
+          <footer className="mt-8 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/70 pt-4 text-xs text-slate-600 dark:border-slate-800/70 dark:text-slate-400">
             <span>Project Celestia <span className="mx-1.5">·</span> A thoughtful space for self-discovery</span>
             <span className="inline-flex items-center gap-1.5"><Sparkles className="size-3" /> Insights are for reflection, not prediction.</span>
           </footer>
         </div>
-      </div>
+        </div>
     </main>
   );
 }

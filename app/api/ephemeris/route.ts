@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import swe from "swisseph";
 import type { EphemerisRequest, DashaPeriod, PlanetPosition } from "@/lib/kundali-types";
+import { calculateBirthGhati } from "@/lib/astrology/ghati-calculator";
+import { calculateGrahaAvasthas } from "@/lib/astrology/graha-avastha-service";
+import { calculateAshtakavarga } from "@/lib/astrology/ashtakavarga";
+import { getInterceptedSigns } from "@/lib/astrology/intercepted-signs";
+import { getPlanetaryDignity } from "@/lib/astrology/planetary-dignity-service";
+import { localDateTimeToUtc } from "@/lib/astrology/timezone";
+import { calculateGulikaMandi } from "@/lib/astrology/upagrahas";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +20,6 @@ const NAKSHATRAS = [
   "Purva Bhadrapada", "Uttara Bhadrapada", "Revati",
 ];
 const NAK_LORDS = ["Ketu", "Venus", "Sun", "Moon", "Mars", "Rahu", "Jupiter", "Saturn", "Mercury"];
-const SIGN_LORDS = ["Mars", "Venus", "Mercury", "Moon", "Sun", "Mercury", "Venus", "Mars", "Jupiter", "Saturn", "Saturn", "Jupiter"];
 const DASHA_ORDER = ["Ketu", "Venus", "Sun", "Moon", "Mars", "Rahu", "Jupiter", "Saturn", "Mercury"];
 const DASHA_YEARS: Record<string, number> = { Ketu: 7, Venus: 20, Sun: 6, Moon: 10, Mars: 7, Rahu: 18, Jupiter: 16, Saturn: 19, Mercury: 17 };
 const AYANAMSA_MODES: Record<string, number> = {
@@ -23,20 +29,6 @@ const AYANAMSA_MODES: Record<string, number> = {
   krishnamurti: swe.SE_SIDM_KRISHNAMURTI,
   yukteshwar: swe.SE_SIDM_YUKTESHWAR,
 };
-
-const FRIENDS: Record<string, string[]> = {
-  Sun: ["Moon", "Mars", "Jupiter"], Moon: ["Sun", "Mercury"], Mars: ["Sun", "Moon", "Jupiter"],
-  Mercury: ["Sun", "Venus"], Jupiter: ["Sun", "Moon", "Mars"], Venus: ["Mercury", "Saturn"], Saturn: ["Mercury", "Venus"],
-};
-const ENEMIES: Record<string, string[]> = {
-  Sun: ["Venus", "Saturn"], Moon: [], Mars: ["Mercury"], Mercury: ["Moon"],
-  Jupiter: ["Mercury", "Venus"], Venus: ["Sun", "Moon"], Saturn: ["Sun", "Moon", "Mars"],
-};
-const OWN_SIGNS: Record<string, number[]> = {
-  Sun: [4], Moon: [3], Mars: [0, 7], Mercury: [2, 5], Jupiter: [8, 11], Venus: [1, 6], Saturn: [9, 10],
-};
-const EXALTATION: Record<string, number> = { Sun: 0, Moon: 1, Mars: 9, Mercury: 5, Jupiter: 3, Venus: 11, Saturn: 6 };
-const DEBILITATION: Record<string, number> = { Sun: 6, Moon: 7, Mars: 3, Mercury: 11, Jupiter: 9, Venus: 5, Saturn: 0 };
 
 const BODIES = [
   { id: "sun", name: "Sun", symbol: "Su", code: swe.SE_SUN },
@@ -49,6 +41,8 @@ const BODIES = [
   { id: "uranus", name: "Uranus", symbol: "Ur", code: swe.SE_URANUS },
   { id: "neptune", name: "Neptune", symbol: "Ne", code: swe.SE_NEPTUNE },
   { id: "pluto", name: "Pluto", symbol: "Pl", code: swe.SE_PLUTO },
+  { id: "chiron", name: "Chiron", symbol: "Ch", code: swe.SE_CHIRON },
+  { id: "lilith", name: "Lilith", symbol: "Li", code: swe.SE_MEAN_APOG },
 ];
 
 type EclipticResult = { longitude: number; latitude: number; longitudeSpeed: number; error?: string };
@@ -63,48 +57,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
 
-function localDateTimeToUtc(date: string, time: string, timezone: string) {
-  const [year, month, day] = date.split("-").map(Number);
-  const [hour, minute, second] = time.split(":").map(Number);
-  const localDate = new Date(0);
-  localDate.setUTCFullYear(year, month - 1, day);
-  localDate.setUTCHours(hour, minute, second, 0);
-  const localAsUtc = localDate.getTime();
-
-  if (/^[+-]\d{2}:\d{2}$/.test(timezone)) {
-    const sign = timezone[0] === "-" ? -1 : 1;
-    const [offsetHours, offsetMinutes] = timezone.slice(1).split(":").map(Number);
-    if (offsetHours > 14 || offsetMinutes > 59 || (offsetHours === 14 && offsetMinutes !== 0)) throw new Error("Timezone offset is outside the supported range.");
-    return new Date(localAsUtc - sign * (offsetHours * 60 + offsetMinutes) * 60_000);
-  }
-
-  let offset = 0;
-  try {
-    const formatter = new Intl.DateTimeFormat("en-US", {
-      timeZone: timezone,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hourCycle: "h23",
-    });
-    for (let attempt = 0; attempt < 2; attempt += 1) {
-      const localParts = formatter.formatToParts(new Date(localAsUtc - offset * 60_000));
-      const parts = Object.fromEntries(localParts.map(({ type, value }) => [type, Number(value)]));
-      const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
-      offset = Math.round((asUtc - (localAsUtc - offset * 60_000)) / 60_000);
-    }
-  } catch {
-    throw new Error("Timezone must be a valid IANA timezone or a UTC offset such as +05:30.");
-  }
-  return new Date(localAsUtc - offset * 60_000);
-}
-
 function validateRequest(value: unknown): EphemerisRequest {
   if (!isRecord(value)) throw new Error("Request body must be a JSON object.");
-  const { date, time, lat, lng, timezone, ayanamsa, nodeType, targetAge, ageMode, dashaSeed } = value;
+  const { date, time, lat, lng, timezone, ayanamsa, nodeType, targetAge, ageMode, dashaSeed, zodiacMode, customAyanamsaDegrees } = value;
   if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("date must use YYYY-MM-DD.");
   if (typeof time !== "string" || !/^\d{2}:\d{2}:\d{2}$/.test(time)) throw new Error("time must use HH:MM:SS.");
   const [year, month, day] = date.split("-").map(Number);
@@ -118,28 +73,27 @@ function validateRequest(value: unknown): EphemerisRequest {
   if (typeof lng !== "number" || !Number.isFinite(lng) || lng < -180 || lng > 180) throw new Error("lng must be a number from -180 to 180.");
   if (typeof timezone !== "string" || timezone.length > 64 || !timezone.trim()) throw new Error("timezone is required.");
   const normalizedAyanamsa = typeof ayanamsa === "string" ? ayanamsa.toLowerCase() : "";
-  if (!Object.hasOwn(AYANAMSA_MODES, normalizedAyanamsa)) throw new Error(`Unsupported ayanamsa. Choose one of: ${Object.keys(AYANAMSA_MODES).join(", ")}.`);
+  const normalizedZodiacMode = zodiacMode === undefined ? "sidereal" : zodiacMode;
+  if (normalizedZodiacMode !== "sidereal" && normalizedZodiacMode !== "tropical") throw new Error("zodiacMode must be 'sidereal' or 'tropical'.");
+  if (normalizedAyanamsa === "custom") {
+    if (typeof customAyanamsaDegrees !== "number" || !Number.isFinite(customAyanamsaDegrees) || customAyanamsaDegrees < -360 || customAyanamsaDegrees > 360) {
+      throw new Error("customAyanamsaDegrees must be a number from -360 to 360 for a custom ayanamsa.");
+    }
+  } else if (!Object.hasOwn(AYANAMSA_MODES, normalizedAyanamsa)) {
+    throw new Error(`Unsupported ayanamsa. Choose one of: ${Object.keys(AYANAMSA_MODES).join(", ")}, custom.`);
+  }
   if (nodeType !== "true" && nodeType !== "mean") throw new Error("nodeType must be 'true' or 'mean'.");
   if (targetAge !== undefined && (typeof targetAge !== "number" || !Number.isInteger(targetAge) || targetAge < 0 || targetAge > 120)) throw new Error("targetAge must be a whole number from 0 to 120.");
   if (ageMode !== undefined && ageMode !== "completed" && ageMode !== "ongoing") throw new Error("ageMode must be 'completed' or 'ongoing'.");
   if (dashaSeed !== undefined && dashaSeed !== "moon" && dashaSeed !== "ascendant" && dashaSeed !== "sun") throw new Error("dashaSeed must be 'moon', 'ascendant', or 'sun'.");
   return {
     date, time, lat, lng, timezone: timezone.trim(), ayanamsa: normalizedAyanamsa, nodeType,
+    zodiacMode: normalizedZodiacMode,
+    ...(typeof customAyanamsaDegrees === "number" ? { customAyanamsaDegrees } : {}),
     ...(typeof targetAge === "number" ? { targetAge } : {}),
     ...(ageMode !== undefined ? { ageMode } : {}),
     ...(dashaSeed !== undefined ? { dashaSeed } : {}),
   };
-}
-
-function dignityFor(planet: string, sign: number) {
-  if (!Object.hasOwn(OWN_SIGNS, planet)) return "—";
-  if (EXALTATION[planet] === sign) return "Exalted";
-  if (DEBILITATION[planet] === sign) return "Debilitated";
-  if (OWN_SIGNS[planet].includes(sign)) return "Own";
-  const signLord = SIGN_LORDS[sign];
-  if (FRIENDS[planet].includes(signLord)) return "Friend";
-  if (ENEMIES[planet].includes(signLord)) return "Enemy";
-  return "Neutral";
 }
 
 function makePosition({
@@ -174,11 +128,11 @@ function makePosition({
     speed, motion: speed < 0 ? "R" : "D", declination, nakshatra: nakshatraIndex + 1,
     nakshatraName: NAKSHATRAS[nakshatraIndex], pada,
     nakshatraLord: NAK_LORDS[nakshatraIndex % NAK_LORDS.length], house,
-    dignity: dignityFor(name, sign), ...(jaimini ? { jaimini } : {}),
+    dignity: getPlanetaryDignity(name, sign, degree), ...(jaimini ? { jaimini } : {}),
   };
 }
 
-function buildDashaTimeline(moonLongitude: number, birthDate: Date, now: Date): DashaPeriod[] {
+function buildDashaTimeline(moonLongitude: number, birthDate: Date, now: Date, nestedLevels = 3): DashaPeriod[] {
   const nakshatraIndex = Math.floor(normalizeDegrees(moonLongitude) / (360 / 27));
   const nakshatraStart = nakshatraIndex * (360 / 27);
   const progress = (normalizeDegrees(moonLongitude) - nakshatraStart) / (360 / 27);
@@ -217,7 +171,7 @@ function buildDashaTimeline(moonLongitude: number, birthDate: Date, now: Date): 
       start: new Date(cursor).toISOString(),
       end: new Date(end).toISOString(),
       active: now.getTime() >= cursor && now.getTime() < end,
-      periods: createSubPeriods(cursor, end, lord, 2),
+      periods: createSubPeriods(cursor, end, lord, nestedLevels),
     });
     cursor = end;
     if (cursor > now.getTime() + 120 * yearsPerDay) break;
@@ -229,9 +183,18 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
   const utcDate = epoch ?? localDateTimeToUtc(input.date, input.time, input.timezone);
   const utcHour = utcDate.getUTCHours() + utcDate.getUTCMinutes() / 60 + utcDate.getUTCSeconds() / 3600;
   const julianDay = swe.swe_julday(utcDate.getUTCFullYear(), utcDate.getUTCMonth() + 1, utcDate.getUTCDate(), utcHour, swe.SE_GREG_CAL);
-  swe.swe_set_sid_mode(AYANAMSA_MODES[input.ayanamsa], 0, 0);
-  const ayanamsaDegrees = swe.swe_get_ayanamsa_ut(julianDay);
-  const flags = swe.SEFLG_MOSEPH | swe.SEFLG_SPEED | swe.SEFLG_SIDEREAL;
+  const customAyanamsa = input.zodiacMode === "sidereal" && input.ayanamsa === "custom";
+  if (input.zodiacMode === "sidereal" && !customAyanamsa) swe.swe_set_sid_mode(AYANAMSA_MODES[input.ayanamsa], 0, 0);
+  const ayanamsaResult = input.zodiacMode === "sidereal" && !customAyanamsa
+    ? swe.swe_get_ayanamsa_ex_ut(julianDay, swe.SEFLG_MOSEPH)
+    : null;
+  if (ayanamsaResult && "error" in ayanamsaResult) throw new Error(ayanamsaResult.error);
+  const ayanamsaDegrees = input.zodiacMode === "tropical" ? 0
+    : customAyanamsa ? input.customAyanamsaDegrees ?? 0
+      : ayanamsaResult && "ayanamsa" in ayanamsaResult ? ayanamsaResult.ayanamsa : 0;
+  const longitudeOffset = customAyanamsa ? -ayanamsaDegrees : 0;
+  const siderealFlag = input.zodiacMode === "sidereal" && !customAyanamsa ? swe.SEFLG_SIDEREAL : 0;
+  const flags = swe.SEFLG_MOSEPH | swe.SEFLG_SPEED | siderealFlag;
   const equatorialFlags = swe.SEFLG_MOSEPH | swe.SEFLG_SPEED | swe.SEFLG_EQUATORIAL;
   const nodeCode = input.nodeType === "true" ? swe.SE_TRUE_NODE : swe.SE_MEAN_NODE;
   const node = swe.swe_calc_ut(julianDay, nodeCode, flags) as EclipticResult;
@@ -239,14 +202,14 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
   if (node.error || nodeEquatorial.error) throw new Error(node.error || nodeEquatorial.error || "Failed to calculate lunar nodes.");
 
   let bhavaSystem = "Placidus";
-  let bhavaResult = swe.swe_houses_ex(julianDay, swe.SEFLG_SIDEREAL, input.lat, input.lng, "P") as HousesResult;
+  let bhavaResult = swe.swe_houses_ex(julianDay, siderealFlag, input.lat, input.lng, "P") as HousesResult;
   if (bhavaResult.error) {
     bhavaSystem = "Whole Sign (polar fallback)";
-    bhavaResult = swe.swe_houses_ex(julianDay, swe.SEFLG_SIDEREAL, input.lat, input.lng, "W") as HousesResult;
+    bhavaResult = swe.swe_houses_ex(julianDay, siderealFlag, input.lat, input.lng, "W") as HousesResult;
   }
-  const wholeSignResult = swe.swe_houses_ex(julianDay, swe.SEFLG_SIDEREAL, input.lat, input.lng, "W") as HousesResult;
+  const wholeSignResult = swe.swe_houses_ex(julianDay, siderealFlag, input.lat, input.lng, "W") as HousesResult;
   if (bhavaResult.error || wholeSignResult.error) throw new Error(bhavaResult.error || wholeSignResult.error || "Failed to calculate houses.");
-  const ascendantLongitude = wholeSignResult.ascendant;
+  const ascendantLongitude = normalizeDegrees(wholeSignResult.ascendant + longitudeOffset);
   const ascSign = Math.floor(normalizeDegrees(ascendantLongitude) / 30);
   const ascSpeed = (swe.swe_houses_ex2(julianDay, swe.SEFLG_SIDEREAL, input.lat, input.lng, "W") as HousesResult).ascendantSpeed ?? 0;
   const eclipticNutation = swe.swe_calc_ut(julianDay, swe.SE_ECL_NUT, swe.SEFLG_MOSEPH) as EclipticResult;
@@ -258,25 +221,34 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
     speed: ascSpeed, declination: ascEquatorial.latitude, ascendantLongitude,
   });
 
-  const planets: PlanetPosition[] = BODIES.map((body) => {
+  const unavailableBodies: Array<{ name: string; reason: string }> = [];
+  const planets: PlanetPosition[] = BODIES.flatMap((body) => {
     const ecliptic = swe.swe_calc_ut(julianDay, body.code, flags) as EclipticResult;
     const equatorial = swe.swe_calc_ut(julianDay, body.code, equatorialFlags) as EquatorialResult;
-    if (ecliptic.error || equatorial.error) throw new Error(ecliptic.error || equatorial.error || `Failed to calculate ${body.name}.`);
-    return makePosition({
+    if (ecliptic.error || equatorial.error) {
+      const reason = ecliptic.error || equatorial.error || `Failed to calculate ${body.name}.`;
+      if (body.name === "Chiron") {
+        unavailableBodies.push({ name: body.name, reason });
+        console.warn(`[ephemeris] ${body.name} omitted: ${reason}`);
+        return [];
+      }
+      throw new Error(reason);
+    }
+    return [makePosition({
       ...body,
-      longitude: ecliptic.longitude,
+      longitude: ecliptic.longitude + longitudeOffset,
       speed: ecliptic.longitudeSpeed,
       declination: equatorial.declination,
       ascendantLongitude,
-    });
+    })];
   });
 
   const rahu = makePosition({
-    id: "rahu", name: "Rahu", symbol: "Ra", longitude: node.longitude, speed: node.longitudeSpeed,
+    id: "rahu", name: "Rahu", symbol: "Ra", longitude: node.longitude + longitudeOffset, speed: node.longitudeSpeed,
     declination: nodeEquatorial.declination, ascendantLongitude,
   });
   const ketu = makePosition({
-    id: "ketu", name: "Ketu", symbol: "Ke", longitude: node.longitude + 180, speed: node.longitudeSpeed,
+    id: "ketu", name: "Ketu", symbol: "Ke", longitude: node.longitude + longitudeOffset + 180, speed: node.longitudeSpeed,
     declination: -nodeEquatorial.declination, ascendantLongitude,
   });
   const karakaPlanets = [...planets.filter(({ name }) => ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"].includes(name))]
@@ -285,31 +257,113 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
   const jaiminiByName = new Map(karakaPlanets.map((planet, index) => [planet.name, karakaLabels[index]]));
   const taggedPlanets = planets.map((planet) => ({ ...planet, jaimini: jaiminiByName.get(planet.name) }));
   const houseCusps = bhavaResult.house.map((longitude, index) => {
-    const sign = Math.floor(normalizeDegrees(longitude) / 30);
-    return { house: index + 1, longitude: normalizeDegrees(longitude), sign, signName: SIGNS[sign] };
+    const adjustedLongitude = normalizeDegrees(longitude + longitudeOffset);
+    const sign = Math.floor(adjustedLongitude / 30);
+    return { house: index + 1, longitude: adjustedLongitude, sign, signName: SIGNS[sign] };
   });
+  const interceptedSigns = getInterceptedSigns(houseCusps.map((cusp) => cusp.sign));
+  const chartPlanets = [
+    ...taggedPlanets.filter(({ name }) => ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"].includes(name)),
+    rahu,
+    ketu,
+    ...taggedPlanets.filter(({ name }) => ["Uranus", "Neptune", "Pluto", "Chiron", "Lilith"].includes(name)),
+  ].map((planet) => ({
+    ...planet,
+    house: ((planet.sign - ascSign + 12) % 12) + 1,
+  }));
+  const ashtakavarga = calculateAshtakavarga(chartPlanets, ascendant);
+  const moon = planets.find(({ name }) => name === "Moon");
+  const sun = planets.find(({ name }) => name === "Sun");
+  if (!moon || !sun) throw new Error("Sun and Moon positions are required for the ephemeris calculation.");
+  const solarHorizon = swe.swe_azalt(
+    julianDay,
+    swe.SE_ECL2HOR,
+    input.lng,
+    input.lat,
+    0,
+    1013.25,
+    15,
+    normalizeDegrees(sun.longitude + ayanamsaDegrees),
+    0,
+    1,
+  );
+  const isDayBirth = solarHorizon.trueAltitude >= 0;
+  const fortuneLongitude = normalizeDegrees(
+    ascendantLongitude + (isDayBirth ? moon.longitude - sun.longitude : sun.longitude - moon.longitude),
+  );
+  const fortuneEquatorial = swe.swe_cotrans(
+    [normalizeDegrees(fortuneLongitude + ayanamsaDegrees), 0, 1],
+    eclipticNutation.latitude,
+  ) as { latitude: number };
+  const partOfFortune = makePosition({
+    id: "part-of-fortune",
+    name: "Part of Fortune",
+    symbol: "PoF",
+    longitude: fortuneLongitude,
+    speed: 0,
+    declination: fortuneEquatorial.latitude,
+    ascendantLongitude,
+  });
+  const upagrahas = calculateGulikaMandi({
+    date: input.date,
+    time: input.time,
+    timezone: input.timezone,
+    latitude: input.lat,
+    longitude: input.lng,
+    siderealFlag,
+    longitudeOffset,
+  });
+  const makeUpagraha = (id: "gulika" | "mandi", name: "Gulika" | "Mandi", symbol: "Gu" | "Ma", longitude: number) => {
+    const equatorial = swe.swe_cotrans(
+      [normalizeDegrees(longitude + ayanamsaDegrees), 0, 1],
+      eclipticNutation.latitude,
+    ) as { latitude: number };
+    return makePosition({
+      id,
+      name,
+      symbol,
+      longitude,
+      speed: 0,
+      declination: equatorial.latitude,
+      ascendantLongitude,
+    });
+  };
+  const gulika = makeUpagraha("gulika", "Gulika", "Gu", upagrahas.gulikaLongitude);
+  const mandi = makeUpagraha("mandi", "Mandi", "Ma", upagrahas.mandiLongitude);
+  const birthGhati = calculateBirthGhati({
+    date: input.date,
+    time: input.time,
+    timezone: input.timezone,
+    latitude: input.lat,
+    longitude: input.lng,
+  });
+  const grahaAvasthas = calculateGrahaAvasthas(chartPlanets, moon.nakshatra, birthGhati, ascSign);
 
   return {
     julianDay,
-    ayanamsa: { name: input.ayanamsa, degrees: ayanamsaDegrees },
+    ayanamsa: { name: input.zodiacMode === "tropical" ? "Tropical" : input.ayanamsa, degrees: ayanamsaDegrees },
+    zodiacMode: input.zodiacMode,
     ascendant,
-    planets: [
-      ...taggedPlanets.filter(({ name }) => ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"].includes(name)),
-      rahu,
-      ketu,
-      ...taggedPlanets.filter(({ name }) => ["Uranus", "Neptune", "Pluto"].includes(name)),
-    ].map((planet) => ({
-      ...planet,
-      house: ((planet.sign - ascSign + 12) % 12) + 1,
-    })),
+    planets: chartPlanets,
+    points: [
+      { ...partOfFortune, house: ((partOfFortune.sign - ascSign + 12) % 12) + 1 },
+      { ...gulika, house: ((gulika.sign - ascSign + 12) % 12) + 1 },
+      { ...mandi, house: ((mandi.sign - ascSign + 12) % 12) + 1 },
+    ],
+    unavailableBodies,
     houseCusps,
+    interceptedSigns,
     houseCuspSystem: bhavaSystem,
+    ashtakavarga: ashtakavarga.rows,
+    sarvashtakavarga: ashtakavarga.sarvashtakavarga,
+    grahaAvasthas,
     dashas: buildDashaTimeline(
       input.dashaSeed === "ascendant" ? ascendantLongitude
         : input.dashaSeed === "sun" ? planets.find(({ name }) => name === "Sun")?.longitude ?? 0
-          : (swe.swe_calc_ut(julianDay, swe.SE_MOON, flags) as EclipticResult).longitude,
+          : moon.longitude,
       utcDate,
       new Date(),
+      3,
     ),
     calculatedAt: new Date().toISOString(),
     engine: `Swiss Ephemeris ${swe.swe_version()} · Moshier`,
@@ -326,8 +380,10 @@ function findSolarReturn(input: EphemerisRequest) {
     "12:00:00",
     input.timezone,
   );
-  const flags = swe.SEFLG_MOSEPH | swe.SEFLG_SPEED | swe.SEFLG_SIDEREAL;
-  swe.swe_set_sid_mode(AYANAMSA_MODES[input.ayanamsa], 0, 0);
+  const customAyanamsa = input.zodiacMode === "sidereal" && input.ayanamsa === "custom";
+  if (input.zodiacMode !== "tropical" && !customAyanamsa) swe.swe_set_sid_mode(AYANAMSA_MODES[input.ayanamsa], 0, 0);
+  const siderealFlag = input.zodiacMode !== "tropical" && !customAyanamsa ? swe.SEFLG_SIDEREAL : 0;
+  const flags = swe.SEFLG_MOSEPH | swe.SEFLG_SPEED | siderealFlag;
   const natalDate = localDateTimeToUtc(input.date, input.time, input.timezone);
   const natalJulianDay = swe.swe_julday(
     natalDate.getUTCFullYear(), natalDate.getUTCMonth() + 1, natalDate.getUTCDate(),

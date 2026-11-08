@@ -5,28 +5,42 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@clerk/nextjs": "^7.9.25",
+    "@prisma/adapter-pg": "^7.10.1",
+    "@prisma/client": "^7.10.1",
     "@radix-ui/react-switch": "^1.2.6",
     "@radix-ui/react-tabs": "^1.1.13",
     "clsx": "^2.1.1",
+    "framer-motion": "^14.9.1",
     "lucide-react": "^0.468.0",
     "next": "^16.4.5",
     "next-themes": "^0.4.6",
+    "pg": "^8.23.1",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "swisseph": "^0.5.17",
     "tailwind-merge": "^3.3.1",
+    "tz-lookup": "^6.1.25",
     "zustand": "^5.0.16"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.14",
     "@types/node": "^22.15.30",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.7",
+    "@types/tz-lookup": "^6.1.2",
+    "dotenv": "^18.0.9",
+    "prisma": "^7.10.1",
     "tailwindcss": "^4.1.14",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^4.1.12"
   },
   "overrides": {
     "@tootallnate/once": "^2.0.1",

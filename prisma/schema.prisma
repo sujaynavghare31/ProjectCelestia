@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum FeedbackType {
+  BUG
+  FEATURE_REQUEST
+  GENERAL
+}
+
+enum FeedbackStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+model User {
+  id        String     @id @default(cuid())
+  clerkId   String     @unique
+  email     String     @unique
+  profiles  Profile[]
+  feedback  Feedback[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Profile {
+  id          String   @id @default(cuid())
+  userId      String
+  chartName   String?
+  fullName    String
+  dateOfBirth DateTime @db.Date
+  timeOfBirth String
+  latitude    Float
+  longitude   Float
+  timezone    String
+  city        String?
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@unique([userId, chartName])
+}
+
+model Feedback {
+  id        String         @id @default(cuid())
+  userId    String
+  type      FeedbackType
+  message   String
+  status    FeedbackStatus @default(OPEN)
+  createdAt DateTime       @default(now())
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { ChartStyle, NodeType } from "@/lib/kundali-types";
+import type { ChartStyle, CelestialLanguage, NodeType, ViewPreferences, ZodiacMode } from "@/lib/kundali-types";
 
 export interface BirthProfile {
   id: string;
@@ -21,6 +21,10 @@ interface KundaliState {
   decimalDegrees: boolean;
   nodeType: NodeType;
   ayanamsa: string;
+  zodiacMode: ZodiacMode;
+  customAyanamsaDegrees: number;
+  language: CelestialLanguage;
+  viewPreferences: ViewPreferences;
   setProfile: (profile: Partial<BirthProfile>) => void;
   setTime: (time: string) => void;
   setLocation: (lat: number, lng: number) => void;
@@ -29,6 +33,10 @@ interface KundaliState {
   setDecimalDegrees: (decimal: boolean) => void;
   setNodeType: (nodeType: NodeType) => void;
   setAyanamsa: (ayanamsa: string) => void;
+  setZodiacMode: (zodiacMode: ZodiacMode) => void;
+  setCustomAyanamsaDegrees: (degrees: number) => void;
+  setLanguage: (language: CelestialLanguage) => void;
+  setViewPreference: <K extends keyof ViewPreferences>(key: K, value: ViewPreferences[K]) => void;
   adjustTime: (seconds: number) => void;
 }
 
@@ -54,22 +62,74 @@ function shiftTime(date: string, time: string, seconds: number) {
   };
 }
 
+export function getCurrentBirthDateTime(now: Date = new Date()) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(now).map(({ type, value }) => [type, value]),
+  );
+
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    time: `${parts.hour}:${parts.minute}:${parts.second}`,
+  };
+}
+
+export function getBirthDateTimeDefaults(
+  profile: Pick<BirthProfile, "date" | "time">,
+  now: Date = new Date(),
+) {
+  const isLegacySampleProfile = profile.date === "1996-08-31"
+    && profile.time === "09:30:00";
+
+  if (!isLegacySampleProfile && profile.date && profile.time) return null;
+
+  const current = getCurrentBirthDateTime(now);
+  return {
+    date: isLegacySampleProfile || !profile.date ? current.date : profile.date,
+    time: isLegacySampleProfile || !profile.time ? current.time : profile.time,
+  };
+}
+
 export const useKundaliStore = create<KundaliState>((set) => ({
   profile: {
     id: "sujay-navghare",
     name: "Sujay Navghare",
-    date: "1996-08-31",
-    time: "09:30:00",
+    date: "",
+    time: "",
     lat: 19.076,
     lng: 72.8777,
     timezone: "Asia/Kolkata",
     city: "Mumbai, India",
   },
   chartStyle: "diamond",
-  varga: 1,
+  varga: 9,
   decimalDegrees: false,
   nodeType: "true",
   ayanamsa: "lahiri",
+  zodiacMode: "sidereal",
+  customAyanamsaDegrees: 0,
+  language: "initials",
+  viewPreferences: {
+    showHouseLabels: false,
+    showOuterPlanets: true,
+    showAsteroids: false,
+    showUpagrahas: true,
+    showFortune: false,
+    usePlanetIcons: false,
+    useSignIcons: false,
+    showEqualHouses: false,
+    showSignDivisions: false,
+    showSignNumbers: true,
+    showBhavaCusps: false,
+  },
   setProfile: (profile) => set((state) => ({ profile: { ...state.profile, ...profile } })),
   setTime: (time) => set((state) => ({ profile: { ...state.profile, time } })),
   setLocation: (lat, lng) => set((state) => ({ profile: { ...state.profile, lat, lng } })),
@@ -78,6 +138,12 @@ export const useKundaliStore = create<KundaliState>((set) => ({
   setDecimalDegrees: (decimalDegrees) => set({ decimalDegrees }),
   setNodeType: (nodeType) => set({ nodeType }),
   setAyanamsa: (ayanamsa) => set({ ayanamsa }),
+  setZodiacMode: (zodiacMode) => set({ zodiacMode }),
+  setCustomAyanamsaDegrees: (customAyanamsaDegrees) => set({ customAyanamsaDegrees }),
+  setLanguage: (language) => set({ language }),
+  setViewPreference: (key, value) => set((state) => ({
+    viewPreferences: { ...state.viewPreferences, [key]: value },
+  })),
   adjustTime: (seconds) => set((state) => {
     const shifted = shiftTime(state.profile.date, state.profile.time, seconds);
     return { profile: { ...state.profile, ...shifted } };
