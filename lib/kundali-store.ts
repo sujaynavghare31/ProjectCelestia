@@ -6,6 +6,7 @@ import type { ChartStyle, CelestialLanguage, NodeType, ViewPreferences, ZodiacMo
 export interface BirthProfile {
   id: string;
   name: string;
+  sex: "male" | "female" | "not-applicable";
   date: string;
   time: string;
   lat: number;
@@ -101,13 +102,14 @@ export function getBirthDateTimeDefaults(
 export const useKundaliStore = create<KundaliState>((set) => ({
   profile: {
     id: "sujay-navghare",
-    name: "Sujay Navghare",
+    name: "Current transit",
+    sex: "not-applicable",
     date: "",
     time: "",
     lat: 19.076,
     lng: 72.8777,
     timezone: "Asia/Kolkata",
-    city: "Mumbai, India",
+    city: "Mumbai",
   },
   chartStyle: "diamond",
   varga: 9,

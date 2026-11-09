@@ -13,61 +13,65 @@
   --color-primary-foreground: hsl(var(--primary-foreground));
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
-  --color-chart-lines: hsl(var(--chart-lines));
-  --color-gold-accent: hsl(var(--gold-accent));
-  --color-gold-foreground: hsl(var(--gold-foreground));
+  --color-chart-lines: hsl(var(--chart-grid));
+  --color-gold-accent: hsl(var(--champagne-gold));
+  --color-gold-foreground: hsl(var(--champagne-gold));
+  --color-champagne-gold: hsl(var(--champagne-gold));
+  --color-retrograde-crimson: hsl(var(--retrograde-crimson));
   --radius-xl: var(--radius);
 }
 
 @layer base {
   :root {
     color-scheme: light;
-    --background: 210 40% 98%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 48 33% 97%;
+    --foreground: 222 47% 11%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --primary: 221.2 83.2% 53.3%;
+    --card-foreground: 222 47% 11%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --primary: 35 39% 64%;
     --primary-foreground: 210 40% 98%;
-    --accent: 189 94% 43%;
+    --accent: 35 39% 64%;
     --accent-foreground: 210 40% 98%;
-    --chart-lines: 215 16% 47%;
-    --gold-accent: 43 74% 49%;
-    --gold-foreground: 43 85% 30%;
+    --muted-foreground: 215 16% 47%;
+    --champagne-gold: 35 39% 64%;
+    --chart-grid: 214 32% 91%;
+    --retrograde-crimson: 0 70% 35%;
     --radius: 0.75rem;
     --chart-panel: hsl(var(--card));
-    --chart-line: hsl(var(--chart-lines));
-    --chart-muted: hsl(var(--chart-lines));
+    --chart-line: hsl(var(--chart-grid));
+    --chart-muted: hsl(var(--muted-foreground));
     --chart-body: hsl(var(--foreground));
-    --chart-transit: hsl(var(--accent));
-    --gold: hsl(var(--gold-accent));
-    --cyan: hsl(var(--accent));
+    --chart-transit: hsl(var(--champagne-gold));
+    --gold: hsl(var(--champagne-gold));
+    --cyan: hsl(var(--champagne-gold));
     --body-glow: rgb(37 99 235 / 0.5);
   }
 
   .dark {
     color-scheme: dark;
-    --background: 222.2 84% 4.9%;
+    --background: 222 71% 4%;
     --foreground: 210 40% 98%;
-    --card: 217.2 32.6% 17.5%;
+    --card: 222 47% 11%;
     --card-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --primary: 189 94% 43%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --accent: 217.2 32.6% 17.5%;
+    --border: 215 28% 17%;
+    --input: 215 28% 17%;
+    --primary: 35 39% 64%;
+    --primary-foreground: 222 47% 11%;
+    --accent: 35 39% 64%;
     --accent-foreground: 210 40% 98%;
-    --chart-lines: 215 20.2% 65.1%;
-    --gold-accent: 43 74% 60%;
-    --gold-foreground: var(--gold-accent);
+    --muted-foreground: 215 20% 65%;
+    --champagne-gold: 35 39% 64%;
+    --chart-grid: 215 28% 17%;
+    --retrograde-crimson: 0 70% 35%;
     --chart-panel: hsl(var(--card));
-    --chart-line: hsl(var(--chart-lines));
-    --chart-muted: hsl(var(--chart-lines));
+    --chart-line: hsl(var(--chart-grid));
+    --chart-muted: hsl(var(--muted-foreground));
     --chart-body: hsl(var(--foreground));
-    --chart-transit: hsl(189 94% 43%);
-    --gold: hsl(var(--gold-accent));
-    --cyan: hsl(189 94% 43%);
+    --chart-transit: hsl(var(--champagne-gold));
+    --gold: hsl(var(--champagne-gold));
+    --cyan: hsl(var(--champagne-gold));
     --body-glow: rgb(6 182 212 / 0.8);
   }
 
@@ -82,7 +86,7 @@
   }
 
   ::selection {
-    background: hsl(var(--accent) / 0.25);
+    background: hsl(var(--champagne-gold) / 0.25);
   }
 }
 
@@ -100,5 +104,5 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 html {
-  scrollbar-color: hsl(var(--chart-lines)) hsl(var(--background));
+  scrollbar-color: hsl(var(--chart-grid)) hsl(var(--background));
 }

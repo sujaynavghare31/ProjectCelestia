@@ -6,7 +6,8 @@ describe("getCurrentBirthDateTime", () => {
     expect(useKundaliStore.getState().profile).toMatchObject({
       date: "",
       time: "",
-      city: "Mumbai, India",
+      sex: "not-applicable",
+      city: "Mumbai",
       lat: 19.076,
       lng: 72.8777,
       timezone: "Asia/Kolkata",

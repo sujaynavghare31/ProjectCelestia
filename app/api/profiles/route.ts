@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 interface SaveChartInput {
-  chartName: string;
+  chartName: string | null;
   fullName: string;
   date: string;
   time: string;
@@ -23,7 +23,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function validateSaveInput(value: unknown): SaveChartInput {
   if (!isRecord(value)) throw new Error("Request body must be a JSON object.");
   const { chartName, fullName, date, time, lat, lng, timezone, city } = value;
-  if (typeof chartName !== "string" || !chartName.trim() || chartName.trim().length > 100) throw new Error("Chart Name is required and must be 100 characters or fewer.");
+  if (chartName !== undefined && chartName !== null && (typeof chartName !== "string" || chartName.trim().length > 100)) throw new Error("Chart Name must be 100 characters or fewer.");
   if (typeof fullName !== "string" || !fullName.trim() || fullName.trim().length > 120) throw new Error("Full name is required and must be 120 characters or fewer.");
   if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Birth date must use YYYY-MM-DD.");
   const [year, month, day] = date.split("-").map(Number);
@@ -39,7 +39,7 @@ function validateSaveInput(value: unknown): SaveChartInput {
     throw new Error("Birth place time zone must be a valid IANA time zone.");
   }
   if (typeof city !== "string" || city.length > 200) throw new Error("City must be 200 characters or fewer.");
-  return { chartName: chartName.trim(), fullName: fullName.trim(), date, time, lat, lng, timezone: timezone.trim(), city: city.trim() };
+  return { chartName: typeof chartName === "string" && chartName.trim() ? chartName.trim() : null, fullName: fullName.trim(), date, time, lat, lng, timezone: timezone.trim(), city: city.trim() };
 }
 
 async function ensureUser(clerkId: string, email: string) {
@@ -97,13 +97,15 @@ export async function POST(request: Request) {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         const profile = await prisma.$transaction(async (transaction) => {
-          const names = await transaction.profile.findMany({
-            where: { userId: user.id, chartName: { startsWith: input.chartName } },
-            select: { chartName: true },
-          });
+          const names = input.chartName
+            ? await transaction.profile.findMany({
+              where: { userId: user.id, chartName: { startsWith: input.chartName } },
+              select: { chartName: true },
+            })
+            : [];
           const used = new Set(names.flatMap(({ chartName }) => chartName ? [chartName] : []));
           let chartName = input.chartName;
-          for (let sequence = 1; used.has(chartName); sequence += 1) chartName = `${input.chartName} - ${sequence}`;
+          for (let sequence = 1; chartName && used.has(chartName); sequence += 1) chartName = `${input.chartName} - ${sequence}`;
           return transaction.profile.create({
             data: {
               userId: user.id,
