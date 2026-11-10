@@ -1601,7 +1601,13 @@ export function KundaliDashboard() {
             ...(auxiliaryType === "solar" || auxiliaryType === "tajika" ? { targetAge, ageMode } : {}),
           }),
         });
-        const result = await response.json() as EphemerisResponse | { error: string };
+        const responseText = await response.text();
+        let result: EphemerisResponse | { error: string };
+        try {
+          result = JSON.parse(responseText) as EphemerisResponse | { error: string };
+        } catch {
+          throw new Error(`Ephemeris request failed (${response.status}): ${responseText.trim() || "The server returned an empty response."}`);
+        }
         if (!response.ok || "error" in result) throw new Error("error" in result ? result.error : `Ephemeris request failed (${response.status}).`);
         setData(result);
       } catch (requestError) {
@@ -1641,7 +1647,13 @@ export function KundaliDashboard() {
             dashaSeed: "moon",
           }),
         });
-        const result = await response.json() as EphemerisResponse | { error: string };
+        const responseText = await response.text();
+        let result: EphemerisResponse | { error: string };
+        try {
+          result = JSON.parse(responseText) as EphemerisResponse | { error: string };
+        } catch {
+          throw new Error(`Transit request failed (${response.status}): ${responseText.trim() || "The server returned an empty response."}`);
+        }
         if (!response.ok || "error" in result) throw new Error("error" in result ? result.error : `Transit request failed (${response.status}).`);
         setTransitData(result);
       } catch (requestError) {
