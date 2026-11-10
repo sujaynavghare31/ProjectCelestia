@@ -9,12 +9,16 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const clerkConfigured = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans antialiased">
-        <ClerkProvider>
-          <Providers>{children}</Providers>
-        </ClerkProvider>
+        {clerkConfigured ? (
+          <ClerkProvider>
+            <Providers>{children}</Providers>
+          </ClerkProvider>
+        ) : <Providers>{children}</Providers>}
       </body>
     </html>
   );

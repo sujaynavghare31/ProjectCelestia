@@ -5,6 +5,10 @@ import { SignInButton, SignOutButton, SignUpButton, useAuth, useUser } from "@cl
 const buttonClass = "inline-flex h-9 items-center rounded-lg border border-slate-200 bg-white px-3 text-xs font-medium text-slate-700 transition hover:border-cyan-300 hover:text-cyan-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-cyan-800 dark:hover:text-cyan-200";
 
 export function AuthActions() {
+  if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
+    return <p className="text-xs text-slate-600 dark:text-slate-400">Guest mode</p>;
+  }
+
   const { isLoaded, isSignedIn } = useAuth();
   const { isLoaded: userLoaded, user } = useUser();
   if (!isLoaded || !userLoaded) return null;
