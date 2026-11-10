@@ -27,7 +27,6 @@ import {
   X,
   Sparkles,
 } from "lucide-react";
-import { SignInButton, useAuth } from "@clerk/nextjs";
 import type { ChartStyle, CelestialLanguage, EphemerisResponse, PlanetPosition, ViewPreferences, ZodiacMode } from "@/lib/kundali-types";
 import { getBirthDateTimeDefaults, useKundaliStore, type BirthProfile } from "@/lib/kundali-store";
 import { planetName, signName } from "@/lib/astrology/localization";
@@ -1411,12 +1410,9 @@ interface SavedChartRecord {
   city: string | null;
 }
 
-function ClerkKundaliDashboard() {
-  const { isLoaded: authLoaded, isSignedIn } = useAuth();
-  return <KundaliDashboardContent authLoaded={authLoaded} isSignedIn={Boolean(isSignedIn)} />;
-}
-
-function KundaliDashboardContent({ authLoaded, isSignedIn }: { authLoaded: boolean; isSignedIn: boolean }) {
+export function KundaliDashboard() {
+  const authLoaded = true;
+  const isSignedIn = false;
   const profile = useKundaliStore((state) => state.profile);
   const chartStyle = useKundaliStore((state) => state.chartStyle);
   const varga = useKundaliStore((state) => state.varga);
@@ -2169,7 +2165,6 @@ function KundaliDashboardContent({ authLoaded, isSignedIn }: { authLoaded: boole
               {saveError && <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">{saveError}</p>}
               <div className="flex justify-end gap-2 pt-1">
                 <button type="button" disabled={savingChart} onClick={() => setSaveDialogOpen(false)} className="h-9 rounded-lg border border-slate-200 px-3 text-xs hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:hover:bg-slate-800">Cancel</button>
-                {authRequired && <SignInButton mode="modal"><button type="button" className="h-9 rounded-lg border border-amber-300 px-3 text-xs font-semibold text-amber-900 hover:bg-amber-50 dark:border-amber-800 dark:text-amber-200 dark:hover:bg-amber-950/40">Sign in</button></SignInButton>}
                 <button type="submit" disabled={savingChart || authRequired} className="inline-flex h-9 items-center gap-2 rounded-lg bg-amber-600 px-3 text-xs font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50">{savingChart && <LoaderCircle className="size-3.5 animate-spin" />}Save chart</button>
               </div>
             </form>
@@ -2196,10 +2191,4 @@ function KundaliDashboardContent({ authLoaded, isSignedIn }: { authLoaded: boole
       )}
     </div>
   );
-}
-
-export function KundaliDashboard() {
-  return process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
-    ? <ClerkKundaliDashboard />
-    : <KundaliDashboardContent authLoaded isSignedIn={false} />;
 }

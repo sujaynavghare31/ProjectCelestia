@@ -1,6 +1,8 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 
 export async function getAuthenticatedClerkUser() {
+  if (!process.env.CLERK_SECRET_KEY) return null;
+
   const { userId } = await auth();
   if (!userId) return null;
 
