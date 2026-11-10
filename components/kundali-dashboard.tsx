@@ -1411,8 +1411,12 @@ interface SavedChartRecord {
   city: string | null;
 }
 
-export function KundaliDashboard() {
+function ClerkKundaliDashboard() {
   const { isLoaded: authLoaded, isSignedIn } = useAuth();
+  return <KundaliDashboardContent authLoaded={authLoaded} isSignedIn={Boolean(isSignedIn)} />;
+}
+
+function KundaliDashboardContent({ authLoaded, isSignedIn }: { authLoaded: boolean; isSignedIn: boolean }) {
   const profile = useKundaliStore((state) => state.profile);
   const chartStyle = useKundaliStore((state) => state.chartStyle);
   const varga = useKundaliStore((state) => state.varga);
@@ -1500,6 +1504,7 @@ export function KundaliDashboard() {
           setAuthRequired(true);
           return;
         }
+
         if (!response.ok || !Array.isArray(result.profiles)) throw new Error(result.error ?? `Saved chart request failed (${response.status}).`);
         setAuthRequired(false);
         setSavedProfiles(result.profiles);
@@ -2191,4 +2196,10 @@ export function KundaliDashboard() {
       )}
     </div>
   );
+}
+
+export function KundaliDashboard() {
+  return process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
+    ? <ClerkKundaliDashboard />
+    : <KundaliDashboardContent authLoaded isSignedIn={false} />;
 }
