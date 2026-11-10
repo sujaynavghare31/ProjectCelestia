@@ -136,7 +136,7 @@ function parseBirthDate(value: string) {
 }
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <p className="mb-3 text-xs font-semibold uppercase tracking-[0.17em] text-slate-600 dark:text-slate-400">{children}</p>;
+  return <p className="mb-3 text-xs font-semibold uppercase tracking-[0.17em] text-muted-foreground">{children}</p>;
 }
 
 function CardHeading({
@@ -151,12 +151,12 @@ function CardHeading({
   return (
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-2.5">
-        <span className="grid size-8 place-items-center rounded-lg bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+        <span className="grid size-8 place-items-center rounded-lg bg-muted text-muted-foreground">
           <Icon className="size-4" aria-hidden="true" />
         </span>
         <CardTitle>{title}</CardTitle>
       </div>
-      {detail && <span className="text-xs text-slate-600 dark:text-slate-400">{detail}</span>}
+      {detail && <span className="text-xs text-muted-foreground">{detail}</span>}
     </div>
   );
 }
@@ -365,7 +365,7 @@ export default function Home() {
         type="button"
         onClick={() => navigate(id)}
         aria-current={active ? "page" : undefined}
-        className={`flex h-9 items-center gap-2 rounded-lg text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${compact ? "min-w-max px-3" : "w-full px-3"} ${active ? "bg-primary/10 text-blue-700 dark:bg-primary/15 dark:text-cyan-300" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"}`}
+        className={`flex h-9 items-center gap-2 rounded-lg text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${compact ? "min-w-max px-3" : "w-full px-3"} ${active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
       >
         <Icon className="size-4 shrink-0" aria-hidden="true" />
         {label}
@@ -403,7 +403,7 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setTheme(isDark ? "light" : "dark")}
-              className="grid size-10 shrink-0 place-items-center rounded-xl border border-border bg-card text-slate-600 shadow-sm transition hover:border-primary hover:text-primary dark:text-slate-300"
+              className="grid size-10 shrink-0 place-items-center rounded-xl border border-border bg-card text-muted-foreground shadow-sm transition hover:border-primary hover:text-primary"
               aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
               title={`Switch to ${isDark ? "light" : "dark"} mode`}
             >

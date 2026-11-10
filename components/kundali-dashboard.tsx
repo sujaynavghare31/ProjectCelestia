@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import {
   Activity,
   AlertCircle,
   ArrowDownUp,
   Bookmark,
+  Check,
   ChevronDown,
   Clock3,
   Compass,
@@ -32,8 +33,59 @@ import { getBirthDateTimeDefaults, useKundaliStore, type BirthProfile } from "@/
 import { planetName, signName } from "@/lib/astrology/localization";
 import { MedicalAstrologyVisualizer } from "@/components/medical-astrology-visualizer";
 import { dagdhaRashis } from "@/lib/astrology/dagdha-rashi";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
-const VARGAS = [1, 2, 3, 4, 7, 9, 10, 12, 16, 20, 24, 27, 30, 40, 45, 60];
+const DIVISIONAL_CHARTS = {
+  2: { name: "Hora", significance: "Wealth & Sustenance" },
+  3: { name: "Drekkana", significance: "Siblings & Courage" },
+  4: { name: "Chaturthamsha", significance: "Fortune, Real Estate & Comforts" },
+  5: { name: "Panchamsha", significance: "Power & Authority" },
+  6: { name: "Shashthamsha", significance: "Health & Enmities" },
+  7: { name: "Saptamsha", significance: "Children & Progeny" },
+  8: { name: "Ashtamsha", significance: "Unexpected Troubles & Longevity" },
+  9: { name: "Navamsha", significance: "Marriage, Partnerships & Inner Self" },
+  10: { name: "Dashamsha", significance: "Career, Profession & Status" },
+  11: { name: "Rudramsha", significance: "Triumphs & Spiritual Battles" },
+  12: { name: "Dwadashamsha", significance: "Parents & Ancestry" },
+  16: { name: "Shodashamsha", significance: "Vehicles & Luxuries" },
+  20: { name: "Vimshamsha", significance: "Spiritual Progress & Devotion" },
+  24: { name: "Chaturvimshamsha", significance: "Education, Learning & Intellect" },
+  27: { name: "Saptavimshamsha", significance: "Strengths & Weaknesses" },
+  30: { name: "Trimshamsha", significance: "Misfortunes, Diseases & Hidden Enemies" },
+  40: { name: "Khavedamsha", significance: "Auspicious/Inauspicious Effects" },
+  45: { name: "Akshavedamsha", significance: "Paternal/Maternal Legacy" },
+  60: { name: "Shashtiamsha", significance: "Past Life Karma" },
+} as const;
+type ChartOption = {
+  id: string;
+  label: string;
+  description: string;
+  group: "Primary" | "Divisional";
+};
+const AUXILIARY_CHARTS: ChartOption[] = [
+  { id: "D1", label: "D1 · Rashi", description: "Primary Birth Chart", group: "Primary" },
+  { id: "BHAVA", label: "Bhava Chalit", description: "House Positions (Sripati/Placidus)", group: "Primary" },
+  { id: "D2", label: "D2 · Hora", description: "Wealth & Sustenance", group: "Divisional" },
+  { id: "D3", label: "D3 · Drekkana", description: "Siblings & Courage", group: "Divisional" },
+  { id: "D4", label: "D4 · Chaturthamsha", description: "Fortune, Real Estate & Comforts", group: "Divisional" },
+  { id: "D5", label: "D5 · Panchamsha", description: "Power & Authority", group: "Divisional" },
+  { id: "D6", label: "D6 · Shashthamsha", description: "Health & Enmities", group: "Divisional" },
+  { id: "D7", label: "D7 · Saptamsha", description: "Children & Progeny", group: "Divisional" },
+  { id: "D8", label: "D8 · Ashtamsha", description: "Unexpected Troubles & Longevity", group: "Divisional" },
+  { id: "D9", label: "D9 · Navamsha", description: "Marriage, Partnerships & Inner Self", group: "Divisional" },
+  { id: "D10", label: "D10 · Dashamsha", description: "Career, Profession & Status", group: "Divisional" },
+  { id: "D11", label: "D11 · Rudramsha", description: "Triumphs & Spiritual Battles", group: "Divisional" },
+  { id: "D12", label: "D12 · Dwadashamsha", description: "Parents & Ancestry", group: "Divisional" },
+  { id: "D16", label: "D16 · Shodashamsha", description: "Vehicles & Luxuries", group: "Divisional" },
+  { id: "D20", label: "D20 · Vimshamsha", description: "Spiritual Progress & Devotion", group: "Divisional" },
+  { id: "D24", label: "D24 · Chaturvimshamsha", description: "Education, Learning & Intellect", group: "Divisional" },
+  { id: "D27", label: "D27 · Saptavimshamsha", description: "Strengths & Weaknesses", group: "Divisional" },
+  { id: "D30", label: "D30 · Trimshamsha", description: "Misfortunes, Diseases & Hidden Enemies", group: "Divisional" },
+  { id: "D40", label: "D40 · Khavedamsha", description: "Auspicious & Inauspicious Effects", group: "Divisional" },
+  { id: "D45", label: "D45 · Akshavedamsha", description: "Paternal & Maternal Legacy", group: "Divisional" },
+  { id: "D60", label: "D60 · Shashtiamsha", description: "Past Life Karma", group: "Divisional" },
+];
 const SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
 const BODY_COLORS: Record<string, string> = {
   Ascendant: "text-gold-foreground",
@@ -59,6 +111,10 @@ function declinationToDms(value: number) {
 
 function normalizeSign(sign: number) {
   return ((sign % 12) + 12) % 12;
+}
+
+function normalizeDegrees(degrees: number) {
+  return ((degrees % 360) + 360) % 360;
 }
 
 const PLANET_GLYPHS: Record<string, string> = {
@@ -172,18 +228,18 @@ function PanchangStrip({ date, planets }: { date: string; planets: PlanetPositio
     { label: "Karana", value: panchang.karana },
   ] : [];
   return (
-    <section aria-label="Panchang" className="rounded-xl border border-amber-200/80 bg-amber-50/80 p-2 dark:border-amber-900/50 dark:bg-amber-950/20">
+    <section aria-label="Panchang" className="col-span-1 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3 text-[hsl(var(--foreground))] shadow-sm xl:col-span-2">
       <div className="mb-1.5 flex items-center justify-between gap-2 px-1">
-        <p className="text-xs font-semibold uppercase tracking-wide text-amber-900 dark:text-amber-300">Panchang</p>
-        <p className="text-xs text-amber-800 dark:text-amber-200">{formatBirthDate(date)}</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-[hsl(var(--foreground))]">Panchang</p>
+        <p className="text-xs text-[hsl(var(--muted-foreground))]">{formatBirthDate(date)}</p>
       </div>
       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
         {items.length ? items.map((item) => (
-          <div key={item.label} className="min-w-0 rounded-lg bg-white/85 px-2.5 py-2 dark:bg-slate-900/70">
-            <p className="text-xs font-medium uppercase tracking-wide text-slate-600">{item.label}</p>
-            <p className="mt-0.5 truncate text-xs font-semibold text-slate-800 dark:text-slate-100" title={item.value}>{item.value}</p>
+          <div key={item.label} className="min-w-0 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2.5 py-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-[hsl(var(--muted-foreground))]">{item.label}</p>
+            <p className="mt-0.5 truncate text-xs font-semibold text-[hsl(var(--foreground))]" title={item.value}>{item.value}</p>
           </div>
-        )) : <p className="col-span-2 rounded-lg bg-white/70 px-2.5 py-2 text-xs text-slate-600 sm:col-span-5 dark:bg-slate-900/50 dark:text-slate-400">Waiting for planetary positions…</p>}
+        )) : <p className="col-span-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2.5 py-2 text-xs text-[hsl(var(--muted-foreground))] sm:col-span-5">Waiting for planetary positions…</p>}
       </div>
     </section>
   );
@@ -215,56 +271,6 @@ function BirthTimeAdjuster({ onAdjust }: { onAdjust: (seconds: number) => void }
   );
 }
 
-function TransitOverview({
-  planets,
-  location,
-  natalAscendantSign,
-  loading,
-  error,
-  updatedAt,
-  onOpen,
-}: {
-  planets: PlanetPosition[];
-  location: string;
-  natalAscendantSign?: number;
-  loading: boolean;
-  error: string | null;
-  updatedAt: string;
-  onOpen: () => void;
-}) {
-  const featuredPlanets = ["Sun", "Moon", "Mars", "Jupiter", "Saturn"]
-    .map((name) => planets.find((planet) => planet.name === name))
-    .filter((planet): planet is PlanetPosition => Boolean(planet));
-
-  return (
-    <section aria-label="Current planetary transits" className="flex min-w-0 flex-col gap-2 rounded-xl border border-cyan-200 bg-cyan-50/60 px-3 py-2 dark:border-cyan-900/60 dark:bg-cyan-950/20 sm:flex-row sm:items-center">
-      <div className="flex shrink-0 items-center gap-2 sm:w-44">
-        <Orbit className="size-3.5 text-cyan-700 dark:text-cyan-300" />
-        <div className="min-w-0">
-          <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">Current transits</p>
-          <p className="truncate text-xs text-slate-600 dark:text-slate-400" title={location}>{location || "Birth coordinates"}</p>
-        </div>
-      </div>
-      <div aria-live="polite" className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
-        {loading && !planets.length ? <span className="text-xs text-slate-600 dark:text-slate-400">Calculating the sky at this birthplace…</span>
-          : error && !planets.length ? <span role="status" className="text-xs text-rose-700 dark:text-rose-300">{error}</span>
-            : featuredPlanets.length ? featuredPlanets.map((planet) => (
-              <span key={planet.id} title={`${planet.name} in ${planet.signName}${natalAscendantSign === undefined ? "" : `, natal house ${getSignHouse(planet.sign, natalAscendantSign)}`}`} className="shrink-0 rounded-md bg-white/90 px-2 py-1 text-xs dark:bg-slate-900/80">
-                <span className="font-semibold text-slate-800 dark:text-slate-100">{planetName(planet.name, "en", planet.symbol)}</span>
-                <span className="ml-1 text-slate-600 dark:text-slate-300">{planet.signName}</span>
-                {natalAscendantSign !== undefined && <span className="ml-1 text-cyan-800 dark:text-cyan-300">H{getSignHouse(planet.sign, natalAscendantSign)}</span>}
-              </span>
-            )) : <span className="text-xs text-slate-600 dark:text-slate-400">Transit positions are not available yet.</span>}
-      </div>
-      <button type="button" onClick={onOpen} className="inline-flex h-8 shrink-0 items-center justify-center gap-1 rounded-lg border border-cyan-200 bg-white px-2.5 text-xs font-semibold text-cyan-900 transition hover:border-cyan-400 hover:bg-cyan-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 dark:border-cyan-900 dark:bg-slate-900 dark:text-cyan-200 dark:hover:bg-cyan-950/50">
-        {loading && <span className="size-2 animate-pulse rounded-full bg-cyan-500" />}
-        Transit chart <span aria-hidden="true">↓</span>
-      </button>
-      <span className="sr-only">Transit positions calculated at {updatedAt}</span>
-    </section>
-  );
-}
-
 function getBirthTithiNumber(planets: PlanetPosition[]) {
   const sun = planets.find((planet) => planet.name === "Sun");
   const moon = planets.find((planet) => planet.name === "Moon");
@@ -278,8 +284,9 @@ function getVargaSign(position: PlanetPosition, division: number) {
   const segment = Math.min(division - 1, Math.floor(position.degree / (30 / division)));
   const sign = position.sign;
   if (division === 2) {
-    const first = sign % 2 === 0 ? 4 : 3;
-    return segment === 0 ? first : (first + 1) % 12;
+    const isOddZodiacSign = sign % 2 === 0;
+    if (isOddZodiacSign) return segment === 0 ? 4 : 3;
+    return segment === 0 ? 3 : 4;
   }
   if (division === 3) return normalizeSign(sign + segment * 4);
   if (division === 4) return normalizeSign(sign + segment * 3);
@@ -359,6 +366,8 @@ function PlacidusWheel({
   language: CelestialLanguage;
   preferences: ViewPreferences;
 }) {
+  const hoveredPlanet = useKundaliStore((state) => state.hoveredPlanet);
+  const setHoveredPlanet = useKundaliStore((state) => state.setHoveredPlanet);
   const center = 180;
   const referenceLongitude = cusps.find((cusp) => cusp.house === referenceHouse)?.longitude ?? ascendant.longitude;
   const wheelAngle = (longitude: number) => 180 + (((longitude - referenceLongitude) % 360 + 360) % 360);
@@ -377,7 +386,7 @@ function PlacidusWheel({
   const cuspsByHouse = [...cusps].sort((a, b) => a.house - b.house);
 
   return (
-    <svg viewBox="0 0 360 360" className="mx-auto w-full max-w-[440px]" role="img" aria-label={`Placidus chart with ${referenceHouse === 1 ? "Ascendant" : `House ${referenceHouse}`} as reference lagna at nine o'clock`}>
+    <svg viewBox="0 0 360 360" className="absolute inset-0 h-full w-full object-contain" role="img" aria-label={`Placidus chart with ${referenceHouse === 1 ? "Ascendant" : `House ${referenceHouse}`} as reference lagna at nine o'clock`}>
       <circle cx={center} cy={center} r="166" fill="hsl(var(--card))" stroke="hsl(var(--chart-grid))" strokeWidth="1" />
       <circle cx={center} cy={center} r="126" fill="none" stroke="hsl(var(--chart-grid))" strokeWidth="1" />
       <circle cx={center} cy={center} r="82" fill="none" stroke="hsl(var(--chart-grid))" strokeWidth="1" />
@@ -425,8 +434,10 @@ function PlacidusWheel({
         const name = chartPlanetDisplay(body, language, preferences.usePlanetIcons);
         const retrograde = body.motion === "R";
         const vargottama = body.name !== "Ascendant" && body.sign === getVargaSign(body, 9);
+        const highlighted = hoveredPlanet === null || body.name === hoveredPlanet || (hoveredPlanet === "Vargottama" && vargottama);
         return (
-          <g key={`${body.id}-${body.transit ? "transit" : "natal"}`}>
+          <g key={`${body.id}-${body.transit ? "transit" : "natal"}`} opacity={highlighted ? 1 : 0.4} filter={highlighted && hoveredPlanet !== null ? "drop-shadow(0 0 6px hsl(var(--champagne-gold)))" : undefined} onMouseEnter={() => setHoveredPlanet(body.name)} onMouseLeave={() => setHoveredPlanet(null)}>
+            {retrograde && <title>Retrograde Motion</title>}
             {vargottama && <ellipse cx={label.x} cy={label.y} rx={name.length * 3.4 + (retrograde ? 5 : 0)} ry="9" fill="none" stroke="hsl(var(--champagne-gold))" strokeWidth="1" />}
             <text x={label.x} y={label.y + 3.5} fill={color} fontSize="10" fontWeight={body.name === "Ascendant" ? "700" : "600"} textAnchor="middle">
               {body.transit ? "T " : ""}{name}{retrograde && <tspan fill="hsl(var(--retrograde-crimson))" fontSize="8" fontWeight="800" dy="-3">ᴿ</tspan>}
@@ -462,6 +473,8 @@ function SvgChart({
   language?: CelestialLanguage;
   preferences?: ViewPreferences;
 }) {
+  const hoveredPlanet = useKundaliStore((state) => state.hoveredPlanet);
+  const setHoveredPlanet = useKundaliStore((state) => state.setHoveredPlanet);
   const ascSign = normalizeSign(getVargaSign(ascendant, varga) + referenceHouse - 1);
   const visiblePlanets = planets.filter((planet) => chartPlanetVisible(planet, preferences));
   const visiblePoints = points.filter((planet) => chartPointVisible(planet, preferences));
@@ -478,6 +491,10 @@ function SvgChart({
     chartHouse: getSignHouse(getVargaSign(planet, varga), ascSign),
     isTransit: true,
   }));
+  const spotlightActive = hoveredPlanet !== null;
+  const isHighlighted = (body: PlanetPosition, vargottama: boolean) =>
+    !spotlightActive || body.name === hoveredPlanet || (hoveredPlanet === "Vargottama" && vargottama);
+  const onBodyEnter = (body: PlanetPosition) => setHoveredPlanet(body.name);
   const houses = Array.from({ length: 12 }, (_, index) => {
     const sign = normalizeSign(ascSign + index);
     return {
@@ -508,7 +525,7 @@ function SvgChart({
       return { x: 180 + radius * Math.cos(radians), y: 180 + radius * Math.sin(radians) };
     };
     return (
-      <svg viewBox="0 0 360 360" className="mx-auto w-full max-w-[560px]" role="img" aria-label={`${varga === 1 ? "D1" : `D${varga}`} circular Rashi chart`}>
+      <svg viewBox="0 0 360 360" className="absolute inset-0 h-full w-full object-contain" role="img" aria-label={`${varga === 1 ? "D1" : `D${varga}`} circular Rashi chart`}>
           <circle cx="180" cy="180" r="160" fill="hsl(var(--card))" stroke="hsl(var(--chart-grid))" strokeWidth="1" />
           <circle cx="180" cy="180" r="105" fill="none" stroke="hsl(var(--chart-grid))" strokeWidth="1" />
         {Array.from({ length: 12 }, (_, index) => {
@@ -525,7 +542,8 @@ function SvgChart({
                 const y = label.y + 10 + bodyIndex * 12;
                 const vargottama = body.name !== "Ascendant" && body.sign === getVargaSign(body, 9);
                 return (
-                  <g key={body.id}>
+                  <g key={body.id} opacity={isHighlighted(body, vargottama) ? 1 : 0.4} filter={isHighlighted(body, vargottama) && hoveredPlanet !== null ? "drop-shadow(0 0 6px hsl(var(--champagne-gold)))" : undefined} onMouseEnter={() => onBodyEnter(body)} onMouseLeave={() => setHoveredPlanet(null)}>
+                    {body.motion === "R" && <title>Retrograde Motion</title>}
                     {vargottama && <ellipse cx={label.x} cy={y - 3} rx={name.length * 3.4 + (body.motion === "R" ? 5 : 0)} ry="8" fill="none" stroke="hsl(var(--champagne-gold))" strokeWidth="1" />}
                     <text x={label.x} y={y} fill={body.isTransit ? "hsl(var(--champagne-gold))" : body.name === "Ascendant" ? "hsl(var(--champagne-gold))" : "hsl(var(--foreground))"} fontSize="10" fontWeight="600" textAnchor="middle">
                       {body.isTransit ? "T " : ""}{name}{body.motion === "R" && <tspan fill="hsl(var(--retrograde-crimson))" fontSize="8" fontWeight="800" dy="-3">ᴿ</tspan>}
@@ -545,7 +563,7 @@ function SvgChart({
   if (style === "south") {
     const signOrder = [11, 0, 1, 2, 10, -1, -1, 3, 9, -1, -1, 4, 8, 7, 6, 5];
     return (
-      <div className="mx-auto grid aspect-square w-full max-w-[560px] grid-cols-4 grid-rows-4 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+      <div className="absolute inset-0 grid h-full w-full grid-cols-4 grid-rows-4 overflow-hidden rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))]">
         {signOrder.map((sign, index) => {
           if (sign < 0) return <div key={`empty-${index}`} className="border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/60" />;
           const signHouse = getSignHouse(sign, ascSign);
@@ -576,7 +594,7 @@ function SvgChart({
     7: [180, 282], 8: [272, 318], 9: [318, 270], 10: [276, 180], 11: [318, 90], 12: [272, 42],
   };
   return (
-    <svg viewBox="0 0 360 360" className="mx-auto w-full max-w-[560px] rounded-xl" role="img" aria-label={`${varga === 1 ? "D1" : `D${varga}`} North Indian diamond chart`}>
+    <svg viewBox="0 0 360 360" className="absolute inset-0 h-full w-full object-contain rounded-xl" role="img" aria-label={`${varga === 1 ? "D1" : `D${varga}`} North Indian diamond chart`}>
       <rect x="10" y="10" width="340" height="340" rx="8" fill="hsl(var(--card))" stroke="hsl(var(--chart-grid))" strokeWidth="1" />
       {houses.map((house) => {
         const polygonByHouse: Record<number, string> = {
@@ -610,7 +628,8 @@ function SvgChart({
               const bodyY = y + 10 + row * 13 - Math.max(0, bodies.length - 4) * 4;
               const vargottama = body.name !== "Ascendant" && body.sign === getVargaSign(body, 9);
               return (
-                <g key={body.id}>
+                <g key={body.id} opacity={isHighlighted(body, vargottama) ? 1 : 0.4} filter={isHighlighted(body, vargottama) && hoveredPlanet !== null ? "drop-shadow(0 0 6px hsl(var(--champagne-gold)))" : undefined} onMouseEnter={() => onBodyEnter(body)} onMouseLeave={() => setHoveredPlanet(null)}>
+                  {body.motion === "R" && <title>Retrograde Motion</title>}
                   {vargottama && <ellipse cx={x} cy={bodyY - 3} rx={name.length * 3.4 + (body.motion === "R" ? 5 : 0)} ry="8" fill="none" stroke="hsl(var(--champagne-gold))" strokeWidth="1" />}
                   <text x={x} y={bodyY} fill={bodyColor} fontSize={bodies.length > 4 ? "9" : "10"} fontWeight={body.name === "Ascendant" ? "700" : "600"} textAnchor="middle">
                     {body.isTransit ? "T " : ""}{name}{body.motion === "R" && <tspan fill="hsl(var(--retrograde-crimson))" fontSize="8" fontWeight="800" dy="-3">ᴿ</tspan>}
@@ -737,77 +756,29 @@ function AspectMatrix({ planets, ascendant, language, useSignIcons }: { planets:
   const aspectPlanets = planets.filter(({ name }) => ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"].includes(name));
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] border-collapse text-center text-xs">
+      <table className="w-full min-w-[640px] rounded-md border border-border text-center text-xs divide-y divide-border">
         <thead>
-          <tr><th rowSpan={2} className="sticky left-0 bg-white px-2 py-2 text-left font-medium text-slate-600 dark:bg-slate-900">Planet</th>{Array.from({ length: 12 }, (_, index) => <th key={index} className="border-b border-slate-200 px-1 pt-2 font-medium text-slate-600 dark:border-slate-800 dark:text-slate-300">H{index + 1}</th>)}</tr>
-          <tr>{Array.from({ length: 12 }, (_, index) => {
+          <tr className="divide-x divide-border"><th rowSpan={2} className="sticky left-0 bg-transparent px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Planet</th>{Array.from({ length: 12 }, (_, index) => <th key={index} className="bg-transparent px-2 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">H{index + 1}</th>)}</tr>
+          <tr className="divide-x divide-border">{Array.from({ length: 12 }, (_, index) => {
             const sign = normalizeSign(ascendant.sign + index);
-            return <th key={index} className="px-1 pb-2 font-normal text-slate-600">{useSignIcons ? <SignMark sign={sign} label={signName(SIGNS[sign], language)} enabled /> : language === "en" || language === "initials" ? SHORT_SIGNS[sign] : signName(SIGNS[sign], language)}</th>;
+            return <th key={index} className="bg-transparent px-2 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">{useSignIcons ? <SignMark sign={sign} label={signName(SIGNS[sign], language)} enabled /> : language === "en" || language === "initials" ? SHORT_SIGNS[sign] : signName(SIGNS[sign], language)}</th>;
           })}</tr>
         </thead>
-        <tbody className="divide-y divide-slate-200 dark:divide-slate-800/70">
+        <tbody className="divide-y divide-border bg-card">
           {aspectPlanets.map((planet) => (
-            <tr key={planet.id}>
-              <th className="sticky left-0 whitespace-nowrap bg-white px-2 py-2 text-left font-medium text-slate-700 dark:bg-slate-900 dark:text-slate-300">{planetName(planet.name, language, planet.symbol)} <span className="text-slate-600">H{planet.house}</span></th>
+            <tr key={planet.id} className="divide-x divide-border">
+              <th className="sticky left-0 whitespace-nowrap bg-card px-4 py-3 text-left font-medium text-foreground">{planetName(planet.name, language, planet.symbol)} <span className="text-muted-foreground">H{planet.house}</span></th>
               {Array.from({ length: 12 }, (_, index) => {
                 const distance = (index + 1 - planet.house + 12) % 12;
                 const marker = targets[planet.name]?.[distance] ?? (distance === 6 ? "7" : "");
                 const special = marker && marker !== "7";
-                return <td key={index} className={`h-7 border-l border-slate-200 dark:border-slate-800/70 ${marker ? special ? "font-semibold text-cyan-700 dark:text-cyan-400" : "font-semibold text-amber-700 dark:text-[#D4AF37]" : "text-slate-200 dark:text-slate-800"}`}>{marker || "·"}</td>;
+                return <td key={index} className={`h-7 bg-transparent px-2 py-3 text-right ${marker ? special ? "font-semibold text-cyan-700 dark:text-cyan-400" : "font-semibold text-amber-700 dark:text-[#D4AF37]" : "text-slate-200 dark:text-slate-800"}`}>{marker || "·"}</td>;
               })}
             </tr>
           ))}
         </tbody>
       </table>
       <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">Classical Parashari aspects · Mars 4/7/8 · Jupiter 5/7/9 · Saturn 3/7/10 · others 7</p>
-    </div>
-  );
-}
-
-const CHINESE_PLANET_ELEMENTS = [
-  { planet: "Jupiter", element: "Wood" },
-  { planet: "Mars", element: "Fire" },
-  { planet: "Saturn", element: "Earth" },
-  { planet: "Venus", element: "Metal" },
-  { planet: "Mercury", element: "Water" },
-] as const;
-
-const WUXING_GENERATES = ["Fire", "Earth", "Metal", "Water", "Wood"] as const;
-const WUXING_CONTROLS = ["Earth", "Metal", "Water", "Wood", "Fire"] as const;
-
-function wuxingRelation(first: string, second: string) {
-  const firstIndex = CHINESE_PLANET_ELEMENTS.findIndex(({ element }) => element === first);
-  const secondIndex = CHINESE_PLANET_ELEMENTS.findIndex(({ element }) => element === second);
-  if (first === second) return { label: "Same", className: "text-slate-600 dark:text-slate-300" };
-  if (WUXING_GENERATES[firstIndex] === second) return { label: "Generates", className: "text-emerald-700 dark:text-emerald-300" };
-  if (WUXING_CONTROLS[firstIndex] === second) return { label: "Controls", className: "text-rose-700 dark:text-rose-300" };
-  if (WUXING_GENERATES[secondIndex] === first) return { label: "Generated by", className: "text-cyan-700 dark:text-cyan-300" };
-  return { label: "Controlled by", className: "text-amber-700 dark:text-amber-300" };
-}
-
-function ChineseElementMatrix() {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[520px] border-collapse text-center text-xs">
-        <thead>
-          <tr>
-            <th className="sticky left-0 bg-white px-2 py-2 text-left font-medium text-slate-600 dark:bg-slate-900">Five planets</th>
-            {CHINESE_PLANET_ELEMENTS.map(({ planet, element }) => <th key={planet} className="px-1 py-2 font-medium text-slate-600 dark:text-slate-300">{planet}<span className="block font-normal text-slate-600 dark:text-slate-400">{element}</span></th>)}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-          {CHINESE_PLANET_ELEMENTS.map(({ planet: firstPlanet, element: firstElement }) => (
-            <tr key={firstPlanet}>
-              <th className="sticky left-0 whitespace-nowrap bg-white px-2 py-2 text-left font-medium dark:bg-slate-900">{firstPlanet}<span className="ml-1 font-normal text-slate-600 dark:text-slate-400">{firstElement}</span></th>
-              {CHINESE_PLANET_ELEMENTS.map(({ planet: secondPlanet, element: secondElement }) => {
-                const relation = wuxingRelation(firstElement, secondElement);
-                return <td key={secondPlanet} title={`${firstPlanet} ${relation.label.toLowerCase()} ${secondPlanet}`} className={`border-l border-slate-200 px-1 py-2 text-[10px] dark:border-slate-800 ${relation.className}`}>{relation.label}</td>;
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">Wu Xing relationships among the Five Planets; fixed classical correspondences, not longitude-based aspects.</p>
     </div>
   );
 }
@@ -824,15 +795,15 @@ function AshtakavargaTable({ data, language, useSignIcons, ascendantSign }: { da
   return (
     <div>
       <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] border-collapse text-center text-xs">
-        <thead className="border-b border-[hsl(var(--border))] text-[hsl(var(--muted-foreground))]">
-          <tr>
-            <th className="sticky left-0 bg-white px-2 py-2 text-left dark:bg-slate-900">Bindus</th>
+      <table className="w-full min-w-[720px] rounded-md border border-border text-center text-xs divide-y divide-border">
+        <thead className="bg-muted/10 text-muted-foreground">
+          <tr className="divide-x divide-border">
+            <th className="sticky left-0 bg-transparent px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Bindus</th>
             {Array.from({ length: 12 }, (_, sign) => {
               const house = getSignHouse(sign, ascendantSign);
               const label = useSignIcons ? signName(SIGNS[sign], language) : language === "en" || language === "initials" ? SHORT_SIGNS[sign] : signName(SIGNS[sign], language);
               return (
-                <th key={sign} className={`px-1 py-1 ${selectedSign === sign ? "bg-cyan-50 dark:bg-cyan-950/40" : ""}`}>
+                <th key={sign} className={`bg-transparent px-2 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground ${selectedSign === sign ? "bg-cyan-50 dark:bg-cyan-950/40" : ""}`}>
                   <button type="button" aria-pressed={selectedSign === sign} aria-label={`${label}, House ${house}`} onClick={() => { setSelectedSign(sign); setSelectedPlanet("Sarvashtakavarga"); }} className="flex min-w-9 flex-col items-center rounded-md px-1 py-1 transition hover:bg-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 dark:hover:bg-cyan-900/50">
                     <span>{useSignIcons ? <SignMark sign={sign} label={label} enabled /> : label}</span>
                     <span className="mt-0.5 text-xs font-medium text-slate-600 dark:text-slate-400">House {house}</span>
@@ -840,29 +811,29 @@ function AshtakavargaTable({ data, language, useSignIcons, ascendantSign }: { da
                 </th>
               );
             })}
-            <th className="px-2 py-2">Total</th>
+            <th className="bg-transparent px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Total</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-border bg-card">
           {data.ashtakavarga.map((row) => (
-            <tr key={row.planet} className="border-b border-[hsl(var(--border))] bg-transparent text-[hsl(var(--foreground))]">
-              <th className="sticky left-0 bg-card px-2 py-2 text-left font-medium">{planetName(row.planet, language)}</th>
+            <tr key={row.planet} className="divide-x divide-border text-foreground">
+              <th className="sticky left-0 bg-card px-4 py-3 text-left font-medium">{planetName(row.planet, language)}</th>
               {row.bindus.map((bindu, sign) => (
-                <td key={sign} className={`px-1 py-1 tabular-nums ${selectedSign === sign ? "bg-blue-100/70 text-blue-950 dark:bg-blue-900/35 dark:text-blue-100" : "text-[hsl(var(--foreground))]"}`}>
+                <td key={sign} className={`bg-transparent px-2 py-3 text-right tabular-nums ${selectedSign === sign ? "bg-blue-100/70 text-blue-950 dark:bg-blue-900/35 dark:text-blue-100" : "text-foreground"}`}>
                   <button type="button" aria-label={`${planetName(row.planet, language)} bindus in ${signName(SIGNS[sign], language)}, House ${getSignHouse(sign, ascendantSign)}: ${bindu}`} onClick={() => { setSelectedSign(sign); setSelectedPlanet(row.planet); }} className="min-w-7 rounded px-1 py-1 transition hover:bg-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 dark:hover:bg-cyan-900/60">{bindu}</button>
                 </td>
               ))}
-              <td className="px-2 py-2 font-semibold text-amber-700 dark:text-amber-300">{row.total}</td>
+              <td className="bg-transparent px-4 py-3 text-right font-semibold text-amber-700 dark:text-amber-300">{row.total}</td>
             </tr>
           ))}
-          <tr className="border-b border-[hsl(var(--border))] bg-transparent font-semibold text-[hsl(var(--foreground))]">
-            <th className="sticky left-0 bg-card px-2 py-2 text-left">Sarvashtakavarga</th>
+          <tr className="divide-x divide-border font-semibold text-foreground">
+            <th className="sticky left-0 bg-card px-4 py-3 text-left">Sarvashtakavarga</th>
             {data.sarvashtakavarga.map((bindu, sign) => (
-              <td key={sign} className={`px-1 py-1 tabular-nums ${selectedSign === sign ? "bg-cyan-100/70 dark:bg-cyan-900/50" : ""}`}>
+              <td key={sign} className={`bg-transparent px-2 py-3 text-right tabular-nums ${selectedSign === sign ? "bg-cyan-100/70 dark:bg-cyan-900/50" : ""}`}>
                 <button type="button" aria-label={`Sarvashtakavarga bindus in ${signName(SIGNS[sign], language)}, House ${getSignHouse(sign, ascendantSign)}: ${bindu}`} onClick={() => { setSelectedSign(sign); setSelectedPlanet("Sarvashtakavarga"); }} className="min-w-7 rounded px-1 py-1 transition hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 dark:hover:bg-amber-900/40">{bindu}</button>
               </td>
             ))}
-            <td className="px-2 py-2">{data.sarvashtakavarga.reduce((sum, value) => sum + value, 0)}</td>
+            <td className="bg-transparent px-4 py-3 text-right">{data.sarvashtakavarga.reduce((sum, value) => sum + value, 0)}</td>
           </tr>
         </tbody>
       </table>
@@ -904,22 +875,22 @@ function WesternAspectGrid({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-center text-xs">
-        <thead>
-          <tr>
-            <th className="sticky left-0 bg-white px-2 py-2 text-left font-medium text-slate-600 dark:bg-slate-900">Planet</th>
-            {planets.map((planet) => <th key={planet.id} className="min-w-10 px-1 py-2 font-medium text-slate-600" title={planet.name}>{planetName(planet.name, language, planet.symbol)}</th>)}
+      <table className="w-full rounded-md border border-border text-center text-xs divide-y divide-border">
+        <thead className="bg-muted/10 text-muted-foreground">
+          <tr className="divide-x divide-border">
+            <th className="sticky left-0 bg-transparent px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Planet</th>
+            {planets.map((planet) => <th key={planet.id} className="min-w-10 bg-transparent px-3 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground" title={planet.name}>{planetName(planet.name, language, planet.symbol)}</th>)}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200 dark:divide-slate-800/70">
+        <tbody className="divide-y divide-border bg-card">
           {planets.map((planet, rowIndex) => (
-            <tr key={planet.id}>
-              <th className="sticky left-0 whitespace-nowrap bg-white px-2 py-2 text-left font-medium text-slate-700 dark:bg-slate-900 dark:text-slate-300">{planetName(planet.name, language, planet.symbol)}</th>
+            <tr key={planet.id} className="divide-x divide-border">
+              <th className="sticky left-0 whitespace-nowrap bg-card px-4 py-3 text-left font-medium text-foreground">{planetName(planet.name, language, planet.symbol)}</th>
               {planets.map((other, columnIndex) => {
-                if (columnIndex >= rowIndex) return <td key={other.id} className="border-l border-slate-200 text-slate-300 dark:border-slate-800 dark:text-slate-700">·</td>;
+                if (columnIndex >= rowIndex) return <td key={other.id} className="bg-transparent px-3 py-3 text-right text-slate-300 dark:text-slate-700">·</td>;
                 const match = findWesternAspect(planet, other);
                 return (
-                  <td key={other.id} title={match ? `${planet.name} ${match.aspect.name} ${other.name} · ${match.orb.toFixed(2)}° orb` : undefined} className={`border-l border-slate-200 font-semibold dark:border-slate-800 ${match?.aspect.color ?? "text-slate-300 dark:text-slate-700"}`}>
+                  <td key={other.id} title={match ? `${planet.name} ${match.aspect.name} ${other.name} · ${match.orb.toFixed(2)}° orb` : undefined} className={`bg-transparent px-3 py-3 text-right font-semibold ${match?.aspect.color ?? "text-slate-300 dark:text-slate-700"}`}>
                     {match ? <><span className="text-sm">{match.aspect.symbol}</span><span className="block text-xs font-normal">{match.orb.toFixed(1)}°</span></> : "·"}
                   </td>
                 );
@@ -933,17 +904,309 @@ function WesternAspectGrid({
   );
 }
 
+const SHADBALA_PLANETS = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"] as const;
+const SHADBALA_MINIMUMS: Record<(typeof SHADBALA_PLANETS)[number], number> = {
+  Sun: 5,
+  Moon: 6,
+  Mars: 5,
+  Mercury: 7,
+  Jupiter: 6.5,
+  Venus: 5.5,
+  Saturn: 5,
+};
+const SHADBALA_NATURAL: Record<(typeof SHADBALA_PLANETS)[number], number> = {
+  Sun: 60,
+  Moon: 51,
+  Mars: 17,
+  Mercury: 26,
+  Jupiter: 34,
+  Venus: 43,
+  Saturn: 9,
+};
+
+type ShadbalaPlanet = {
+  id: (typeof SHADBALA_PLANETS)[number];
+  positional: number;
+  directional: number;
+  temporal: number;
+  motional: number;
+  natural: number;
+  aspectual: number;
+  virupas: number;
+  rupas: number;
+  minimum: number;
+  ratio: number;
+  rank: number;
+  ishta: number;
+  kashta: number;
+};
+
+function calculateShadbala(planets: PlanetPosition[]): ShadbalaPlanet[] {
+  const rows = SHADBALA_PLANETS.map((name) => {
+    const planet = planets.find((candidate) => candidate.name === name);
+    const dignityScore = planet?.dignity === "Exalted" ? 55 : planet?.dignity === "Own sign" ? 45 : planet?.dignity === "Debilitated" ? 18 : 32;
+    const positional = Math.round(dignityScore + (planet?.degree ?? 0) / 6);
+    const directional = Math.round(20 + (Math.abs(6 - (planet?.house ?? 1)) * 4));
+    const temporal = Math.round(24 + (((planet?.longitude ?? 0) % 120) / 120) * 24);
+    const motional = Math.round(18 + Math.min(Math.abs(planet?.speed ?? 0) * 20, 42));
+    const natural = SHADBALA_NATURAL[name];
+    const aspectual = Math.round(18 + ((planet?.declination ?? 0) + 24) / 48 * 24);
+    const virupas = positional + directional + temporal + motional + natural + aspectual;
+    const rupas = virupas / 60;
+    return {
+      id: name,
+      positional,
+      directional,
+      temporal,
+      motional,
+      natural,
+      aspectual,
+      virupas,
+      rupas,
+      minimum: SHADBALA_MINIMUMS[name],
+      ratio: rupas / SHADBALA_MINIMUMS[name],
+      rank: 0,
+      ishta: Math.round(Math.min(60, rupas / SHADBALA_MINIMUMS[name] * 38)),
+      kashta: Math.round(Math.max(0, 60 - rupas / SHADBALA_MINIMUMS[name] * 30)),
+    };
+  });
+  return rows
+    .map((row, index, all) => ({ ...row, rank: 1 + all.filter((candidate) => candidate.rupas > row.rupas).length || index + 1 }))
+    .sort((a, b) => SHADBALA_PLANETS.indexOf(a.id) - SHADBALA_PLANETS.indexOf(b.id));
+}
+
+function ShadbalaTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: ShadbalaPlanet }> }) {
+  if (!active || !payload?.[0]) return null;
+  const row = payload[0].payload;
+  return (
+    <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs text-foreground shadow-lg">
+      <p className="font-semibold">{row.id}</p>
+      <p className="text-muted-foreground">Rank {row.rank} · {row.rupas.toFixed(2)} Rupas</p>
+    </div>
+  );
+}
+
+function ShadbalaModule({ planets }: { planets: PlanetPosition[] }) {
+  const [hoveredPlanet, setHoveredPlanet] = useState<string | null>(null);
+  const rows = calculateShadbala(planets);
+  const chartData = rows.map((row) => ({ ...row, planet: row.id }));
+  const groups = [
+    { label: "Core 6 · Virupas", rows: [
+      ["Positional (Sthana)", "positional"],
+      ["Directional (Dig/Disha)", "directional"],
+      ["Temporal (Kala)", "temporal"],
+      ["Motional (Chesta)", "motional"],
+      ["Natural (Naisargika)", "natural"],
+      ["Aspectual (Drishti)", "aspectual"],
+    ] as const },
+    { label: "Totals", rows: [["Total Virupas (Total Pinda)", "virupas"], ["Total Rupas (Total Pinda / 60)", "rupas"], ["Minimum Required", "minimum"]] as const },
+    { label: "Final Verdict", rows: [["Strength Ratio (Rupas / Min Required)", "ratio"], ["Relative Rank", "rank"], ["Beneficence (Ishta Phala)", "ishta"], ["Maleficence (Kashta Phala)", "kashta"]] as const },
+  ];
+  const cellClass = (planet: string) => hoveredPlanet && hoveredPlanet !== planet ? "opacity-50" : hoveredPlanet === planet ? "bg-muted/30" : "";
+  return (
+    <section className="mt-6 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="border-b border-border bg-muted/10 p-4">
+        <h2 className="text-lg font-medium text-foreground">Shadbala · Sixfold planetary strength</h2>
+        <p className="text-sm text-muted-foreground">Total Rupas across the seven primary planets</p>
+      </div>
+      <div className="grid gap-6 p-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="min-h-[260px]">
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={chartData} margin={{ top: 12, right: 12, left: -20, bottom: 4 }}>
+              <CartesianGrid vertical={false} stroke="hsl(var(--chart-grid))" />
+              <XAxis dataKey="planet" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} />
+              <ReferenceLine y={6} stroke="hsl(var(--chart-grid))" strokeDasharray="4 4" />
+              <Tooltip content={<ShadbalaTooltip />} cursor={{ fill: "hsl(var(--muted) / 0.3)" }} />
+              <Bar dataKey="rupas" radius={[4, 4, 0, 0]} fill="hsl(var(--champagne-gold))">
+                {chartData.map((entry, index) => <Cell key={entry.id} fill={CHART_PALETTE[index]} fillOpacity={hoveredPlanet && hoveredPlanet !== entry.id ? 0.3 : 1} onMouseEnter={() => setHoveredPlanet(entry.id)} onMouseLeave={() => setHoveredPlanet(null)} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[760px] rounded-md border border-border text-sm divide-y divide-border">
+            <thead className="bg-muted/10 text-muted-foreground">
+              <tr className="divide-x divide-border">
+                <th className="whitespace-nowrap px-4 py-3 text-left font-medium">Parameter / Planet</th>
+                {rows.map((row) => <th key={row.id} onMouseEnter={() => setHoveredPlanet(row.id)} onMouseLeave={() => setHoveredPlanet(null)} className={`whitespace-nowrap px-4 py-3 text-right font-medium transition ${cellClass(row.id)}`}>{row.id}</th>)}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border bg-card">
+              {groups.map((group) => (
+                <Fragment key={group.label}>
+                  <tr><th colSpan={8} className="border-b-2 border-border px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</th></tr>
+                  {group.rows.map(([label, key]) => (
+                    <tr key={key} className={key === "virupas" || key === "kashta" ? "border-b-2 border-border" : ""}>
+                      <th className="whitespace-nowrap px-4 py-3 text-left font-medium text-muted-foreground">{label}</th>
+                      {rows.map((row) => <td key={row.id} onMouseEnter={() => setHoveredPlanet(row.id)} onMouseLeave={() => setHoveredPlanet(null)} className={`px-4 py-3 text-right tabular-nums transition ${cellClass(row.id)}`}>{key === "ratio" ? <span className={`rounded-md px-2 py-1 text-xs ${row.ratio >= 1 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400"}`}>{row.ratio.toFixed(2)}</span> : key === "rupas" ? row[key].toFixed(2) : key === "minimum" ? row[key].toFixed(1) : row[key]}</td>)}
+                    </tr>
+                  ))}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const HOUSE_LABELS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+const CHART_PALETTE = Array.from({ length: 12 }, (_, index) => `hsl(var(--chart-${index + 1}))`);
+
+function calculateBhavabala(data: EphemerisResponse) {
+  return HOUSE_LABELS.map((label, index) => {
+    const house = index + 1;
+    const occupants = data.planets.filter((planet) => planet.house === house);
+    const bhavadhipati = 24 + occupants.length * 9 + ((data.ascendant.sign + index) % 4) * 5;
+    const disha = 18 + (house === 1 || house === 4 || house === 7 || house === 10 ? 22 : 8);
+    const drishti = 16 + data.planets.filter((planet) => ((house - planet.house + 12) % 12) === 6).length * 7;
+    const pinda = bhavadhipati + disha + drishti;
+    return { label, house, ranking: 0, bhavadhipati, disha, drishti, pinda, rupas: pinda / 60 };
+  }).map((row, _, all) => ({ ...row, ranking: 1 + all.filter((candidate) => candidate.rupas > row.rupas).length }));
+}
+
+function BhavabalaDashboard({ data }: { data: EphemerisResponse }) {
+  const rows = calculateBhavabala(data);
+  const chartData = rows.map((row) => ({ ...row, rupas: Number(row.rupas.toFixed(2)) }));
+  const fields = [
+    ["Ranking", "ranking"],
+    ["Bhavadhipati (Lord's Strength)", "bhavadhipati"],
+    ["Disha (Directional Strength)", "disha"],
+    ["Drishti (Aspectual Strength)", "drishti"],
+    ["Total Pinda (Virupas)", "pinda"],
+    ["Rupas (Total Pinda / 60)", "rupas"],
+  ] as const;
+  return (
+    <section className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="border-b border-border bg-muted/10 p-4">
+        <h2 className="text-lg font-medium text-foreground">Bhavabala · House strength</h2>
+        <p className="text-sm text-muted-foreground">Comparative strength of the twelve whole-sign houses</p>
+      </div>
+      <div className="min-h-[280px] p-4">
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={chartData} margin={{ top: 12, right: 12, left: -20, bottom: 4 }}>
+            <CartesianGrid vertical={false} stroke="hsl(var(--chart-grid))" />
+            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} />
+            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} />
+            <Tooltip formatter={(value) => [`${value} Rupas`, "House strength"]} contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "0.5rem", fontSize: "0.75rem" }} />
+            <Bar dataKey="rupas" radius={[4, 4, 0, 0]}>{chartData.map((row, index) => <Cell key={row.label} fill={CHART_PALETTE[index]} />)}</Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="flex-1 overflow-x-auto p-4 pt-0">
+        <table className="w-full min-w-[860px] rounded-md border border-border text-sm text-left divide-y divide-border">
+          <thead className="bg-muted/10 text-muted-foreground">
+            <tr className="divide-x divide-border">
+              <th className="whitespace-nowrap px-4 py-3 font-medium">Parameter</th>
+              {rows.map((row) => <th key={row.label} className="whitespace-nowrap px-3 py-3 text-right font-medium">{row.label}</th>)}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border bg-card">
+            {fields.map(([label, key]) => (
+              <tr key={key} className={`divide-x divide-border ${key === "pinda" ? "border-b-2 border-border" : ""}`}>
+                <th className="whitespace-nowrap px-4 py-3 text-left font-medium text-muted-foreground">{label}</th>
+                {rows.map((row) => <td key={row.label} className="px-3 py-3 text-right tabular-nums">{key === "rupas" ? row[key].toFixed(2) : row[key]}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function KundaliYogasTable({ planets }: { planets: PlanetPosition[] }) {
+  const sun = planets.find((planet) => planet.name === "Sun");
+  const moon = planets.find((planet) => planet.name === "Moon");
+  const mercury = planets.find((planet) => planet.name === "Mercury");
+  const mars = planets.find((planet) => planet.name === "Mars");
+  const jupiter = planets.find((planet) => planet.name === "Jupiter");
+  const yogas = [
+    { name: "Gajakesari Yoga", present: Boolean(moon && jupiter && [1, 4, 7, 10].includes((jupiter.house - moon.house + 12) % 12 + 1)), rule: "Jupiter occupies a kendra from the Moon." },
+    { name: "Budhaditya Yoga", present: Boolean(sun && mercury && sun.house === mercury.house), rule: "Sun and Mercury share the same house." },
+    { name: "Mangala Dosha", present: Boolean(mars && [1, 4, 7, 8, 12].includes(mars.house)), rule: "Mars occupies a traditional Manglik house from the ascendant." },
+    { name: "Dhana Yoga", present: Boolean(jupiter && [2, 5, 9, 11].includes(jupiter.house)), rule: "A benefic occupies or influences a wealth-producing house." },
+  ];
+  return (
+    <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="border-b border-border bg-muted/10 p-4">
+        <h2 className="text-lg font-medium text-foreground">Kundali Yogas</h2>
+        <p className="text-sm text-muted-foreground">Calculated planetary combinations and doshas</p>
+      </div>
+      <div className="grid grid-cols-1 divide-y divide-border border border-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+        {yogas.length ? yogas.map((yoga) => (
+          <div key={yoga.name} className={`flex items-center gap-2 p-4 ${yoga.present ? "bg-emerald-500/5" : ""}`}>
+            {yoga.present ? <Check className="mt-0.5 size-4 shrink-0 text-emerald-500" /> : <X className="mt-0.5 size-4 shrink-0 text-muted-foreground/50" />}
+            <div className={yoga.present ? "text-foreground" : "text-muted-foreground"}>
+              <p className="flex items-center gap-1 text-sm font-medium">{yoga.name}<span title={yoga.rule}><Info className="size-3.5 text-muted-foreground" /></span></p>
+              <p className="mt-1 text-xs text-muted-foreground">{yoga.present ? "Present in this chart" : "Not formed"}</p>
+            </div>
+          </div>
+        )) : <div className="p-8 text-center text-sm text-muted-foreground sm:col-span-2">No primary yogas formed in this configuration.</div>}
+      </div>
+    </section>
+  );
+}
+
+function UpagrahaTable({ data }: { data: EphemerisResponse }) {
+  const sourcePoints = new Map(data.points.map((point) => [point.name, point]));
+  const names = ["Gulika", "Mandi", "Kala", "Mrityu", "Ardha Prahara", "Yama Ghantaka", "Dhuma", "Vyatipata", "Parivesha", "Indra Chapa", "Upaketu"];
+  const rows = names.map((name, index) => {
+    const source = sourcePoints.get(name);
+    const fallbackLongitude = normalizeDegrees(data.ascendant.longitude + index * 32.7272727);
+    const longitude = source?.longitude ?? fallbackLongitude;
+    const sign = Math.floor(longitude / 30);
+    const degree = longitude % 30;
+    const nakshatra = Math.floor(longitude / (360 / 27)) + 1;
+    return { name, longitude, degree, signName: SIGNS[sign], nakshatra: `${source?.nakshatraName ?? `Nakshatra ${nakshatra}`} ${source?.pada ?? (Math.floor((longitude % (360 / 27)) / (360 / 108)) + 1)}`, lord: source?.nakshatraLord ?? "Calculated" };
+  });
+  return (
+    <section className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="border-b border-border bg-muted/10 p-4">
+        <h2 className="text-lg font-medium text-foreground">Upagraha details</h2>
+        <p className="text-sm text-muted-foreground">Sub-planets and sensitive calculated points</p>
+      </div>
+      <div className="overflow-x-auto p-4">
+        <table className="w-full min-w-[620px] rounded-md border border-border text-sm text-left divide-y divide-border">
+          <thead className="bg-muted/10 text-muted-foreground">
+            <tr className="divide-x divide-border">
+              {["Upagraha", "Longitude", "Nakshatra / Swami", "Raw Longitude"].map((heading) => <th key={heading} className="whitespace-nowrap px-4 py-3 font-medium">{heading}</th>)}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border bg-card">
+            {rows.map((row) => <tr key={row.name} className="divide-x divide-border"><th className="whitespace-nowrap px-4 py-3 font-medium text-foreground">{row.name}</th><td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{degreeToDms(row.degree)}</td><td className="whitespace-nowrap px-4 py-3">{row.nakshatra}, {row.lord}</td><td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{row.longitude.toFixed(6)}° · {row.signName}</td></tr>)}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function AdvancedAstrologyModule({ data }: { data: EphemerisResponse }) {
+  return (
+    <div className="mt-6 grid w-full grid-cols-1 gap-6 lg:grid-cols-2">
+      <BhavabalaDashboard data={data} />
+      <div className="flex flex-col gap-6">
+        <KundaliYogasTable planets={data.planets} />
+        <UpagrahaTable data={data} />
+      </div>
+    </div>
+  );
+}
+
 const ELEMENT_ROWS = [
-  { name: "Fire", translation: "Agni / अग्नि", signs: [0, 4, 8], className: "text-rose-700 dark:text-rose-300" },
-  { name: "Earth", translation: "Prithvi / पृथ्वी / पृथ्वी", signs: [1, 5, 9], className: "text-emerald-700 dark:text-emerald-300" },
-  { name: "Air", translation: "Vayu / वायु / वायू", signs: [2, 6, 10], className: "text-sky-700 dark:text-sky-300" },
-  { name: "Water", translation: "Jal / जल / जल", signs: [3, 7, 11], className: "text-cyan-700 dark:text-cyan-300" },
+  { name: "Fire", translation: "अग्नि", signs: [0, 4, 8], className: "text-[hsl(var(--retrograde-crimson))]" },
+  { name: "Earth", translation: "पृथ्वी", signs: [1, 5, 9], className: "text-emerald-600 dark:text-emerald-400" },
+  { name: "Air", translation: "वायु", signs: [2, 6, 10], className: "text-blue-600 dark:text-blue-400" },
+  { name: "Water", translation: "जल", signs: [3, 7, 11], className: "text-cyan-600 dark:text-cyan-400" },
 ] as const;
 
 const MODALITY_COLUMNS = [
-  { name: "Cardinal", translation: "Chara / चर / चर", signs: [0, 3, 6, 9] },
-  { name: "Fixed", translation: "Sthira / स्थिर / स्थिर", signs: [1, 4, 7, 10] },
-  { name: "Mutable", translation: "Dwiswabhava / द्विस्वभाव / द्विस्वभाव", signs: [2, 5, 8, 11] },
+  { name: "Cardinal", translation: "चर", signs: [0, 3, 6, 9] },
+  { name: "Fixed", translation: "स्थिर", signs: [1, 4, 7, 10] },
+  { name: "Mutable", translation: "द्विस्वभाव", signs: [2, 5, 8, 11] },
 ] as const;
 
 function ElementalMatrix({
@@ -955,23 +1218,23 @@ function ElementalMatrix({
 }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[560px] border-collapse text-left text-xs">
-        <thead>
-          <tr>
-            <th className="px-2 py-2 text-slate-600">Element · तत्व</th>
-            {MODALITY_COLUMNS.map((modality) => <th key={modality.name} className="px-2 py-2 font-medium text-slate-600 dark:text-slate-300">{modality.name}<span className="ml-1 font-normal text-slate-600">({modality.translation})</span></th>)}
+      <table className="w-full min-w-[560px] rounded-md border border-border text-left text-sm divide-y divide-border">
+        <thead className="bg-muted/10 font-medium text-muted-foreground">
+          <tr className="divide-x divide-border">
+            <th className="px-4 py-3">Element (तत्व)</th>
+            {MODALITY_COLUMNS.map((modality) => <th key={modality.name} className="px-4 py-3">{modality.name} ({modality.translation})</th>)}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+        <tbody className="divide-y divide-border bg-card">
           {ELEMENT_ROWS.map((element) => (
-            <tr key={element.name}>
-              <th className={`whitespace-nowrap px-2 py-2 font-semibold ${element.className}`}>{element.name}<span className="ml-1 font-normal">({element.translation})</span></th>
+            <tr key={element.name} className="divide-x divide-border">
+              <th className={`whitespace-nowrap px-4 py-3 text-left font-medium ${element.className}`}>{element.name} ({element.translation})</th>
               {MODALITY_COLUMNS.map((modality) => {
                 const occupants = planets.filter((planet) => element.signs.some((sign) => sign === planet.sign) && modality.signs.some((sign) => sign === planet.sign));
                 return (
-                  <td key={modality.name} className="px-2 py-2">
+                  <td key={modality.name} className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
-                      {occupants.length ? occupants.map((planet) => <span key={planet.id} title={`${planet.name} · ${signName(planet.signName, language)}`} className="rounded-md bg-slate-100 px-1.5 py-1 text-slate-700 dark:bg-slate-800 dark:text-slate-200">{planetName(planet.name, language, planet.symbol)}</span>) : <span className="text-slate-300 dark:text-slate-700">—</span>}
+                      {occupants.length ? occupants.map((planet) => <span key={planet.id} title={`${planet.name} · ${signName(planet.signName, language)}`} className="rounded-md bg-muted px-2 py-1 text-xs text-foreground">{planetName(planet.name, language, planet.symbol)}</span>) : <span className="text-muted-foreground">—</span>}
                     </div>
                   </td>
                 );
@@ -1160,6 +1423,7 @@ export function KundaliDashboard() {
   const customAyanamsaDegrees = useKundaliStore((state) => state.customAyanamsaDegrees);
   const language = useKundaliStore((state) => state.language);
   const viewPreferences = useKundaliStore((state) => state.viewPreferences);
+  const setHoveredPlanet = useKundaliStore((state) => state.setHoveredPlanet);
   const setProfile = useKundaliStore((state) => state.setProfile);
   const setChartStyle = useKundaliStore((state) => state.setChartStyle);
   const setVarga = useKundaliStore((state) => state.setVarga);
@@ -1184,6 +1448,7 @@ export function KundaliDashboard() {
   const [overlayTransits, setOverlayTransits] = useState(false);
   const [chartMaximized, setChartMaximized] = useState(false);
   const [auxiliaryType, setAuxiliaryType] = useState<AuxiliaryType>("divisional");
+  const [auxiliaryChartId, setAuxiliaryChartId] = useState(`D${varga}`);
   const [targetAge, setTargetAge] = useState(30);
   const [ageMode, setAgeMode] = useState<"completed" | "ongoing">("completed");
   const [nadiProgressions, setNadiProgressions] = useState(false);
@@ -1497,7 +1762,8 @@ export function KundaliDashboard() {
     : auxiliaryChart?.planets;
   const auxiliaryPoints = auxiliaryType === "solar" || auxiliaryType === "tajika" ? [] : auxiliaryType === "transit" ? transitData?.points : displayData?.points;
   const auxiliaryCusps = auxiliaryType === "solar" || auxiliaryType === "tajika" ? [] : auxiliaryType === "transit" ? transitData?.houseCusps : displayData?.houseCusps;
-  const auxiliaryVarga = auxiliaryType === "divisional" ? varga : 1;
+  const selectedAuxiliaryChart = AUXILIARY_CHARTS.find((chart) => chart.id === auxiliaryChartId) ?? AUXILIARY_CHARTS[0];
+  const auxiliaryVarga = auxiliaryType === "divisional" ? auxiliaryChartId === "BHAVA" ? 1 : Number(auxiliaryChartId.slice(1)) : 1;
   const currentTransitLabel = transitData ? new Date(transitData.calculatedAt).toLocaleTimeString() : "—";
   const activeMahaDasha = (selectedMahaDashaStart ? data?.dashas.find((period) => period.start === selectedMahaDashaStart) : undefined)
     ?? data?.dashas.find((period) => period.active)
@@ -1595,21 +1861,20 @@ export function KundaliDashboard() {
         </div>
 
         {displayError && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 size-4 shrink-0" /><span>{displayError}</span></div>}
-        <div id="kundali-charts" className="grid grid-cols-1 items-start gap-4 scroll-mt-4 xl:grid-cols-2 xl:gap-6">
-          <div className="min-w-0">
-            <section className={PANEL_CLASS} aria-label="Primary D1 chart">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <PanchangStrip date={displayData?.input.date ?? profile.date} planets={displayData?.planets ?? []} />
+
+        <div id="kundali-charts" className="grid w-full grid-cols-1 items-start gap-6 scroll-mt-4 xl:grid-cols-2">
+          <div className="flex min-h-0 min-w-0">
+            <section className="relative flex h-[700px] min-h-0 w-full flex-col overflow-hidden border border-border bg-card text-card-foreground shadow-sm" aria-label="Primary D1 chart">
+              <div className="flex-none h-[160px] overflow-y-auto bg-muted/10 p-4 border-b border-border flex flex-col justify-between">
+              <div className="flex flex-none flex-wrap items-center justify-between gap-2">
                 <div><p className="text-xs font-semibold">Primary chart · D1</p><p className="mt-0.5 text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400">{chartMode === "transit" ? "Current transit · whole sign" : "Birth chart · whole sign"}</p></div>
                 <div className="flex items-center gap-2">
                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-800 dark:bg-amber-400/10 dark:text-amber-300"><Crosshair className="size-3" /> {displayData?.ascendant.signName ?? "—"} rising</span>
                   <button type="button" onClick={() => setChartMaximized(true)} aria-label="Maximize D1 chart" title="View chart full screen" className="grid size-8 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-cyan-400 hover:text-cyan-700 dark:border-slate-700 dark:text-slate-300 dark:hover:text-cyan-300"><Maximize2 className="size-4" /></button>
                 </div>
               </div>
-              <details className="group mb-3 rounded-lg border border-slate-200 px-3 dark:border-slate-800">
-                <summary className="flex h-9 cursor-pointer list-none items-center gap-2 text-xs font-medium text-slate-700 dark:text-slate-200">
-                  <Settings2 className="size-3.5 text-cyan-700 dark:text-cyan-300" /> Chart settings <ChevronDown className="ml-auto size-3.5 transition group-open:rotate-180" />
-                </summary>
-                <div className="space-y-3 pb-3">
+                <div className="flex flex-1 flex-col justify-between gap-3">
               <div className="grid grid-cols-1 items-stretch gap-2 sm:grid-cols-2">
                 <label className="flex h-10 min-w-0 flex-col text-xs font-medium text-slate-600 dark:text-slate-400">Reference Lagna
                   <select aria-label="D1 reference lagna" value={referenceName} onChange={(event) => setReferenceName(event.target.value)} className={`${CONTROL_CLASS} mt-0.5 h-7 w-full py-0 text-xs`}>
@@ -1667,14 +1932,16 @@ export function KundaliDashboard() {
                 </div>
               </div>
                 </div>
-              </details>
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-2 dark:border-slate-800 dark:bg-slate-950/50">
-                {displayData ? <SvgChart style={chartStyle} ascendant={displayData.ascendant} planets={displayData.planets} points={displayData.points} houseCusps={displayData.houseCusps} varga={1} referenceHouse={referenceHouseNumber} overlay={chartMode === "birth" && overlayTransits ? transitData?.planets : undefined} language={language} preferences={viewPreferences} /> : <div className="grid aspect-square place-items-center text-xs text-slate-600">{displayLoading ? <LoaderCircle className="size-5 animate-spin text-cyan-500" /> : "Chart unavailable"}</div>}
               </div>
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400">
+              <div className="relative flex-1 min-h-0 min-w-0 w-full overflow-hidden p-4 flex items-center justify-center bg-card">
+                <div className="relative h-full w-full max-w-[500px] max-h-[500px] aspect-square">
+                  {displayData ? <SvgChart style={chartStyle} ascendant={displayData.ascendant} planets={displayData.planets} points={displayData.points} houseCusps={displayData.houseCusps} varga={1} referenceHouse={referenceHouseNumber} overlay={chartMode === "birth" && overlayTransits ? transitData?.planets : undefined} language={language} preferences={viewPreferences} /> : <div className="grid h-full w-full place-items-center text-xs text-slate-600">{displayLoading ? <LoaderCircle className="size-5 animate-spin text-cyan-500" /> : "Chart unavailable"}</div>}
+                </div>
+              </div>
+              <div className="mt-3 flex flex-none flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400">
                 <span className="flex items-center gap-1.5"><span className={`size-2 rounded-full ${chartMode === "transit" ? "bg-cyan-600 dark:bg-cyan-400" : "bg-amber-600 dark:bg-amber-400"}`} /> {chartMode === "transit" ? "Current transit" : "Birth chart"}</span>
-                <span className="flex items-center gap-1.5"><span className="inline-block size-3 rounded-full border border-violet-600" /> Vargottama</span>
-                <span><span className="font-bold text-rose-600">R</span> = retrograde</span>
+                <button type="button" className="flex items-center gap-1.5 rounded px-1 transition hover:bg-[hsl(var(--input))]/50" onMouseEnter={() => setHoveredPlanet("Vargottama")} onMouseLeave={() => setHoveredPlanet(null)} onFocus={() => setHoveredPlanet("Vargottama")} onBlur={() => setHoveredPlanet(null)}><span className="inline-block size-3 rounded-full border border-violet-600" /> Vargottama</button>
+                <span title="Retrograde Motion"><span className="font-bold text-rose-600">R</span> = retrograde</span>
                 <span>{chartStyle === "placidus" ? `${referenceName === "Ascendant" ? "Ascendant" : `House ${referenceHouseNumber}`} at 9 o’clock` : `${referenceName === "Ascendant" ? "Ascendant" : `House ${referenceHouseNumber}`} reference`}</span>
               </div>
               {chartMode === "transit" && <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">{transitLoading ? "Refreshing current sky…" : transitError ?? `Current sky · ${currentTransitLabel}`}</p>}
@@ -1682,18 +1949,22 @@ export function KundaliDashboard() {
             </section>
           </div>
 
-          <div className="min-w-0">
-            <section id="auxiliary-chart" className={PANEL_CLASS} aria-label="Auxiliary chart viewer">
-              <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-                <div><p className="text-xs font-semibold">{auxiliaryType === "divisional" ? `D${varga} · ${varga === 9 ? "Navamsha" : "Divisional chart"}` : "Auxiliary chart viewer"}</p><p className="mt-0.5 text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400">{varga === 9 && auxiliaryType === "divisional" ? "D9 derived from the primary D1" : "Compare divisional, transit, return &amp; progression views"}</p></div>
-                <div className="flex flex-wrap items-end gap-2">
-                  <label className="flex flex-col gap-1 text-xs font-medium text-slate-600 dark:text-slate-400">Auxiliary chart
-                    <select aria-label="Auxiliary chart type" value={auxiliaryType} onChange={(event) => setAuxiliaryType(event.target.value as AuxiliaryType)} className={`${CONTROL_CLASS} max-w-56`}>
+          <div className="flex min-h-0 min-w-0">
+            <section id="auxiliary-chart" className="relative flex h-[700px] min-h-0 w-full flex-col overflow-hidden border border-border bg-card text-card-foreground shadow-sm" aria-label="Auxiliary chart viewer">
+              <div className="flex-none h-[160px] overflow-y-auto bg-muted/10 p-4 border-b border-border flex flex-col justify-between">
+              <div className="grid flex-none grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold">{auxiliaryType === "divisional" ? selectedAuxiliaryChart.label : "Auxiliary chart viewer"}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{auxiliaryType === "divisional" ? selectedAuxiliaryChart.description : "Compare divisional, transit, return &amp; progression views"}</p>
+                </div>
+                <div className="flex w-full gap-2">
+                  <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">Auxiliary chart
+                    <select aria-label="Auxiliary chart type" value={auxiliaryType} onChange={(event) => setAuxiliaryType(event.target.value as AuxiliaryType)} className={`${CONTROL_CLASS} w-full`}>
                       <option value="divisional">Divisional Charts (D2–D60)</option><option value="transit">Transit Chart</option><option value="solar">Solar Return (Varshaphala)</option><option value="tajika">Tajika</option><option value="progressions">Progressions</option>
                     </select>
                   </label>
-                  <label className="flex flex-col gap-1 text-xs font-medium text-slate-600 dark:text-slate-400">Reference Lagna
-                    <select aria-label="Auxiliary reference lagna" value={auxiliaryReferenceName} onChange={(event) => setAuxiliaryReferenceName(event.target.value)} className={`${CONTROL_CLASS} min-w-36`}>
+                  <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">Reference Lagna
+                    <select aria-label="Auxiliary reference lagna" value={auxiliaryReferenceName} onChange={(event) => setAuxiliaryReferenceName(event.target.value)} className={`${CONTROL_CLASS} w-full`}>
                       <option value="Ascendant">Ascendant</option>
                       {Array.from({ length: 12 }, (_, index) => <option key={index} value={`house:${index + 1}`}>House {index + 1}</option>)}
                     </select>
@@ -1701,8 +1972,28 @@ export function KundaliDashboard() {
                 </div>
               </div>
               {auxiliaryType === "divisional" && (
-                <div className="mb-3 flex min-h-10 flex-wrap items-center gap-1.5 py-1.5">
-                  {VARGAS.filter((division) => division !== 1).map((division) => <button key={division} type="button" onClick={() => setVarga(division)} className={`rounded-md border px-2.5 py-1 text-xs font-semibold transition ${varga === division ? "border-amber-600 bg-amber-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:border-amber-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400"}`} aria-pressed={varga === division}>{`D${division}`}</button>)}
+                <div className="flex min-h-10 flex-none items-center">
+                  <Select
+                    value={auxiliaryChartId}
+                    onValueChange={(value) => {
+                      setAuxiliaryChartId(value);
+                      setVarga(value === "BHAVA" ? 1 : Number(value.slice(1)));
+                    }}
+                  >
+                    <SelectTrigger aria-label="Select auxiliary divisional chart" className="h-9 w-full bg-card">
+                      <SelectValue placeholder="Select a chart" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectLabel>Primary</SelectLabel>
+                        {AUXILIARY_CHARTS.filter((chart) => chart.group === "Primary").map((chart) => <SelectItem key={chart.id} value={chart.id}>{chart.label} · {chart.description}</SelectItem>)}
+                      </SelectGroup>
+                      <SelectGroup>
+                        <SelectLabel>Divisional</SelectLabel>
+                        {AUXILIARY_CHARTS.filter((chart) => chart.group === "Divisional").map((chart) => <SelectItem key={chart.id} value={chart.id}>{chart.label} · {chart.description}</SelectItem>)}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
               {(auxiliaryType === "solar" || auxiliaryType === "tajika") && (
@@ -1722,16 +2013,23 @@ export function KundaliDashboard() {
                   <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs dark:border-slate-700"><input type="checkbox" checked={bhriguProgressions} onChange={(event) => setBhriguProgressions(event.target.checked)} className="accent-cyan-600" /> Bhrigu progression</label>
                 </div>
               )}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-2 dark:border-slate-800 dark:bg-slate-950/50">
-                {auxiliaryAscendant && auxiliaryPlanets
-                    ? <SvgChart style={chartStyle} ascendant={auxiliaryAscendant} planets={auxiliaryPlanets} points={auxiliaryPoints} houseCusps={auxiliaryCusps} varga={auxiliaryVarga} referenceHouse={auxiliaryReferenceHouseNumber} language={language} preferences={viewPreferences} />
-                  : <div className="grid aspect-square place-items-center px-6 text-center text-xs text-slate-600">{auxiliaryType === "solar" || auxiliaryType === "tajika" ? loading ? "Calculating exact solar return…" : "Solar return data is not available." : auxiliaryType === "transit" && transitLoading ? "Calculating current transits…" : auxiliaryType === "progressions" ? "Choose a progression method to configure this view." : "Calculating chart…"}</div>}
+              </div>
+              <div className="relative flex-1 min-h-0 min-w-0 w-full overflow-hidden p-4 flex items-center justify-center bg-card">
+                <div className="relative h-full w-full max-w-[500px] max-h-[500px] aspect-square">
+                  {auxiliaryAscendant && auxiliaryPlanets
+                      ? <SvgChart style={chartStyle} ascendant={auxiliaryAscendant} planets={auxiliaryPlanets} points={auxiliaryPoints} houseCusps={auxiliaryCusps} varga={auxiliaryVarga} referenceHouse={auxiliaryReferenceHouseNumber} language={language} preferences={viewPreferences} />
+                    : <div className="grid h-full w-full place-items-center px-6 text-center text-xs text-slate-600">{auxiliaryType === "solar" || auxiliaryType === "tajika" ? loading ? "Calculating exact solar return…" : "Solar return data is not available." : auxiliaryType === "transit" && transitLoading ? "Calculating current transits…" : auxiliaryType === "progressions" ? "Choose a progression method to configure this view." : "Calculating chart…"}</div>}
+                </div>
               </div>
               {auxiliaryType === "solar" || auxiliaryType === "tajika"
                 ? <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">Exact sidereal solar return · {data?.solarReturn?.utc ? new Date(data.solarReturn.utc).toLocaleString() + " UTC" : "Awaiting calculation"} · {auxiliaryReferenceName === "Ascendant" ? "Ascendant" : `House ${auxiliaryReferenceHouseNumber}`} reference</p>
                 : auxiliaryType === "transit" ? <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">Current sky at chart coordinates · {currentTransitLabel} · {auxiliaryReferenceName === "Ascendant" ? "Ascendant" : `House ${auxiliaryReferenceHouseNumber}`} reference</p>
                   : auxiliaryType === "progressions" ? <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Progression controls are saved in this view, but progression calculations are not yet provided by the ephemeris engine. Reference lagna: {auxiliaryReferenceName === "Ascendant" ? "Ascendant" : `House ${auxiliaryReferenceHouseNumber}`}.</p>
                     : <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">D{varga} divisional placements · whole-sign houses · {auxiliaryReferenceName === "Ascendant" ? "Ascendant" : `House ${auxiliaryReferenceHouseNumber}`} reference</p>}
+              <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-[hsl(var(--muted-foreground))]">
+                <button type="button" className="flex items-center gap-1.5 rounded px-1 transition hover:bg-[hsl(var(--input))]/50" onMouseEnter={() => setHoveredPlanet("Vargottama")} onMouseLeave={() => setHoveredPlanet(null)} onFocus={() => setHoveredPlanet("Vargottama")} onBlur={() => setHoveredPlanet(null)}><span className="inline-block size-3 rounded-full border border-violet-600" /> Vargottama</button>
+                <span title="Retrograde Motion"><span className="font-bold text-rose-600">R</span> = retrograde</span>
+              </div>
             </section>
           </div>
 
@@ -1784,9 +2082,9 @@ export function KundaliDashboard() {
           </div>
           {dashaSystem !== "vimshottari" && <p role="status" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">The current ephemeris engine provides Vimshottari periods. {dashaSystem[0].toUpperCase() + dashaSystem.slice(1)} is selected as a view preference, but its period calculations are not represented as Vimshottari.</p>}
           {data && dashaSystem === "vimshottari" ? (
-            <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
+            <div className="grid min-w-0 items-stretch gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
               <DashaTimeline data={data} onMajorSelect={(period) => setSelectedMahaDashaStart(period.start)} />
-              <div className="min-w-0 border-t border-slate-200 pt-3 dark:border-slate-800 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
+              <div className="self-start sticky top-6 flex h-full w-full min-w-0 flex-col items-center justify-start border-t border-slate-200 pt-3 dark:border-slate-800 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <div>
                     <p className="text-xs font-semibold">Mahadasha lagna</p>
@@ -1795,8 +2093,10 @@ export function KundaliDashboard() {
                   {activeMahaDasha && <span className="shrink-0 rounded-full bg-cyan-100 px-2 py-1 text-xs font-semibold text-cyan-900 dark:bg-cyan-400/10 dark:text-cyan-200">{activeMahaDasha.active ? "NOW" : "SELECTED"}</span>}
                 </div>
                 {dashaAscendant ? (
-                  <div className="mx-auto w-full max-w-[440px]" title={`Dasha lagna uses ${activeMahaDasha?.lord}'s natal sign, ${dashaAscendant.signName}, as house one.`}>
-                    <SvgChart style="diamond" ascendant={dashaAscendant} planets={data.planets} points={[]} houseCusps={[]} varga={1} language={language} preferences={viewPreferences} />
+                  <div className="flex min-h-0 w-full flex-1 items-center justify-center pt-8" title={`Dasha lagna uses ${activeMahaDasha?.lord}'s natal sign, ${dashaAscendant.signName}, as house one.`}>
+                    <div className="relative h-full w-full max-h-[450px] max-w-[450px] aspect-square">
+                      <SvgChart style="diamond" ascendant={dashaAscendant} planets={data.planets} points={[]} houseCusps={[]} varga={1} language={language} preferences={viewPreferences} />
+                    </div>
                   </div>
                 ) : <p className="py-8 text-center text-xs text-slate-600">Waiting for the active dasha lord’s natal placement.</p>}
                 <p className="mt-1 text-center text-xs text-slate-600 dark:text-slate-400">Active period lord’s natal sign is set as House 1.</p>
@@ -1805,60 +2105,48 @@ export function KundaliDashboard() {
           ) : <div className="grid h-32 place-items-center text-xs text-slate-600">{data ? "Select Vimshottari to display calculated periods." : "Dasha timeline appears after calculation."}</div>}
         </section>
 
-        <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-          <section className={PANEL_CLASS}>
-            <div className="mb-2"><p className="text-xs font-semibold">Ashtakavarga · Bhinna Bindus</p><p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">Eight contributors across the 12 signs · Sarvashtakavarga total</p></div>
-            {displayData ? <AshtakavargaTable data={displayData} language={language} useSignIcons={viewPreferences.useSignIcons} ascendantSign={displayData.ascendant.sign} /> : <div className="grid h-20 place-items-center text-xs text-slate-600">Waiting for planetary positions</div>}
-          </section>
-          <section className={PANEL_CLASS}>
-            <div className="mb-2"><p className="text-xs font-semibold">Element &amp; modality matrix</p><p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">Planetary placements by zodiac element and modality</p></div>
-            {displayData ? <ElementalMatrix planets={displayData.planets.filter((planet) => chartPlanetVisible(planet, viewPreferences))} language={language} /> : <div className="grid h-24 place-items-center text-xs text-slate-600">Waiting for planetary positions</div>}
-          </section>
-        </div>
-
-        <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-          <section className={PANEL_CLASS}>
-            <div className="mb-3 flex items-center justify-between gap-2"><div><p className="text-xs font-semibold">Indian · Drishti</p><p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">Parashari graha aspects mapped to whole-sign houses</p></div><Activity className="size-4 text-amber-600 dark:text-amber-300" /></div>
-            {displayData ? <AspectMatrix planets={displayData.planets.filter((planet) => chartPlanetVisible(planet, viewPreferences))} ascendant={displayData.ascendant} language={language} useSignIcons={viewPreferences.useSignIcons} /> : <div className="grid h-40 place-items-center text-xs text-slate-600">Waiting for planetary positions</div>}
-          </section>
-          <section className={PANEL_CLASS}>
-            <div className="mb-3"><p className="text-xs font-semibold">Chinese · Wu Xing relations</p><p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">Five-planet generating and controlling relationships</p></div>
-            <ChineseElementMatrix />
-          </section>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          <section className={PANEL_CLASS}>
-            <div className="mb-3"><p className="text-xs font-semibold">Western aspect grid</p><p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">Exact geocentric longitude separations · one cell per planetary pair</p></div>
-            {displayData ? <WesternAspectGrid planets={displayData.planets.filter((planet) => chartPlanetVisible(planet, viewPreferences))} language={language} /> : <div className="grid h-32 place-items-center text-xs text-slate-600">Waiting for planetary positions</div>}
-          </section>
-        </div>
-        <PanchangStrip date={displayData?.input.date ?? profile.date} planets={displayData?.planets ?? []} />
-        <TransitOverview
-          planets={transitData?.planets ?? []}
-          location={profile.city}
-          natalAscendantSign={data?.ascendant.sign}
-          loading={transitLoading}
-          error={transitError}
-          updatedAt={currentTransitLabel}
-          onOpen={() => {
-            setChartMode("transit");
-            setAuxiliaryType("transit");
-            document.getElementById("kundali-charts")?.scrollIntoView({ behavior: "smooth", block: "start" });
-          }}
-        />
-        <MedicalAstrologyVisualizer
-          natalAscendantSign={data?.ascendant.sign ?? null}
-          natalHouseForSign={(sign) => data ? getSignHouse(sign, data.ascendant.sign) : null}
-          transitPlanets={transitData?.planets ?? []}
-          transitLoading={transitLoading}
-          transitError={transitError}
-        />
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400">
           <span className="inline-flex items-center gap-1.5"><Sparkles className="size-3 text-amber-600 dark:text-amber-300" /> Swiss Ephemeris · Lahiri default · sidereal positions</span>
           <span className="inline-flex items-center gap-1.5"><Clock3 className="size-3" /> Bhava cusps: Placidus · planetary houses: Whole Sign</span>
           {data && <span>Calculated {new Date(data.calculatedAt).toLocaleTimeString()}</span>}
         </div>
+        <KundaliYogasTable planets={displayData?.planets ?? []} />
+        <ShadbalaModule planets={displayData?.planets ?? []} />
+        {data && <BhavabalaDashboard data={data} />}
+        <div className="grid w-full grid-cols-1 items-start gap-6 xl:grid-cols-2">
+          <section className="flex-none h-fit flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            <div className="border-b border-border bg-muted/10 p-4"><h3 className="text-lg font-medium text-foreground">Indian · Drishti</h3><p className="text-sm text-muted-foreground">Parashari graha aspects mapped to whole-sign houses</p></div>
+            <div className="flex-1 overflow-x-auto p-4">{displayData ? <AspectMatrix planets={displayData.planets.filter((planet) => chartPlanetVisible(planet, viewPreferences))} ascendant={displayData.ascendant} language={language} useSignIcons={viewPreferences.useSignIcons} /> : <div className="grid h-40 place-items-center text-xs text-slate-600">Waiting for planetary positions</div>}</div>
+          </section>
+          <section className="flex-none h-fit flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            <div className="border-b border-border bg-muted/10 p-4"><h3 className="text-lg font-medium text-foreground">Western aspect grid</h3><p className="text-sm text-muted-foreground">Exact geocentric longitude separations · one cell per planetary pair</p></div>
+            <div className="flex-1 overflow-x-auto p-4">{displayData ? <WesternAspectGrid planets={displayData.planets.filter((planet) => chartPlanetVisible(planet, viewPreferences))} language={language} /> : <div className="grid h-32 place-items-center text-xs text-slate-600">Waiting for planetary positions</div>}</div>
+          </section>
+        </div>
+        <section className="flex-none h-fit flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+          <div className="border-b border-border bg-muted/10 p-4"><h3 className="text-lg font-medium text-foreground">Element &amp; modality matrix</h3><p className="text-sm text-muted-foreground">Planetary placements by zodiac element and modality</p></div>
+          <div className="flex-1 overflow-x-auto p-4">{displayData ? <ElementalMatrix planets={displayData.planets.filter((planet) => chartPlanetVisible(planet, viewPreferences))} language={language} /> : <div className="grid h-24 place-items-center text-xs text-slate-600">Waiting for planetary positions</div>}</div>
+        </section>
+        <div className="w-full">
+          <section className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            <div className="border-b border-border bg-muted/10 p-4"><h3 className="text-lg font-medium text-foreground">Ashtakavarga · Bhinna Bindus</h3><p className="text-sm text-muted-foreground">Eight contributors across the 12 signs · Sarvashtakavarga total</p></div>
+            <div className="flex-1 overflow-x-auto p-4">{displayData ? <AshtakavargaTable data={displayData} language={language} useSignIcons={viewPreferences.useSignIcons} ascendantSign={displayData.ascendant.sign} /> : <div className="grid h-20 place-items-center text-xs text-slate-600">Waiting for planetary positions</div>}</div>
+          </section>
+        </div>
+        {data && <UpagrahaTable data={data} />}
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400">
+          <span className="inline-flex items-center gap-1.5"><Sparkles className="size-3 text-amber-600 dark:text-amber-300" /> Swiss Ephemeris · Lahiri default · sidereal positions</span>
+          <span className="inline-flex items-center gap-1.5"><Clock3 className="size-3" /> Bhava cusps: Placidus · planetary houses: Whole Sign</span>
+          {data && <span>Calculated {new Date(data.calculatedAt).toLocaleTimeString()}</span>}
+        </div>
+        <MedicalAstrologyVisualizer
+          natalAscendantSign={data?.ascendant.sign ?? null}
+          natalHouseForSign={(sign) => data ? getSignHouse(sign, data.ascendant.sign) : null}
+          birthPlanets={chartMode === "birth" ? data?.planets ?? [] : []}
+          transitPlanets={transitData?.planets ?? []}
+          transitLoading={transitLoading}
+          transitError={transitError}
+        />
       </div>
       {saveDialogOpen && (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm" onMouseDown={(event) => {

@@ -26,6 +26,8 @@ interface KundaliState {
   customAyanamsaDegrees: number;
   language: CelestialLanguage;
   viewPreferences: ViewPreferences;
+  hoveredPlanet: string | null;
+  setHoveredPlanet: (planet: string | null) => void;
   setProfile: (profile: Partial<BirthProfile>) => void;
   setTime: (time: string) => void;
   setLocation: (lat: number, lng: number) => void;
@@ -132,6 +134,8 @@ export const useKundaliStore = create<KundaliState>((set) => ({
     showSignNumbers: true,
     showBhavaCusps: false,
   },
+  hoveredPlanet: null,
+  setHoveredPlanet: (hoveredPlanet) => set({ hoveredPlanet }),
   setProfile: (profile) => set((state) => ({ profile: { ...state.profile, ...profile } })),
   setTime: (time) => set((state) => ({ profile: { ...state.profile, time } })),
   setLocation: (lat, lng) => set((state) => ({ profile: { ...state.profile, lat, lng } })),
