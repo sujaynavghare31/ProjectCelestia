@@ -50,5 +50,17 @@
       "node-gyp": "^12.3.0"
     },
     "tar": "^7.5.22"
+  },
+  "installConfig": {
+    "allowScripts": {
+      "swisseph": true,
+      "prisma": true,
+      "@prisma/engines": true
+    }
+  },
+  "allowScripts": {
+    "swisseph@0.5.17": true,
+    "prisma@7.10.1": true,
+    "@prisma/engines@7.10.1": true
   }
 }
