@@ -41,6 +41,7 @@ model Profile {
   longitude   Float
   timezone    String
   city        String?
+  notes       String   @default("")
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

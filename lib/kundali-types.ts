@@ -88,8 +88,8 @@ export interface EphemerisResponse {
   houseCusps: Array<{ house: number; longitude: number; sign: number; signName: string }>;
   interceptedSigns: number[];
   houseCuspSystem: string;
-  ashtakavarga: Array<{ planet: string; bindus: number[]; total: number }>;
-  sarvashtakavarga: number[];
+  ashtakavarga?: Array<{ planet: string; bindus: number[]; total: number }>;
+  sarvashtakavarga?: number[];
   dashas: DashaPeriod[];
   grahaAvasthas: GrahaAvasthaReport[];
   solarReturn?: {

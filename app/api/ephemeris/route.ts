@@ -3,7 +3,6 @@ import swe from "swisseph";
 import type { EphemerisRequest, DashaPeriod, PlanetPosition } from "@/lib/kundali-types";
 import { calculateBirthGhati } from "@/lib/astrology/ghati-calculator";
 import { calculateGrahaAvasthas } from "@/lib/astrology/graha-avastha-service";
-import { calculateAshtakavarga } from "@/lib/astrology/ashtakavarga";
 import { getInterceptedSigns } from "@/lib/astrology/intercepted-signs";
 import { getPlanetaryDignity } from "@/lib/astrology/planetary-dignity-service";
 import { localDateTimeToUtc } from "@/lib/astrology/timezone";
@@ -271,7 +270,6 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
     ...planet,
     house: ((planet.sign - ascSign + 12) % 12) + 1,
   }));
-  const ashtakavarga = calculateAshtakavarga(chartPlanets, ascendant);
   const moon = planets.find(({ name }) => name === "Moon");
   const sun = planets.find(({ name }) => name === "Sun");
   if (!moon || !sun) throw new Error("Sun and Moon positions are required for the ephemeris calculation.");
@@ -354,8 +352,6 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
     houseCusps,
     interceptedSigns,
     houseCuspSystem: bhavaSystem,
-    ashtakavarga: ashtakavarga.rows,
-    sarvashtakavarga: ashtakavarga.sarvashtakavarga,
     grahaAvasthas,
     dashas: buildDashaTimeline(
       input.dashaSeed === "ascendant" ? ascendantLongitude

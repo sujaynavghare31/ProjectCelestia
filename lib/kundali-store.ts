@@ -13,6 +13,7 @@ export interface BirthProfile {
   lng: number;
   timezone: string;
   city: string;
+  notes: string;
 }
 
 interface KundaliState {
@@ -112,6 +113,7 @@ export const useKundaliStore = create<KundaliState>((set) => ({
     lng: 72.8777,
     timezone: "Asia/Kolkata",
     city: "Mumbai",
+    notes: "",
   },
   chartStyle: "diamond",
   varga: 9,

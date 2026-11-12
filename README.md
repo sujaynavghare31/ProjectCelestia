@@ -1,6 +1,6 @@
 # Project Celestia
 
-Project Celestia is a Royal Cosmos astrology dashboard for exploring Vedic astrology charts, planetary positions, divisional charts, dashas, strengths, yogas, and related analytical systems.
+Project Celestia is a Royal Cosmos astrology dashboard for exploring Vedic astrology charts, planetary positions, dashas, and on-demand analysis.
 
 The application is built with Next.js and React, uses Swiss Ephemeris for astronomical calculations, and provides a responsive light/dark dashboard with interactive charts and tables.
 
@@ -8,17 +8,16 @@ The application is built with Next.js and React, uses Swiss Ephemeris for astron
 
 - Current-transit chart initialization using the current date and load time
 - Birth-chart and transit-chart workflows with Mumbai as the default city
+- Saved chart profiles with persistent life-event notes
 - D1 Rashi, Bhava Chalit, and grouped divisional-chart selection from D2 through D60
-- Panchang and planetary-position summaries
-- Vimshottari Dasha timeline with Mahadasha Lagna visualization
-- Shadbala planetary-strength dashboard with interactive Recharts visualizations
-- Bhavabala house-strength dashboard
-- Kundali Yoga and Dosha indicators
-- Upagraha details, including longitude and nakshatra information
-- Indian Drishti and Western aspect grids
-- Element and modality matrix
-- Ashtakavarga Bhinna Bindus table
-- Interactive D1 and auxiliary-chart highlighting
+- Hybrid Kundali dashboard with D1 and auxiliary charts plus planetary positions in the core view
+- Virtualized Vimshottari Dasha period list
+- Lazy, URL-synchronized tabs for Vimshottari Dasha, Element & Modality, Drishti & Aspects, Ashtakavarga & Strength Analysis, Medical Astrology, and Chart Image / Export
+- Naturally sized core charts and full-height planetary positions, with no internal vertical scroll containers
+- Strength analysis for planetary and house strengths, yogas, and Upagraha details in the Ashtakavarga & Strength Analysis tab
+- Ashtakavarga calculations deferred until the tab is opened and cached for the browser session
+- SVG and PNG chart-image export
+- Interactive D1 chart controls, including birth-time adjustment and planetary highlighting
 - Royal Cosmos semantic theme tokens and light/dark mode
 - Optional Clerk authentication for saved profiles and feedback
 - Prisma/PostgreSQL persistence for users, chart profiles, and feedback
@@ -62,7 +61,7 @@ DATABASE_URL="postgresql://postgres:<URL_ENCODED_PASSWORD>@localhost:5432/postgr
 
 Add the Clerk variables supplied by your Clerk project when authentication is enabled. Do not commit `.env.local` or any credentials.
 
-Generate the Prisma client and apply the schema:
+Generate the Prisma client and apply the schema, including saved-chart notes:
 
 ```bash
 npm run db:generate

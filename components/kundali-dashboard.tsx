@@ -1,12 +1,11 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
   AlertCircle,
   ArrowDownUp,
   Bookmark,
-  Check,
   ChevronDown,
   Clock3,
   Compass,
@@ -25,15 +24,28 @@ import {
   Settings2,
   Save,
   X,
-  Sparkles,
 } from "lucide-react";
 import type { ChartStyle, CelestialLanguage, EphemerisResponse, PlanetPosition, ViewPreferences, ZodiacMode } from "@/lib/kundali-types";
 import { getBirthDateTimeDefaults, useKundaliStore, type BirthProfile } from "@/lib/kundali-store";
+import { limitCoordinatePrecision, parseCoordinateDraft } from "@/lib/coordinate-input";
 import { planetName, signName } from "@/lib/astrology/localization";
-import { MedicalAstrologyVisualizer } from "@/components/medical-astrology-visualizer";
 import { dagdhaRashis } from "@/lib/astrology/dagdha-rashi";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+
+const loadDashaTab = () => import("@/components/dashboard-tabs/dasha-tab");
+const loadElementModalityTab = () => import("@/components/dashboard-tabs/element-modality-tab");
+const loadAspectsTab = () => import("@/components/dashboard-tabs/aspects-tab");
+const loadAshtakavargaTab = () => import("@/components/dashboard-tabs/ashtakavarga-tab");
+const loadStrengthAnalysisTab = () => import("@/components/dashboard-tabs/strength-analysis-tab");
+const loadMedicalTab = () => import("@/components/dashboard-tabs/medical-tab");
+const loadChartExportTab = () => import("@/components/dashboard-tabs/chart-export-tab");
+const DashaTab = lazy(loadDashaTab);
+const ElementModalityTab = lazy(loadElementModalityTab);
+const AspectsTab = lazy(loadAspectsTab);
+const AshtakavargaTab = lazy(loadAshtakavargaTab);
+const StrengthAnalysisTab = lazy(loadStrengthAnalysisTab);
+const MedicalTab = lazy(loadMedicalTab);
+const ChartExportTab = lazy(loadChartExportTab);
 
 const DIVISIONAL_CHARTS = {
   2: { name: "Hora", significance: "Wealth & Sustenance" },
@@ -246,27 +258,23 @@ function PanchangStrip({ date, planets }: { date: string; planets: PlanetPositio
 
 function BirthTimeAdjuster({ onAdjust }: { onAdjust: (seconds: number) => void }) {
   const adjustments = [
-    { seconds: -300, label: "−5 min", style: "border-rose-200 text-rose-700 hover:bg-rose-50 dark:border-rose-900/70 dark:text-rose-300 dark:hover:bg-rose-950/40" },
-    { seconds: -60, label: "−1 min", style: "border-slate-200 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800" },
-    { seconds: 60, label: "+1 min", style: "border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900/70 dark:text-emerald-300 dark:hover:bg-emerald-950/40" },
-    { seconds: 300, label: "+5 min", style: "border-amber-200 text-amber-800 hover:bg-amber-50 dark:border-amber-900/70 dark:text-amber-300 dark:hover:bg-amber-950/40" },
+    { seconds: -300, label: "−5 min", description: "Subtract 5 minutes" },
+    { seconds: -60, label: "−1 min", description: "Subtract 1 minute" },
+    { seconds: 60, label: "+1 min", description: "Add 1 minute" },
+    { seconds: 300, label: "+5 min", description: "Add 5 minutes" },
   ];
 
   return (
-    <fieldset className="col-span-2 flex min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/80 px-2 py-1 dark:border-slate-800 dark:bg-slate-950/40 sm:col-span-3 xl:col-span-1">
-      <legend className="sr-only">Birth time adjustment (BTR)</legend>
-      <div className="flex shrink-0 items-center gap-1.5">
-        <Clock3 className="size-3.5 text-amber-700 dark:text-amber-300" />
-        <span className="text-xs font-semibold text-slate-700 dark:text-slate-200" title="Birth time rectification">BTR</span>
-      </div>
-      <div role="group" aria-label="Adjust birth time" className="flex min-w-0 gap-1">
-        {adjustments.map(({ seconds, label, style }) => (
-          <button key={seconds} type="button" onClick={() => onAdjust(seconds)} className={`h-8 rounded-md border bg-white px-1.5 text-[11px] font-semibold tabular-nums transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 sm:px-2 dark:bg-slate-900 ${style}`} aria-label={`${seconds < 0 ? "Subtract" : "Add"} ${Math.abs(seconds) / 60} minute${Math.abs(seconds) === 60 ? "" : "s"}`}>
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="mr-0.5 text-[11px] font-medium text-muted-foreground" title="Birth time rectification">BTR</span>
+      <div role="group" aria-label="Adjust birth time" className="flex gap-1">
+        {adjustments.map(({ seconds, label, description }) => (
+          <button key={seconds} type="button" onClick={() => onAdjust(seconds)} className="h-7 rounded-md border border-border bg-background px-1.5 text-[10px] font-semibold tabular-nums text-foreground transition hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40" aria-label={description} title={description}>
             {label}
           </button>
         ))}
       </div>
-    </fieldset>
+    </div>
   );
 }
 
@@ -746,646 +754,52 @@ function PlanetTable({
   );
 }
 
-function AspectMatrix({ planets, ascendant, language, useSignIcons }: { planets: PlanetPosition[]; ascendant: PlanetPosition; language: CelestialLanguage; useSignIcons: boolean }) {
-  const targets: Record<string, Record<number, string>> = {
-    Mars: { 3: "4", 6: "7", 7: "8" },
-    Jupiter: { 4: "5", 6: "7", 8: "9" },
-    Saturn: { 2: "3", 6: "7", 9: "10" },
-  };
-  const aspectPlanets = planets.filter(({ name }) => ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"].includes(name));
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[640px] rounded-md border border-border text-center text-xs divide-y divide-border">
-        <thead>
-          <tr className="divide-x divide-border"><th rowSpan={2} className="sticky left-0 bg-transparent px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Planet</th>{Array.from({ length: 12 }, (_, index) => <th key={index} className="bg-transparent px-2 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">H{index + 1}</th>)}</tr>
-          <tr className="divide-x divide-border">{Array.from({ length: 12 }, (_, index) => {
-            const sign = normalizeSign(ascendant.sign + index);
-            return <th key={index} className="bg-transparent px-2 py-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">{useSignIcons ? <SignMark sign={sign} label={signName(SIGNS[sign], language)} enabled /> : language === "en" || language === "initials" ? SHORT_SIGNS[sign] : signName(SIGNS[sign], language)}</th>;
-          })}</tr>
-        </thead>
-        <tbody className="divide-y divide-border bg-card">
-          {aspectPlanets.map((planet) => (
-            <tr key={planet.id} className="divide-x divide-border">
-              <th className="sticky left-0 whitespace-nowrap bg-card px-4 py-3 text-left font-medium text-foreground">{planetName(planet.name, language, planet.symbol)} <span className="text-muted-foreground">H{planet.house}</span></th>
-              {Array.from({ length: 12 }, (_, index) => {
-                const distance = (index + 1 - planet.house + 12) % 12;
-                const marker = targets[planet.name]?.[distance] ?? (distance === 6 ? "7" : "");
-                const special = marker && marker !== "7";
-                return <td key={index} className={`h-7 bg-transparent px-2 py-3 text-right ${marker ? special ? "font-semibold text-cyan-700 dark:text-cyan-400" : "font-semibold text-amber-700 dark:text-[#D4AF37]" : "text-slate-200 dark:text-slate-800"}`}>{marker || "·"}</td>;
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">Classical Parashari aspects · Mars 4/7/8 · Jupiter 5/7/9 · Saturn 3/7/10 · others 7</p>
-    </div>
-  );
-}
-
-function AshtakavargaTable({ data, language, useSignIcons, ascendantSign }: { data: EphemerisResponse; language: CelestialLanguage; useSignIcons: boolean; ascendantSign: number }) {
-  const [selectedSign, setSelectedSign] = useState(ascendantSign);
-  const [selectedPlanet, setSelectedPlanet] = useState("Sarvashtakavarga");
-  const selectedHouse = getSignHouse(selectedSign, ascendantSign);
-  const selectedContributor = data.ashtakavarga.find((row) => row.planet === selectedPlanet);
-  const selectedBindus = selectedContributor?.bindus[selectedSign] ?? data.sarvashtakavarga[selectedSign];
-
-  useEffect(() => setSelectedSign(ascendantSign), [ascendantSign]);
-
-  return (
-    <div>
-      <div className="overflow-x-auto">
-      <table className="w-full min-w-[720px] rounded-md border border-border text-center text-xs divide-y divide-border">
-        <thead className="bg-muted/10 text-muted-foreground">
-          <tr className="divide-x divide-border">
-            <th className="sticky left-0 bg-transparent px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Bindus</th>
-            {Array.from({ length: 12 }, (_, sign) => {
-              const house = getSignHouse(sign, ascendantSign);
-              const label = useSignIcons ? signName(SIGNS[sign], language) : language === "en" || language === "initials" ? SHORT_SIGNS[sign] : signName(SIGNS[sign], language);
-              return (
-                <th key={sign} className={`bg-transparent px-2 py-3 text-xs font-medium uppercase tracking-wider text-muted-foreground ${selectedSign === sign ? "bg-cyan-50 dark:bg-cyan-950/40" : ""}`}>
-                  <button type="button" aria-pressed={selectedSign === sign} aria-label={`${label}, House ${house}`} onClick={() => { setSelectedSign(sign); setSelectedPlanet("Sarvashtakavarga"); }} className="flex min-w-9 flex-col items-center rounded-md px-1 py-1 transition hover:bg-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 dark:hover:bg-cyan-900/50">
-                    <span>{useSignIcons ? <SignMark sign={sign} label={label} enabled /> : label}</span>
-                    <span className="mt-0.5 text-xs font-medium text-slate-600 dark:text-slate-400">House {house}</span>
-                  </button>
-                </th>
-              );
-            })}
-            <th className="bg-transparent px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground">Total</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border bg-card">
-          {data.ashtakavarga.map((row) => (
-            <tr key={row.planet} className="divide-x divide-border text-foreground">
-              <th className="sticky left-0 bg-card px-4 py-3 text-left font-medium">{planetName(row.planet, language)}</th>
-              {row.bindus.map((bindu, sign) => (
-                <td key={sign} className={`bg-transparent px-2 py-3 text-right tabular-nums ${selectedSign === sign ? "bg-blue-100/70 text-blue-950 dark:bg-blue-900/35 dark:text-blue-100" : "text-foreground"}`}>
-                  <button type="button" aria-label={`${planetName(row.planet, language)} bindus in ${signName(SIGNS[sign], language)}, House ${getSignHouse(sign, ascendantSign)}: ${bindu}`} onClick={() => { setSelectedSign(sign); setSelectedPlanet(row.planet); }} className="min-w-7 rounded px-1 py-1 transition hover:bg-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 dark:hover:bg-cyan-900/60">{bindu}</button>
-                </td>
-              ))}
-              <td className="bg-transparent px-4 py-3 text-right font-semibold text-amber-700 dark:text-amber-300">{row.total}</td>
-            </tr>
-          ))}
-          <tr className="divide-x divide-border font-semibold text-foreground">
-            <th className="sticky left-0 bg-card px-4 py-3 text-left">Sarvashtakavarga</th>
-            {data.sarvashtakavarga.map((bindu, sign) => (
-              <td key={sign} className={`bg-transparent px-2 py-3 text-right tabular-nums ${selectedSign === sign ? "bg-cyan-100/70 dark:bg-cyan-900/50" : ""}`}>
-                <button type="button" aria-label={`Sarvashtakavarga bindus in ${signName(SIGNS[sign], language)}, House ${getSignHouse(sign, ascendantSign)}: ${bindu}`} onClick={() => { setSelectedSign(sign); setSelectedPlanet("Sarvashtakavarga"); }} className="min-w-7 rounded px-1 py-1 transition hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 dark:hover:bg-amber-900/40">{bindu}</button>
-              </td>
-            ))}
-            <td className="bg-transparent px-4 py-3 text-right">{data.sarvashtakavarga.reduce((sum, value) => sum + value, 0)}</td>
-          </tr>
-        </tbody>
-      </table>
-      </div>
-      <p aria-live="polite" className="mt-2 text-xs text-slate-600 dark:text-slate-400">
-        {selectedPlanet === "Sarvashtakavarga" ? "Sarvashtakavarga" : planetName(selectedPlanet, language)} · {signName(SIGNS[selectedSign], language)} · House {selectedHouse} · {selectedBindus} bindus
-      </p>
-    </div>
-  );
-}
-
-const WESTERN_ASPECTS = [
-  { name: "Conjunction", angle: 0, orb: 8, symbol: "☌", color: "text-violet-700 dark:text-violet-300" },
-  { name: "Semi-sextile", angle: 30, orb: 2, symbol: "⚺", color: "text-slate-600 dark:text-slate-400" },
-  { name: "Sextile", angle: 60, orb: 5, symbol: "⚹", color: "text-cyan-700 dark:text-cyan-300" },
-  { name: "Square", angle: 90, orb: 6, symbol: "□", color: "text-rose-700 dark:text-rose-300" },
-  { name: "Trine", angle: 120, orb: 6, symbol: "△", color: "text-emerald-700 dark:text-emerald-300" },
-  { name: "Sesquiquadrate", angle: 135, orb: 2.5, symbol: "⚼", color: "text-rose-700 dark:text-rose-300" },
-  { name: "Quincunx", angle: 150, orb: 3, symbol: "⚻", color: "text-amber-700 dark:text-amber-300" },
-  { name: "Opposition", angle: 180, orb: 8, symbol: "☍", color: "text-violet-700 dark:text-violet-300" },
-] as const;
-
-function findWesternAspect(first: PlanetPosition, second: PlanetPosition) {
-  const rawDifference = Math.abs(first.longitude - second.longitude) % 360;
-  const separation = Math.min(rawDifference, 360 - rawDifference);
-  const candidates = WESTERN_ASPECTS
-    .map((aspect) => ({ aspect, orb: Math.abs(separation - aspect.angle) }))
-    .filter(({ aspect, orb }) => orb <= aspect.orb)
-    .sort((a, b) => a.orb - b.orb);
-  return candidates[0] ?? null;
-}
-
-function WesternAspectGrid({
-  planets,
-  language,
-}: {
-  planets: PlanetPosition[];
-  language: CelestialLanguage;
-}) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full rounded-md border border-border text-center text-xs divide-y divide-border">
-        <thead className="bg-muted/10 text-muted-foreground">
-          <tr className="divide-x divide-border">
-            <th className="sticky left-0 bg-transparent px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-muted-foreground">Planet</th>
-            {planets.map((planet) => <th key={planet.id} className="min-w-10 bg-transparent px-3 py-3 text-right text-xs font-medium uppercase tracking-wider text-muted-foreground" title={planet.name}>{planetName(planet.name, language, planet.symbol)}</th>)}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border bg-card">
-          {planets.map((planet, rowIndex) => (
-            <tr key={planet.id} className="divide-x divide-border">
-              <th className="sticky left-0 whitespace-nowrap bg-card px-4 py-3 text-left font-medium text-foreground">{planetName(planet.name, language, planet.symbol)}</th>
-              {planets.map((other, columnIndex) => {
-                if (columnIndex >= rowIndex) return <td key={other.id} className="bg-transparent px-3 py-3 text-right text-slate-300 dark:text-slate-700">·</td>;
-                const match = findWesternAspect(planet, other);
-                return (
-                  <td key={other.id} title={match ? `${planet.name} ${match.aspect.name} ${other.name} · ${match.orb.toFixed(2)}° orb` : undefined} className={`bg-transparent px-3 py-3 text-right font-semibold ${match?.aspect.color ?? "text-slate-300 dark:text-slate-700"}`}>
-                    {match ? <><span className="text-sm">{match.aspect.symbol}</span><span className="block text-xs font-normal">{match.orb.toFixed(1)}°</span></> : "·"}
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">Major and minor aspects · standard maximum orbs 2°–8° · staircase shows each pair once</p>
-    </div>
-  );
-}
-
-const SHADBALA_PLANETS = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"] as const;
-const SHADBALA_MINIMUMS: Record<(typeof SHADBALA_PLANETS)[number], number> = {
-  Sun: 5,
-  Moon: 6,
-  Mars: 5,
-  Mercury: 7,
-  Jupiter: 6.5,
-  Venus: 5.5,
-  Saturn: 5,
-};
-const SHADBALA_NATURAL: Record<(typeof SHADBALA_PLANETS)[number], number> = {
-  Sun: 60,
-  Moon: 51,
-  Mars: 17,
-  Mercury: 26,
-  Jupiter: 34,
-  Venus: 43,
-  Saturn: 9,
-};
-
-type ShadbalaPlanet = {
-  id: (typeof SHADBALA_PLANETS)[number];
-  positional: number;
-  directional: number;
-  temporal: number;
-  motional: number;
-  natural: number;
-  aspectual: number;
-  virupas: number;
-  rupas: number;
-  minimum: number;
-  ratio: number;
-  rank: number;
-  ishta: number;
-  kashta: number;
-};
-
-function calculateShadbala(planets: PlanetPosition[]): ShadbalaPlanet[] {
-  const rows = SHADBALA_PLANETS.map((name) => {
-    const planet = planets.find((candidate) => candidate.name === name);
-    const dignityScore = planet?.dignity === "Exalted" ? 55 : planet?.dignity === "Own sign" ? 45 : planet?.dignity === "Debilitated" ? 18 : 32;
-    const positional = Math.round(dignityScore + (planet?.degree ?? 0) / 6);
-    const directional = Math.round(20 + (Math.abs(6 - (planet?.house ?? 1)) * 4));
-    const temporal = Math.round(24 + (((planet?.longitude ?? 0) % 120) / 120) * 24);
-    const motional = Math.round(18 + Math.min(Math.abs(planet?.speed ?? 0) * 20, 42));
-    const natural = SHADBALA_NATURAL[name];
-    const aspectual = Math.round(18 + ((planet?.declination ?? 0) + 24) / 48 * 24);
-    const virupas = positional + directional + temporal + motional + natural + aspectual;
-    const rupas = virupas / 60;
-    return {
-      id: name,
-      positional,
-      directional,
-      temporal,
-      motional,
-      natural,
-      aspectual,
-      virupas,
-      rupas,
-      minimum: SHADBALA_MINIMUMS[name],
-      ratio: rupas / SHADBALA_MINIMUMS[name],
-      rank: 0,
-      ishta: Math.round(Math.min(60, rupas / SHADBALA_MINIMUMS[name] * 38)),
-      kashta: Math.round(Math.max(0, 60 - rupas / SHADBALA_MINIMUMS[name] * 30)),
-    };
-  });
-  return rows
-    .map((row, index, all) => ({ ...row, rank: 1 + all.filter((candidate) => candidate.rupas > row.rupas).length || index + 1 }))
-    .sort((a, b) => SHADBALA_PLANETS.indexOf(a.id) - SHADBALA_PLANETS.indexOf(b.id));
-}
-
-function ShadbalaTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: ShadbalaPlanet }> }) {
-  if (!active || !payload?.[0]) return null;
-  const row = payload[0].payload;
-  return (
-    <div className="rounded-lg border border-border bg-card px-3 py-2 text-xs text-foreground shadow-lg">
-      <p className="font-semibold">{row.id}</p>
-      <p className="text-muted-foreground">Rank {row.rank} · {row.rupas.toFixed(2)} Rupas</p>
-    </div>
-  );
-}
-
-function ShadbalaModule({ planets }: { planets: PlanetPosition[] }) {
-  const [hoveredPlanet, setHoveredPlanet] = useState<string | null>(null);
-  const rows = calculateShadbala(planets);
-  const chartData = rows.map((row) => ({ ...row, planet: row.id }));
-  const groups = [
-    { label: "Core 6 · Virupas", rows: [
-      ["Positional (Sthana)", "positional"],
-      ["Directional (Dig/Disha)", "directional"],
-      ["Temporal (Kala)", "temporal"],
-      ["Motional (Chesta)", "motional"],
-      ["Natural (Naisargika)", "natural"],
-      ["Aspectual (Drishti)", "aspectual"],
-    ] as const },
-    { label: "Totals", rows: [["Total Virupas (Total Pinda)", "virupas"], ["Total Rupas (Total Pinda / 60)", "rupas"], ["Minimum Required", "minimum"]] as const },
-    { label: "Final Verdict", rows: [["Strength Ratio (Rupas / Min Required)", "ratio"], ["Relative Rank", "rank"], ["Beneficence (Ishta Phala)", "ishta"], ["Maleficence (Kashta Phala)", "kashta"]] as const },
-  ];
-  const cellClass = (planet: string) => hoveredPlanet && hoveredPlanet !== planet ? "opacity-50" : hoveredPlanet === planet ? "bg-muted/30" : "";
-  return (
-    <section className="mt-6 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-      <div className="border-b border-border bg-muted/10 p-4">
-        <h2 className="text-lg font-medium text-foreground">Shadbala · Sixfold planetary strength</h2>
-        <p className="text-sm text-muted-foreground">Total Rupas across the seven primary planets</p>
-      </div>
-      <div className="grid gap-6 p-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-        <div className="min-h-[260px]">
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={chartData} margin={{ top: 12, right: 12, left: -20, bottom: 4 }}>
-              <CartesianGrid vertical={false} stroke="hsl(var(--chart-grid))" />
-              <XAxis dataKey="planet" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} />
-              <ReferenceLine y={6} stroke="hsl(var(--chart-grid))" strokeDasharray="4 4" />
-              <Tooltip content={<ShadbalaTooltip />} cursor={{ fill: "hsl(var(--muted) / 0.3)" }} />
-              <Bar dataKey="rupas" radius={[4, 4, 0, 0]} fill="hsl(var(--champagne-gold))">
-                {chartData.map((entry, index) => <Cell key={entry.id} fill={CHART_PALETTE[index]} fillOpacity={hoveredPlanet && hoveredPlanet !== entry.id ? 0.3 : 1} onMouseEnter={() => setHoveredPlanet(entry.id)} onMouseLeave={() => setHoveredPlanet(null)} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] rounded-md border border-border text-sm divide-y divide-border">
-            <thead className="bg-muted/10 text-muted-foreground">
-              <tr className="divide-x divide-border">
-                <th className="whitespace-nowrap px-4 py-3 text-left font-medium">Parameter / Planet</th>
-                {rows.map((row) => <th key={row.id} onMouseEnter={() => setHoveredPlanet(row.id)} onMouseLeave={() => setHoveredPlanet(null)} className={`whitespace-nowrap px-4 py-3 text-right font-medium transition ${cellClass(row.id)}`}>{row.id}</th>)}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border bg-card">
-              {groups.map((group) => (
-                <Fragment key={group.label}>
-                  <tr><th colSpan={8} className="border-b-2 border-border px-4 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">{group.label}</th></tr>
-                  {group.rows.map(([label, key]) => (
-                    <tr key={key} className={key === "virupas" || key === "kashta" ? "border-b-2 border-border" : ""}>
-                      <th className="whitespace-nowrap px-4 py-3 text-left font-medium text-muted-foreground">{label}</th>
-                      {rows.map((row) => <td key={row.id} onMouseEnter={() => setHoveredPlanet(row.id)} onMouseLeave={() => setHoveredPlanet(null)} className={`px-4 py-3 text-right tabular-nums transition ${cellClass(row.id)}`}>{key === "ratio" ? <span className={`rounded-md px-2 py-1 text-xs ${row.ratio >= 1 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400"}`}>{row.ratio.toFixed(2)}</span> : key === "rupas" ? row[key].toFixed(2) : key === "minimum" ? row[key].toFixed(1) : row[key]}</td>)}
-                    </tr>
-                  ))}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-const HOUSE_LABELS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
-const CHART_PALETTE = Array.from({ length: 12 }, (_, index) => `hsl(var(--chart-${index + 1}))`);
-
-function calculateBhavabala(data: EphemerisResponse) {
-  return HOUSE_LABELS.map((label, index) => {
-    const house = index + 1;
-    const occupants = data.planets.filter((planet) => planet.house === house);
-    const bhavadhipati = 24 + occupants.length * 9 + ((data.ascendant.sign + index) % 4) * 5;
-    const disha = 18 + (house === 1 || house === 4 || house === 7 || house === 10 ? 22 : 8);
-    const drishti = 16 + data.planets.filter((planet) => ((house - planet.house + 12) % 12) === 6).length * 7;
-    const pinda = bhavadhipati + disha + drishti;
-    return { label, house, ranking: 0, bhavadhipati, disha, drishti, pinda, rupas: pinda / 60 };
-  }).map((row, _, all) => ({ ...row, ranking: 1 + all.filter((candidate) => candidate.rupas > row.rupas).length }));
-}
-
-function BhavabalaDashboard({ data }: { data: EphemerisResponse }) {
-  const rows = calculateBhavabala(data);
-  const chartData = rows.map((row) => ({ ...row, rupas: Number(row.rupas.toFixed(2)) }));
-  const fields = [
-    ["Ranking", "ranking"],
-    ["Bhavadhipati (Lord's Strength)", "bhavadhipati"],
-    ["Disha (Directional Strength)", "disha"],
-    ["Drishti (Aspectual Strength)", "drishti"],
-    ["Total Pinda (Virupas)", "pinda"],
-    ["Rupas (Total Pinda / 60)", "rupas"],
-  ] as const;
-  return (
-    <section className="flex h-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-      <div className="border-b border-border bg-muted/10 p-4">
-        <h2 className="text-lg font-medium text-foreground">Bhavabala · House strength</h2>
-        <p className="text-sm text-muted-foreground">Comparative strength of the twelve whole-sign houses</p>
-      </div>
-      <div className="min-h-[280px] p-4">
-        <ResponsiveContainer width="100%" height={280}>
-          <BarChart data={chartData} margin={{ top: 12, right: 12, left: -20, bottom: 4 }}>
-            <CartesianGrid vertical={false} stroke="hsl(var(--chart-grid))" />
-            <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} />
-            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11 }} />
-            <Tooltip formatter={(value) => [`${value} Rupas`, "House strength"]} contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "0.5rem", fontSize: "0.75rem" }} />
-            <Bar dataKey="rupas" radius={[4, 4, 0, 0]}>{chartData.map((row, index) => <Cell key={row.label} fill={CHART_PALETTE[index]} />)}</Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      <div className="flex-1 overflow-x-auto p-4 pt-0">
-        <table className="w-full min-w-[860px] rounded-md border border-border text-sm text-left divide-y divide-border">
-          <thead className="bg-muted/10 text-muted-foreground">
-            <tr className="divide-x divide-border">
-              <th className="whitespace-nowrap px-4 py-3 font-medium">Parameter</th>
-              {rows.map((row) => <th key={row.label} className="whitespace-nowrap px-3 py-3 text-right font-medium">{row.label}</th>)}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border bg-card">
-            {fields.map(([label, key]) => (
-              <tr key={key} className={`divide-x divide-border ${key === "pinda" ? "border-b-2 border-border" : ""}`}>
-                <th className="whitespace-nowrap px-4 py-3 text-left font-medium text-muted-foreground">{label}</th>
-                {rows.map((row) => <td key={row.label} className="px-3 py-3 text-right tabular-nums">{key === "rupas" ? row[key].toFixed(2) : row[key]}</td>)}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
-}
-
-function KundaliYogasTable({ planets }: { planets: PlanetPosition[] }) {
-  const sun = planets.find((planet) => planet.name === "Sun");
-  const moon = planets.find((planet) => planet.name === "Moon");
-  const mercury = planets.find((planet) => planet.name === "Mercury");
-  const mars = planets.find((planet) => planet.name === "Mars");
-  const jupiter = planets.find((planet) => planet.name === "Jupiter");
-  const yogas = [
-    { name: "Gajakesari Yoga", present: Boolean(moon && jupiter && [1, 4, 7, 10].includes((jupiter.house - moon.house + 12) % 12 + 1)), rule: "Jupiter occupies a kendra from the Moon." },
-    { name: "Budhaditya Yoga", present: Boolean(sun && mercury && sun.house === mercury.house), rule: "Sun and Mercury share the same house." },
-    { name: "Mangala Dosha", present: Boolean(mars && [1, 4, 7, 8, 12].includes(mars.house)), rule: "Mars occupies a traditional Manglik house from the ascendant." },
-    { name: "Dhana Yoga", present: Boolean(jupiter && [2, 5, 9, 11].includes(jupiter.house)), rule: "A benefic occupies or influences a wealth-producing house." },
-  ];
-  return (
-    <section className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-      <div className="border-b border-border bg-muted/10 p-4">
-        <h2 className="text-lg font-medium text-foreground">Kundali Yogas</h2>
-        <p className="text-sm text-muted-foreground">Calculated planetary combinations and doshas</p>
-      </div>
-      <div className="grid grid-cols-1 divide-y divide-border border border-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
-        {yogas.length ? yogas.map((yoga) => (
-          <div key={yoga.name} className={`flex items-center gap-2 p-4 ${yoga.present ? "bg-emerald-500/5" : ""}`}>
-            {yoga.present ? <Check className="mt-0.5 size-4 shrink-0 text-emerald-500" /> : <X className="mt-0.5 size-4 shrink-0 text-muted-foreground/50" />}
-            <div className={yoga.present ? "text-foreground" : "text-muted-foreground"}>
-              <p className="flex items-center gap-1 text-sm font-medium">{yoga.name}<span title={yoga.rule}><Info className="size-3.5 text-muted-foreground" /></span></p>
-              <p className="mt-1 text-xs text-muted-foreground">{yoga.present ? "Present in this chart" : "Not formed"}</p>
-            </div>
-          </div>
-        )) : <div className="p-8 text-center text-sm text-muted-foreground sm:col-span-2">No primary yogas formed in this configuration.</div>}
-      </div>
-    </section>
-  );
-}
-
-function UpagrahaTable({ data }: { data: EphemerisResponse }) {
-  const sourcePoints = new Map(data.points.map((point) => [point.name, point]));
-  const names = ["Gulika", "Mandi", "Kala", "Mrityu", "Ardha Prahara", "Yama Ghantaka", "Dhuma", "Vyatipata", "Parivesha", "Indra Chapa", "Upaketu"];
-  const rows = names.map((name, index) => {
-    const source = sourcePoints.get(name);
-    const fallbackLongitude = normalizeDegrees(data.ascendant.longitude + index * 32.7272727);
-    const longitude = source?.longitude ?? fallbackLongitude;
-    const sign = Math.floor(longitude / 30);
-    const degree = longitude % 30;
-    const nakshatra = Math.floor(longitude / (360 / 27)) + 1;
-    return { name, longitude, degree, signName: SIGNS[sign], nakshatra: `${source?.nakshatraName ?? `Nakshatra ${nakshatra}`} ${source?.pada ?? (Math.floor((longitude % (360 / 27)) / (360 / 108)) + 1)}`, lord: source?.nakshatraLord ?? "Calculated" };
-  });
-  return (
-    <section className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-      <div className="border-b border-border bg-muted/10 p-4">
-        <h2 className="text-lg font-medium text-foreground">Upagraha details</h2>
-        <p className="text-sm text-muted-foreground">Sub-planets and sensitive calculated points</p>
-      </div>
-      <div className="overflow-x-auto p-4">
-        <table className="w-full min-w-[620px] rounded-md border border-border text-sm text-left divide-y divide-border">
-          <thead className="bg-muted/10 text-muted-foreground">
-            <tr className="divide-x divide-border">
-              {["Upagraha", "Longitude", "Nakshatra / Swami", "Raw Longitude"].map((heading) => <th key={heading} className="whitespace-nowrap px-4 py-3 font-medium">{heading}</th>)}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border bg-card">
-            {rows.map((row) => <tr key={row.name} className="divide-x divide-border"><th className="whitespace-nowrap px-4 py-3 font-medium text-foreground">{row.name}</th><td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{degreeToDms(row.degree)}</td><td className="whitespace-nowrap px-4 py-3">{row.nakshatra}, {row.lord}</td><td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">{row.longitude.toFixed(6)}° · {row.signName}</td></tr>)}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
-}
-
-function AdvancedAstrologyModule({ data }: { data: EphemerisResponse }) {
-  return (
-    <div className="mt-6 grid w-full grid-cols-1 gap-6 lg:grid-cols-2">
-      <BhavabalaDashboard data={data} />
-      <div className="flex flex-col gap-6">
-        <KundaliYogasTable planets={data.planets} />
-        <UpagrahaTable data={data} />
-      </div>
-    </div>
-  );
-}
-
-const ELEMENT_ROWS = [
-  { name: "Fire", translation: "अग्नि", signs: [0, 4, 8], className: "text-[hsl(var(--retrograde-crimson))]" },
-  { name: "Earth", translation: "पृथ्वी", signs: [1, 5, 9], className: "text-emerald-600 dark:text-emerald-400" },
-  { name: "Air", translation: "वायु", signs: [2, 6, 10], className: "text-blue-600 dark:text-blue-400" },
-  { name: "Water", translation: "जल", signs: [3, 7, 11], className: "text-cyan-600 dark:text-cyan-400" },
-] as const;
-
-const MODALITY_COLUMNS = [
-  { name: "Cardinal", translation: "चर", signs: [0, 3, 6, 9] },
-  { name: "Fixed", translation: "स्थिर", signs: [1, 4, 7, 10] },
-  { name: "Mutable", translation: "द्विस्वभाव", signs: [2, 5, 8, 11] },
-] as const;
-
-function ElementalMatrix({
-  planets,
-  language,
-}: {
-  planets: PlanetPosition[];
-  language: CelestialLanguage;
-}) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[560px] rounded-md border border-border text-left text-sm divide-y divide-border">
-        <thead className="bg-muted/10 font-medium text-muted-foreground">
-          <tr className="divide-x divide-border">
-            <th className="px-4 py-3">Element (तत्व)</th>
-            {MODALITY_COLUMNS.map((modality) => <th key={modality.name} className="px-4 py-3">{modality.name} ({modality.translation})</th>)}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border bg-card">
-          {ELEMENT_ROWS.map((element) => (
-            <tr key={element.name} className="divide-x divide-border">
-              <th className={`whitespace-nowrap px-4 py-3 text-left font-medium ${element.className}`}>{element.name} ({element.translation})</th>
-              {MODALITY_COLUMNS.map((modality) => {
-                const occupants = planets.filter((planet) => element.signs.some((sign) => sign === planet.sign) && modality.signs.some((sign) => sign === planet.sign));
-                return (
-                  <td key={modality.name} className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {occupants.length ? occupants.map((planet) => <span key={planet.id} title={`${planet.name} · ${signName(planet.signName, language)}`} className="rounded-md bg-muted px-2 py-1 text-xs text-foreground">{planetName(planet.name, language, planet.symbol)}</span>) : <span className="text-muted-foreground">—</span>}
-                    </div>
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function formatDashaDate(value: string) {
-  return new Date(value).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
-}
-
-function dashaProgress(period: EphemerisResponse["dashas"][number], now: number) {
-  const start = new Date(period.start).getTime();
-  const end = new Date(period.end).getTime();
-  return end > start ? Math.max(0, Math.min(100, ((now - start) / (end - start)) * 100)) : 0;
-}
-
-const DASHA_LEVELS = ["Maha", "Antar", "Pratyantar", "Sukshma", "Pran"];
-
-function findDasha(periods: EphemerisResponse["dashas"], preferredStart: string, activeFallback = true) {
-  return periods.find((period) => period.start === preferredStart) ??
-    (activeFallback ? periods.find((period) => period.active) : undefined) ??
-    periods[0];
-}
-
-function DashaLane({
-  label,
-  periods,
-  selectedStart,
-  onSelect,
-  color,
-}: {
-  label: string;
-  periods: EphemerisResponse["dashas"];
-  selectedStart: string;
-  onSelect: (period: EphemerisResponse["dashas"][number]) => void;
-  color: "blue" | "purple" | "amber" | "emerald" | "rose";
-}) {
-  if (!periods.length) return null;
-  const totalDuration = periods.reduce((sum, period) => sum + Math.max(0, new Date(period.end).getTime() - new Date(period.start).getTime()), 0);
-  const segmentColors = {
-    blue: "border-blue-300 bg-blue-100 text-blue-950 dark:border-blue-800 dark:bg-blue-900/50 dark:text-blue-100",
-    purple: "border-purple-300 bg-purple-100 text-purple-950 dark:border-purple-800 dark:bg-purple-900/50 dark:text-purple-100",
-    amber: "border-amber-300 bg-amber-100 text-amber-950 dark:border-amber-800 dark:bg-amber-900/50 dark:text-amber-100",
-    emerald: "border-emerald-300 bg-emerald-100 text-emerald-950 dark:border-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-100",
-    rose: "border-rose-300 bg-rose-100 text-rose-950 dark:border-rose-800 dark:bg-rose-900/50 dark:text-rose-100",
-  };
-  const selectedColor = {
-    blue: "border-blue-600 bg-blue-600 text-white dark:border-blue-500 dark:bg-blue-500",
-    purple: "border-purple-600 bg-purple-600 text-white dark:border-purple-500 dark:bg-purple-500",
-    amber: "border-amber-600 bg-amber-600 text-white dark:border-amber-500 dark:bg-amber-500",
-    emerald: "border-emerald-600 bg-emerald-600 text-white dark:border-emerald-500 dark:bg-emerald-500",
-    rose: "border-rose-600 bg-rose-600 text-white dark:border-rose-500 dark:bg-rose-500",
-  };
-  return (
-    <div className="grid grid-cols-[78px_minmax(0,1fr)] items-center gap-2">
-      <div className="min-w-0"><p className="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{label}</p><p className="truncate text-xs text-slate-600">{formatDashaDate(periods[0].start)}–{formatDashaDate(periods[periods.length - 1].end)}</p></div>
-      <div className="flex min-w-0 overflow-x-auto rounded-md bg-slate-200/80 dark:bg-slate-800">
-        {periods.map((period) => {
-          const duration = Math.max(0, new Date(period.end).getTime() - new Date(period.start).getTime());
-          const selected = selectedStart === period.start;
-          const elapsed = period.active ? dashaProgress(period, Date.now()) : 0;
-          const tooltipId = `dasha-${period.lord}-${period.start}`;
-          return (
-            <div key={`${period.lord}-${period.start}`} className="group/segment relative min-w-[42px] flex-1" style={{ flexBasis: totalDuration ? `${duration / totalDuration * 100}%` : `${100 / periods.length}%`, flexGrow: 0 }}>
-              <button type="button" aria-describedby={tooltipId} aria-pressed={selected} title={`${period.lord} ${label} · ${formatDashaDate(period.start)} – ${formatDashaDate(period.end)}${period.active ? ` · NOW ${Math.round(elapsed)}%` : ""}`} onClick={() => onSelect(period)} className={`relative h-7 w-full overflow-hidden border-r px-1 text-xs font-semibold transition-colors ${selected ? selectedColor[color] : segmentColors[color]}`}>
-                {period.active && <span className="absolute inset-y-0 left-0 bg-white/25" style={{ width: `${elapsed}%` }} />}
-                <span className="relative">{period.lord}{period.active ? " · NOW" : ""}</span>
-              </button>
-              <span id={tooltipId} role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 hidden w-max max-w-56 -translate-x-1/2 rounded-lg border border-slate-300 bg-slate-950 px-2.5 py-2 text-left text-[11px] leading-4 text-white shadow-xl group-hover/segment:block group-focus-within/segment:block">
-                <span className="block font-semibold">{period.lord} {label}</span>
-                <span className="block text-slate-300">Start: {formatDashaDate(period.start)}</span>
-                <span className="block text-slate-300">End: {formatDashaDate(period.end)}</span>
-              </span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function DashaTableRows({ period, depth }: { period: EphemerisResponse["dashas"][number]; depth: number }) {
-  const [expanded, setExpanded] = useState(period.active);
-  const nestedPeriods = period.periods ?? [];
-  return (
-    <>
-      <tr className={period.active ? "bg-cyan-50/80 dark:bg-cyan-950/25" : "hover:bg-slate-50 dark:hover:bg-slate-800/30"}>
-        <td className="whitespace-nowrap px-2 py-2 font-medium" style={{ paddingLeft: `${8 + depth * 18}px` }}>
-          <button type="button" disabled={!nestedPeriods.length} onClick={() => setExpanded((open) => !open)} className="inline-flex items-center gap-1.5 disabled:cursor-default">
-            {nestedPeriods.length ? <ChevronDown className={`size-3 text-slate-600 transition ${expanded ? "" : "-rotate-90"}`} /> : <span className="w-3" />}
-            <span>{DASHA_LEVELS[depth] ?? "Period"}</span>
-          </button>
-        </td>
-        <td className="px-2 py-2 font-semibold">{period.lord}</td>
-        <td className="whitespace-nowrap px-2 py-2 text-slate-600">{formatDashaDate(period.start)}</td>
-        <td className="whitespace-nowrap px-2 py-2 text-slate-600">{formatDashaDate(period.end)}</td>
-        <td className="px-2 py-2">{period.active ? <span className="rounded bg-cyan-100 px-1.5 py-0.5 text-xs font-bold text-cyan-900 dark:bg-cyan-400/10 dark:text-cyan-200">NOW · {Math.round(dashaProgress(period, Date.now()))}%</span> : <span className="text-slate-400">—</span>}</td>
-      </tr>
-      {expanded && nestedPeriods.map((nested) => <DashaTableRows key={`${nested.lord}-${nested.start}`} period={nested} depth={depth + 1} />)}
-    </>
-  );
-}
-
-function DashaTimeline({ data, onMajorSelect }: { data: EphemerisResponse; onMajorSelect?: (period: EphemerisResponse["dashas"][number]) => void }) {
-  const [majorStart, setMajorStart] = useState("");
-  const [antarStart, setAntarStart] = useState("");
-  const [pratyantarStart, setPratyantarStart] = useState("");
-  const [sookshmaStart, setSookshmaStart] = useState("");
-  const currentMajor = findDasha(data.dashas, majorStart);
-  const currentAntar = currentMajor ? findDasha(currentMajor.periods ?? [], antarStart) : undefined;
-  const currentPratyantar = currentAntar ? findDasha(currentAntar.periods ?? [], pratyantarStart) : undefined;
-  const currentSookshma = currentPratyantar ? findDasha(currentPratyantar.periods ?? [], sookshmaStart) : undefined;
-  const timeline = data.dashas.filter((period) => period.start && new Date(period.end).getTime() > new Date(data.dashas[0]?.start ?? 0).getTime());
-  useEffect(() => {
-    const activeMajor = data.dashas.find((period) => period.active);
-    const activeAntar = activeMajor?.periods?.find((period) => period.active);
-    const activePratyantar = activeAntar?.periods?.find((period) => period.active);
-    const activeSookshma = activePratyantar?.periods?.find((period) => period.active);
-    setMajorStart(activeMajor?.start ?? "");
-    setAntarStart(activeAntar?.start ?? "");
-    setPratyantarStart(activePratyantar?.start ?? "");
-    setSookshmaStart(activeSookshma?.start ?? "");
-  }, [data.dashas]);
-  return (
-    <div className="space-y-3">
-      <div className="rounded-xl border border-cyan-200 bg-cyan-50/70 p-3 dark:border-cyan-900/60 dark:bg-cyan-950/25">
-        <div className="mb-2 flex items-center justify-between gap-2"><div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-800 dark:text-cyan-300">Interactive Vimshottari timeline</p><p className="mt-0.5 text-xs text-slate-600">Select any segment to inspect the next level · elapsed progress is shaded</p></div><span className="shrink-0 rounded-full bg-cyan-100 px-2 py-1 text-xs font-semibold text-cyan-900 dark:bg-cyan-400/10 dark:text-cyan-200">NOW · {currentMajor?.lord ?? "—"}</span></div>
-        <div className="space-y-2.5">
-          <DashaLane label="Maha Dasha" periods={timeline} selectedStart={currentMajor?.start ?? ""} onSelect={(period) => { setMajorStart(period.start); setAntarStart(""); setPratyantarStart(""); setSookshmaStart(""); onMajorSelect?.(period); }} color="blue" />
-          {currentMajor && <DashaLane label={`${currentMajor.lord} Antar`} periods={currentMajor.periods ?? []} selectedStart={currentAntar?.start ?? ""} onSelect={(period) => { setAntarStart(period.start); setPratyantarStart(""); setSookshmaStart(""); }} color="purple" />}
-          {currentAntar && <DashaLane label={`${currentAntar.lord} Pratyantar`} periods={currentAntar.periods ?? []} selectedStart={currentPratyantar?.start ?? ""} onSelect={(period) => { setPratyantarStart(period.start); setSookshmaStart(""); }} color="amber" />}
-          {currentPratyantar && <DashaLane label={`${currentPratyantar.lord} Sookshma`} periods={currentPratyantar.periods ?? []} selectedStart={currentSookshma?.start ?? ""} onSelect={(period) => setSookshmaStart(period.start)} color="emerald" />}
-        </div>
-      </div>
-      <div className="max-h-[360px] overflow-auto rounded-lg border border-slate-200 dark:border-slate-800">
-        <table className="w-full min-w-[540px] border-collapse text-left text-xs">
-          <thead className="sticky top-0 z-10 bg-slate-100 text-xs uppercase tracking-wider text-slate-600 dark:bg-slate-900"><tr>{["Level", "Lord", "Start", "End", "Status"].map((heading) => <th key={heading} className="px-2 py-2 font-medium">{heading}</th>)}</tr></thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">{timeline.map((maha) => <DashaTableRows key={`${maha.lord}-${maha.start}`} period={maha} depth={0} />)}</tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 type AuxiliaryType = "divisional" | "transit" | "solar" | "tajika" | "progressions";
 type DashaSystem = "vimshottari" | "chara" | "ashtottari" | "yogini";
+type DashboardTab = "core" | "dasha" | "element-modality" | "aspects" | "ashtakavarga" | "medical" | "export";
+
+// All existing astrology views remain available; strength modules are now grouped with Ashtakavarga.
+const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
+  { id: "core", label: "Core Dashboard" },
+  { id: "dasha", label: "Vimshottari Dasha" },
+  { id: "element-modality", label: "Element & Modality" },
+  { id: "aspects", label: "Drishti & Aspects" },
+  { id: "ashtakavarga", label: "Ashtakavarga & Strength" },
+  { id: "medical", label: "Medical Astrology" },
+  { id: "export", label: "Chart Image / Export" },
+];
+
+function dashboardTabFromLocation(): DashboardTab {
+  const value = new URLSearchParams(window.location.search).get("tab");
+  return DASHBOARD_TABS.some(({ id }) => id === value) ? value as DashboardTab : "core";
+}
+
+function preloadDashboardTab(tab: DashboardTab) {
+  const loaders = {
+    dasha: loadDashaTab,
+    "element-modality": loadElementModalityTab,
+    aspects: loadAspectsTab,
+    ashtakavarga: () => Promise.all([loadAshtakavargaTab(), loadStrengthAnalysisTab()]),
+    medical: loadMedicalTab,
+    export: loadChartExportTab,
+  };
+  if (tab === "core") return;
+  void loaders[tab]().catch((error: unknown) => {
+    console.error(`[kundali] Unable to preload ${tab} tab`, error);
+  });
+}
+
+function SecondaryTabSkeleton() {
+  return (
+    <div aria-label="Loading analysis" aria-busy="true" className="space-y-4">
+      <div className="h-16 animate-pulse rounded-xl border border-border bg-card" />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="h-72 animate-pulse rounded-xl border border-border bg-card" />
+        <div className="h-72 animate-pulse rounded-xl border border-border bg-card" />
+      </div>
+    </div>
+  );
+}
 
 interface GeocodeResult {
   label: string;
@@ -1408,6 +822,7 @@ interface SavedChartRecord {
   longitude: number;
   timezone: string;
   city: string | null;
+  notes: string;
 }
 
 export function KundaliDashboard() {
@@ -1436,6 +851,7 @@ export function KundaliDashboard() {
   const setViewPreference = useKundaliStore((state) => state.setViewPreference);
   const adjustTime = useKundaliStore((state) => state.adjustTime);
   const [data, setData] = useState<EphemerisResponse | null>(null);
+  const [dashboardTab, setDashboardTab] = useState<DashboardTab>("core");
   const [submittedProfile, setSubmittedProfile] = useState<BirthProfile | null>(null);
   const [transitData, setTransitData] = useState<EphemerisResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1455,7 +871,6 @@ export function KundaliDashboard() {
   const [bhriguProgressions, setBhriguProgressions] = useState(false);
   const [dashaSystem, setDashaSystem] = useState<DashaSystem>("vimshottari");
   const [dashaSeed, setDashaSeed] = useState<"moon" | "ascendant" | "sun">("moon");
-  const [selectedMahaDashaStart, setSelectedMahaDashaStart] = useState("");
   const [savedProfiles, setSavedProfiles] = useState<SavedChartRecord[]>([]);
   const [savedProfileId, setSavedProfileId] = useState("");
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -1465,11 +880,23 @@ export function KundaliDashboard() {
   const [authRequired, setAuthRequired] = useState(false);
   const [chartMode, setChartMode] = useState<"transit" | "birth">("transit");
   const [locationSearch, setLocationSearch] = useState(profile.city);
+  const [useCoordinates, setUseCoordinates] = useState(false);
+  const [latitudeDraft, setLatitudeDraft] = useState(profile.lat.toFixed(2));
+  const [longitudeDraft, setLongitudeDraft] = useState(profile.lng.toFixed(2));
+  const [notesOpen, setNotesOpen] = useState(false);
   const [locationResults, setLocationResults] = useState<GeocodeResult[]>([]);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [coordinateTimezoneError, setCoordinateTimezoneError] = useState<string | null>(null);
   const initialProfileSubmitted = useRef(false);
+  const geolocationRequested = useRef(false);
+
+  useEffect(() => {
+    const syncTab = () => setDashboardTab(dashboardTabFromLocation());
+    syncTab();
+    window.addEventListener("popstate", syncTab);
+    return () => window.removeEventListener("popstate", syncTab);
+  }, []);
 
   useEffect(() => {
     const defaults = getBirthDateTimeDefaults(profile);
@@ -1491,11 +918,47 @@ export function KundaliDashboard() {
   }, [profile.date, profile.time, profile.lat, profile.lng, profile.timezone, profile.name, profile.sex, setProfile]);
 
   useEffect(() => {
+    if (chartMode !== "transit" || profile.name !== "Current transit" || geolocationRequested.current) return;
+    let active = true;
+    const timeout = window.setTimeout(() => {
+      if (!navigator.geolocation) return;
+      geolocationRequested.current = true;
+      navigator.geolocation.getCurrentPosition((position) => {
+        const { latitude, longitude } = position.coords;
+        void fetch(`/api/geocode?lat=${latitude}&lng=${longitude}&reverse=true`)
+          .then(async (response) => {
+            const result = await response.json() as { timezone?: string; city?: string; error?: string };
+            if (!response.ok || !result.timezone || !result.city) {
+              throw new Error(result.error ?? `Current location lookup failed (${response.status}).`);
+            }
+            if (!active || useKundaliStore.getState().profile.name !== "Current transit") return;
+            setProfile({ lat: latitude, lng: longitude, timezone: result.timezone, city: result.city });
+            setLatitudeDraft(latitude.toFixed(2));
+            setLongitudeDraft(longitude.toFixed(2));
+            setLocationSearch(result.city);
+          })
+          .catch((requestError: unknown) => {
+            if (active) console.error("[kundali] Unable to identify the current city", requestError);
+          });
+      }, (error) => {
+        if (error.code !== error.PERMISSION_DENIED && active) {
+          console.warn("[kundali] Current location is unavailable", error.message);
+        }
+      }, { maximumAge: 600_000, timeout: 8_000 });
+    }, 0);
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [chartMode, profile.name, setProfile]);
+
+  useEffect(() => {
     if (!authLoaded) return;
-    const abortController = new AbortController();
-    void fetch("/api/profiles", { signal: abortController.signal })
+    let active = true;
+    void fetch("/api/profiles")
       .then(async (response) => {
         const result = await response.json() as { profiles?: SavedChartRecord[]; error?: string };
+        if (!active) return;
         if (response.status === 401) {
           setAuthRequired(true);
           return;
@@ -1506,11 +969,13 @@ export function KundaliDashboard() {
         setSavedProfiles(result.profiles);
       })
       .catch((requestError: unknown) => {
-        if (requestError instanceof Error && requestError.name === "AbortError") return;
+        if (!active) return;
         console.error("[kundali] Unable to load saved charts", requestError);
         setSaveError(requestError instanceof Error ? requestError.message : "Unable to load saved charts.");
       });
-    return () => abortController.abort();
+    return () => {
+      active = false;
+    };
   }, [authLoaded, isSignedIn]);
 
   useEffect(() => {
@@ -1676,7 +1141,7 @@ export function KundaliDashboard() {
   };
   const submitBirthChart = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!profile.date || !profile.time || !Number.isFinite(profile.lat) || !Number.isFinite(profile.lng) || !profile.timezone) {
+    if (!profile.date || !profile.time || !Number.isFinite(profile.lat) || !Number.isFinite(profile.lng) || profile.lat < -90 || profile.lat > 90 || profile.lng < -180 || profile.lng > 180 || !profile.timezone) {
       setError("Enter a valid birth date, time, and city before submitting.");
       return;
     }
@@ -1701,6 +1166,7 @@ export function KundaliDashboard() {
           lng: profile.lng,
           timezone: profile.timezone,
           city: profile.city,
+          notes: profile.notes,
         }),
       });
       const result = await response.json() as { profile?: SavedChartRecord; error?: string };
@@ -1732,6 +1198,7 @@ export function KundaliDashboard() {
         lng: selected.longitude,
         timezone: selected.timezone,
         city: selected.city ?? "",
+        notes: selected.notes ?? "",
       });
       setSubmittedProfile({
         id: selected.id,
@@ -1743,7 +1210,12 @@ export function KundaliDashboard() {
         lng: selected.longitude,
         timezone: selected.timezone,
         city: selected.city ?? "",
+        notes: selected.notes ?? "",
       });
+      setLatitudeDraft(selected.latitude.toFixed(2));
+      setLongitudeDraft(selected.longitude.toFixed(2));
+      setUseCoordinates(false);
+      setNotesOpen(Boolean(selected.notes?.trim()));
     }
   };
   const chooseLocation = (location: GeocodeResult) => {
@@ -1753,9 +1225,24 @@ export function KundaliDashboard() {
       lng: location.longitude,
       timezone: location.timezone,
     });
+    setLatitudeDraft(location.latitude.toFixed(2));
+    setLongitudeDraft(location.longitude.toFixed(2));
+    setUseCoordinates(false);
     setLocationSearch(location.city);
     setLocationResults([]);
     setLocationError(null);
+  };
+  const adjustBirthTime = (seconds: number) => {
+    adjustTime(seconds);
+    const adjustedProfile = useKundaliStore.getState().profile;
+    setSubmittedProfile((current) => current ? { ...current, date: adjustedProfile.date, time: adjustedProfile.time } : current);
+  };
+  const selectDashboardTab = (nextTab: DashboardTab) => {
+    setDashboardTab(nextTab);
+    const url = new URL(window.location.href);
+    if (nextTab === "core") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", nextTab);
+    window.history.pushState(null, "", `${url.pathname}${url.search}${url.hash}`);
   };
 
   const displayData = chartMode === "transit" ? transitData : data;
@@ -1777,85 +1264,114 @@ export function KundaliDashboard() {
   const auxiliaryCusps = auxiliaryType === "solar" || auxiliaryType === "tajika" ? [] : auxiliaryType === "transit" ? transitData?.houseCusps : displayData?.houseCusps;
   const selectedAuxiliaryChart = AUXILIARY_CHARTS.find((chart) => chart.id === auxiliaryChartId) ?? AUXILIARY_CHARTS[0];
   const auxiliaryVarga = auxiliaryType === "divisional" ? auxiliaryChartId === "BHAVA" ? 1 : Number(auxiliaryChartId.slice(1)) : 1;
+  const solarReturnUtc = data?.solarReturn?.utc;
   const currentTransitLabel = transitData ? new Date(transitData.calculatedAt).toLocaleTimeString() : "—";
-  const activeMahaDasha = (selectedMahaDashaStart ? data?.dashas.find((period) => period.start === selectedMahaDashaStart) : undefined)
-    ?? data?.dashas.find((period) => period.active)
-    ?? data?.dashas[0];
-  const activeDashaLord = activeMahaDasha ? data?.planets.find((planet) => planet.name === activeMahaDasha.lord) : undefined;
-  const dashaAscendant = data && activeDashaLord
-    ? { ...data.ascendant, sign: activeDashaLord.sign, signName: activeDashaLord.signName, house: 1 }
-    : undefined;
-
   return (
     <div id="kundali-dashboard" className="relative min-w-0 space-y-4 bg-background text-foreground">
       <div className="mx-auto max-w-[1750px] space-y-4">
-        <section aria-label="Birth chart controls" className="rounded-xl border border-border bg-card p-3 text-card-foreground shadow-sm">
+        <section aria-label="Birth chart controls" className="shrink-0 rounded-xl border border-border bg-card p-3 text-card-foreground shadow-sm">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <div id="saved-charts" className="flex items-center gap-2 scroll-mt-4">
               <span className="grid size-7 place-items-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300"><Orbit className="size-4" /></span>
-              <div><p className="text-xs font-semibold">Chart profile</p><p className="text-xs text-slate-600 dark:text-slate-400">Current transit loads automatically · Submit to view a birth chart</p></div>
+              <p className="text-xs font-semibold">Chart profile</p>
             </div>
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={saveChart} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 text-xs font-medium transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 dark:border-slate-700 dark:hover:border-amber-800 dark:hover:bg-amber-950/30 dark:hover:text-amber-200"><Save className="size-3.5" /> Save chart</button>
-              <select aria-label="Saved charts" value={savedProfileId} onChange={(event) => setSavedProfileId(event.target.value)} className={`${CONTROL_CLASS} h-8 max-w-44 text-xs`}>
+            <div className="flex flex-nowrap items-center gap-1.5">
+              <button type="button" onClick={saveChart} className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 px-2.5 text-xs font-medium transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 dark:border-slate-700 dark:hover:border-amber-800 dark:hover:bg-amber-950/30 dark:hover:text-amber-200"><Save className="size-3.5" /> Save chart</button>
+              <select aria-label="Saved charts" value={savedProfileId} onChange={(event) => setSavedProfileId(event.target.value)} className={`${CONTROL_CLASS} h-8 max-w-32 text-xs`}>
                 <option value="">Saved charts ({savedProfiles.length})</option>
                 {savedProfiles.map((saved) => <option key={saved.id} value={saved.id}>{saved.chartName ?? saved.fullName} · {saved.dateOfBirth.slice(0, 10)}</option>)}
               </select>
-              <button type="button" onClick={openSavedChart} disabled={!savedProfileId} aria-label="Open Saved Chart" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"><Bookmark className="size-3.5" /> Open</button>
+              <button type="button" onClick={openSavedChart} disabled={!savedProfileId} aria-label="Open Saved Chart" className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 px-2.5 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"><Bookmark className="size-3.5" /> Open</button>
             </div>
           </div>
-          {authRequired && <p className="mb-2 text-xs text-slate-600">Sign in to save or open charts across sessions.</p>}
-          <form onSubmit={submitBirthChart} className="col-span-full">
-          <div className="grid grid-cols-2 items-end gap-2 sm:grid-cols-3 xl:grid-cols-[minmax(132px,0.9fr)_minmax(132px,0.9fr)_minmax(210px,1.5fr)_minmax(112px,0.75fr)_minmax(112px,0.75fr)_minmax(288px,1.8fr)]">
-            <label className="min-w-0 text-xs font-medium text-slate-600 dark:text-slate-400">Chart name
-              <input aria-label="Chart name" type="text" value={profile.name || "Current transit"} onChange={(event) => setProfile({ name: event.target.value })} className={`${CONTROL_CLASS} mt-1 h-9 w-full px-2 text-xs`} />
-            </label>
-            <label className="min-w-0 text-xs font-medium text-slate-600 dark:text-slate-400">Sex
-              <select aria-label="Sex" value={profile.sex} onChange={(event) => setProfile({ sex: event.target.value as BirthProfile["sex"] })} className={`${CONTROL_CLASS} mt-1 h-9 w-full px-2 text-xs`}>
-                <option value="not-applicable">Not applicable</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-              </select>
-            </label>
-            <label className="min-w-0 text-xs font-medium text-slate-600 dark:text-slate-400">Birth date
-              <input aria-label="Birth date" type="date" value={profile.date} onChange={(event) => setProfile({ date: event.target.value })} className={`${CONTROL_CLASS} mt-1 h-9 w-full px-2 text-xs`} />
-            </label>
-            <label className="min-w-0 text-xs font-medium text-slate-600 dark:text-slate-400">Birth time
-              <input aria-label="Time of birth" type="time" step={1} value={profile.time} onChange={(event) => {
-                const time = event.target.value;
-                if (time) setProfile({ time: time.length === 5 ? `${time}:00` : time });
-              }} className={`${CONTROL_CLASS} mt-1 h-9 w-full px-2 font-mono text-xs`} />
-            </label>
-            <div className="relative min-w-0 text-xs font-medium text-slate-600 dark:text-slate-400">
-              <label htmlFor="birth-city-search">Birth city</label>
-              <span className="relative mt-1 block">
-                <MapPin className="pointer-events-none absolute left-2 top-2 size-3.5 text-slate-400" />
-                <input id="birth-city-search" aria-label="Birth city; search anywhere" type="search" value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="Search city or place…" autoComplete="off" aria-autocomplete="list" aria-expanded={locationResults.length > 0} className={`${CONTROL_CLASS} h-9 w-full px-2 pl-7 text-xs`} />
-                {locationLoading && <Search className="absolute right-2 top-2 size-3.5 animate-pulse text-cyan-600" />}
-              </span>
-              {locationError && <p role="status" className="absolute z-10 mt-1 rounded bg-white px-1 text-xs text-rose-700 dark:bg-slate-900 dark:text-rose-300">{locationError}</p>}
-              {locationResults.length > 0 && (
-                <ul role="listbox" aria-label="Location search results" className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
-                  {locationResults.map((location) => <li key={`${location.label}-${location.latitude}-${location.longitude}`} role="option" aria-selected={false}><button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => chooseLocation(location)} className="w-full rounded-lg px-2.5 py-2 text-left transition hover:bg-slate-100 dark:hover:bg-slate-800"><span className="block truncate text-xs font-medium text-slate-800 dark:text-slate-100">{location.city}</span><span className="mt-0.5 block truncate text-xs text-slate-600">{location.label} · {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)} · {location.timezone}</span></button></li>)}
-                </ul>
-              )}
+          <form onSubmit={submitBirthChart} className="space-y-2">
+            <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-4">
+              <label className="min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300">
+                <span className="flex items-center justify-between gap-1">
+                  <span>Chart name</span>
+                  <button type="button" aria-label={notesOpen ? "Close chart notes" : "Add chart notes"} aria-expanded={notesOpen} aria-controls="chart-notes-panel" title={notesOpen ? "Close chart notes" : "Add chart notes"} onClick={() => setNotesOpen((open) => !open)} className="inline-flex h-5 items-center rounded px-1 text-[11px] font-medium text-amber-800 transition hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600/40 dark:text-amber-300 dark:hover:bg-amber-950/30">
+                    {notesOpen ? "− Notes" : "+ Notes"}
+                  </button>
+                </span>
+                <input aria-label="Chart name" type="text" value={profile.name === "Current transit" ? "" : profile.name} placeholder={chartMode === "transit" ? "Current Transit" : "Enter your name"} onChange={(event) => setProfile({ name: event.target.value })} className={`${CONTROL_CLASS} mt-1 w-full placeholder:text-slate-600 dark:placeholder:text-slate-400`} />
+              </label>
+              <label className="min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300">Gender
+                <select aria-label="Gender" value={profile.sex} onChange={(event) => setProfile({ sex: event.target.value as BirthProfile["sex"] })} className={`${CONTROL_CLASS} mt-1 w-full`}>
+                  <option value="not-applicable">Not specified</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </label>
+              <label className="min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300">Birth date
+                <input aria-label="Birth date" type="date" value={profile.date} onChange={(event) => setProfile({ date: event.target.value })} className={`${CONTROL_CLASS} mt-1 w-full`} />
+              </label>
+              <label className="min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300">Birth time
+                <input aria-label="Time of birth" type="time" step={1} value={profile.time} onChange={(event) => {
+                  const time = event.target.value;
+                  if (time) setProfile({ time: time.length === 5 ? `${time}:00` : time });
+                }} className={`${CONTROL_CLASS} mt-1 w-full font-mono`} />
+              </label>
+              <div className="relative col-span-2 min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300 sm:col-span-3">
+                {!useCoordinates ? (
+                  <>
+                    <label htmlFor="birth-city-search">Birth city</label>
+                    <span className="relative mt-1 block">
+                      <MapPin className="pointer-events-none absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
+                      <input id="birth-city-search" aria-label="Birth city; search anywhere" type="search" value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="Search city or place…" autoComplete="off" aria-autocomplete="list" aria-expanded={locationResults.length > 0} className={`${CONTROL_CLASS} w-full pl-8`} />
+                      {locationLoading && <Search className="absolute right-2.5 top-2.5 size-3.5 animate-pulse text-primary" />}
+                    </span>
+                    {locationError && <p role="status" className="absolute z-10 mt-1 rounded bg-card px-1 text-xs text-destructive">{locationError}</p>}
+                    {locationResults.length > 0 && (
+                      <ul role="listbox" aria-label="Location search results" className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-xl">
+                        {locationResults.map((location) => <li key={`${location.label}-${location.latitude}-${location.longitude}`} role="option" aria-selected={false}><button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => chooseLocation(location)} className="w-full rounded-lg px-2.5 py-2 text-left transition hover:bg-muted"><span className="block truncate text-xs font-medium text-foreground">{location.city}</span><span className="mt-0.5 block truncate text-xs text-muted-foreground">{location.label} · {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)} · {location.timezone}</span></button></li>)}
+                      </ul>
+                    )}
+                  </>
+                ) : (
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="min-w-0">Latitude
+                      <input aria-label="Latitude" type="text" inputMode="decimal" autoComplete="off" value={latitudeDraft} onChange={(event) => {
+                        const value = limitCoordinatePrecision(event.target.value);
+                        setLatitudeDraft(value);
+                        setProfile({ lat: parseCoordinateDraft(value) });
+                      }} className={`${CONTROL_CLASS} mt-1 w-full font-mono tabular-nums`} placeholder="28.66" />
+                    </label>
+                    <label className="min-w-0">Longitude
+                      <input aria-label="Longitude" type="text" inputMode="decimal" autoComplete="off" value={longitudeDraft} onChange={(event) => {
+                        const value = limitCoordinatePrecision(event.target.value);
+                        setLongitudeDraft(value);
+                        setProfile({ lng: parseCoordinateDraft(value) });
+                      }} className={`${CONTROL_CLASS} mt-1 w-full font-mono tabular-nums`} placeholder="72.87" />
+                    </label>
+                  </div>
+                )}
+                <button type="button" onClick={() => {
+                  if (!useCoordinates) {
+                    if (Number.isFinite(profile.lat)) setLatitudeDraft(profile.lat.toFixed(2));
+                    if (Number.isFinite(profile.lng)) setLongitudeDraft(profile.lng.toFixed(2));
+                  }
+                  setUseCoordinates(!useCoordinates);
+                  setLocationError(null);
+                }} className="mt-1.5 text-xs font-medium text-amber-800 underline decoration-amber-800/30 underline-offset-2 transition hover:decoration-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600/40 dark:text-amber-300 dark:decoration-amber-300/30 dark:hover:decoration-amber-300">
+                  {useCoordinates ? "Search by birth city instead" : "Can’t find your city? Use coordinates"}
+                </button>
+              </div>
+              <button type="submit" className="col-span-2 mt-[19px] inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-amber-700 px-3 text-xs font-semibold text-white transition hover:bg-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600/40 sm:col-span-1">
+                Load birth chart
+              </button>
             </div>
-            <label className="min-w-0 text-xs font-medium text-slate-600 dark:text-slate-400">Latitude
-              <input aria-label="Latitude" type="number" step="0.0001" min="-90" max="90" value={Number.isFinite(profile.lat) ? profile.lat : ""} onChange={(event) => setProfile({ lat: event.target.value === "" ? Number.NaN : Number(event.target.value) })} className={`${CONTROL_CLASS} mt-1 h-9 w-full px-2 text-xs tabular-nums`} />
-            </label>
-            <label className="min-w-0 text-xs font-medium text-slate-600 dark:text-slate-400">Longitude
-              <input aria-label="Longitude" type="number" step="0.0001" min="-180" max="180" value={Number.isFinite(profile.lng) ? profile.lng : ""} onChange={(event) => setProfile({ lng: event.target.value === "" ? Number.NaN : Number(event.target.value) })} className={`${CONTROL_CLASS} mt-1 h-9 w-full px-2 text-xs tabular-nums`} />
-            </label>
-            <BirthTimeAdjuster onAdjust={adjustTime} />
-          </div>
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[11px] text-slate-600 dark:text-slate-400">Current transit loads automatically. Submit these details only to view a birth chart.</p>
-            <button type="submit" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-amber-600 px-3 text-xs font-semibold text-white transition hover:bg-amber-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40">
-              Load birth chart
-            </button>
-          </div>
+            <div>
+              <div id="chart-notes-panel" className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${notesOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                <div className="overflow-hidden">
+                  {notesOpen && <label htmlFor="chart-notes" className="block pt-1 text-xs font-medium text-slate-700 dark:text-slate-300">Life events &amp; notes
+                    <textarea id="chart-notes" maxLength={10000} rows={3} value={profile.notes} onChange={(event) => setProfile({ notes: event.target.value })} placeholder="Record important dates, life events, or observations for this chart…" className="mt-1 w-full resize-y rounded-lg border border-input bg-card px-3 py-2 text-xs leading-relaxed text-card-foreground outline-none transition placeholder:text-muted-foreground/80 focus:border-primary focus:ring-2 focus:ring-primary/10" />
+                    <span className="mt-1 block text-right text-[11px] font-normal text-muted-foreground">{profile.notes.length}/10,000</span>
+                  </label>}
+                </div>
+              </div>
+            </div>
           </form>
-          <p role={coordinateTimezoneError ? "status" : undefined} className={`mt-1.5 truncate text-[11px] ${coordinateTimezoneError ? "text-rose-700 dark:text-rose-300" : "text-slate-600 dark:text-slate-400"}`}>{coordinateTimezoneError ?? `Time zone · ${profile.timezone || "Select a birth city"}`}</p>
+          {coordinateTimezoneError && <p role="status" className="mt-1 truncate text-[11px] text-rose-700 dark:text-rose-300">{coordinateTimezoneError}</p>}
         </section>
 
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -1866,24 +1382,62 @@ export function KundaliDashboard() {
               {chartMode === "transit" ? `Current transit · ${transitData ? new Date(transitData.calculatedAt).toLocaleString() : "calculating"} · ${profile.city}` : `${activeBirthProfile.name || "New profile"} · ${activeBirthProfile.date || "Date not set"} · ${activeBirthProfile.time} · ${activeBirthProfile.city}`}
             </p>
           </div>
-          <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-            <span className={`size-1.5 rounded-full ${displayLoading ? "animate-pulse bg-amber-400" : displayError ? "bg-rose-400" : "bg-emerald-400"}`} />
-            {displayLoading ? "Calculating ephemeris…" : displayError ? "Calculation error" : displayData?.engine ?? "Ready"}
-            <button type="button" onClick={() => setRequestNumber((number) => number + 1)} className="ml-1 rounded p-1 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Refresh chart"><RefreshCw className={`size-3 ${displayLoading ? "animate-spin" : ""}`} /></button>
+          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+            {(displayLoading || displayError) && <span role="status" aria-live="polite">{displayLoading ? "Calculating chart…" : "Calculation error"}</span>}
+            <button type="button" onClick={() => setRequestNumber((number) => number + 1)} className="grid size-8 place-items-center rounded-lg border border-slate-200 hover:bg-slate-100 dark:border-slate-800 dark:hover:bg-slate-800" aria-label="Refresh chart"><RefreshCw className={`size-3 ${displayLoading ? "animate-spin" : ""}`} /></button>
           </div>
         </div>
 
+        <nav role="tablist" aria-label="Kundali analysis" className="flex w-full gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 shadow-sm">
+          {DASHBOARD_TABS.map(({ id, label }) => (
+            <button
+              key={id}
+              id={`kundali-tab-${id}`}
+              type="button"
+              role="tab"
+              aria-selected={dashboardTab === id}
+              aria-controls="kundali-tab-panel"
+              onClick={() => selectDashboardTab(id)}
+              onMouseEnter={() => preloadDashboardTab(id)}
+              onFocus={() => preloadDashboardTab(id)}
+              className={`min-h-9 shrink-0 rounded-lg px-3 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${dashboardTab === id ? "bg-primary/10 text-primary shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+
+        <div id="kundali-tab-panel" role="tabpanel" aria-labelledby={`kundali-tab-${dashboardTab}`} className="min-w-0">
+        {dashboardTab === "dasha" && (
+          <Suspense fallback={<SecondaryTabSkeleton />}>
+            <DashaTab data={data} system={dashaSystem} onSystemChange={setDashaSystem} seed={dashaSeed} onSeedChange={setDashaSeed} />
+          </Suspense>
+        )}
+        {dashboardTab === "element-modality" && (
+          <Suspense fallback={<SecondaryTabSkeleton />}>
+            <ElementModalityTab data={displayData} language={language} />
+          </Suspense>
+        )}
+        {dashboardTab === "aspects" && (
+          <Suspense fallback={<SecondaryTabSkeleton />}>
+            <AspectsTab data={displayData} language={language} useSignIcons={viewPreferences.useSignIcons} />
+          </Suspense>
+        )}
+        {dashboardTab === "core" && (
+        <div className="space-y-4">
         {displayError && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 size-4 shrink-0" /><span>{displayError}</span></div>}
         <PanchangStrip date={displayData?.input.date ?? profile.date} planets={displayData?.planets ?? []} />
 
-        <div id="kundali-charts" className="grid w-full grid-cols-1 items-start gap-6 scroll-mt-4 xl:grid-cols-2">
-          <div className="flex min-h-0 min-w-0">
-            <section className="relative flex h-[700px] min-h-0 w-full flex-col overflow-hidden border border-border bg-card text-card-foreground shadow-sm" aria-label="Primary D1 chart">
-              <div className="flex-none h-[160px] overflow-y-auto bg-muted/10 p-4 border-b border-border flex flex-col justify-between">
+        {/* Core chart panels grow with their controls and charts; wide tables keep horizontal-only overflow. */}
+        <div id="kundali-charts" className="grid w-full grid-cols-1 items-stretch gap-4 scroll-mt-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+          <div className="row-start-1 flex min-h-0 min-w-0 xl:col-start-1">
+            <section className="relative flex h-full min-h-0 w-full flex-col rounded-xl border border-border bg-card text-card-foreground shadow-sm" aria-label="Primary D1 chart">
+              <div className="bg-muted/10 p-4 border-b border-border flex flex-col gap-3 xl:min-h-[232px]">
               <div className="flex flex-none flex-wrap items-center justify-between gap-2">
                 <div><p className="text-xs font-semibold">Primary chart · D1</p><p className="mt-0.5 text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400">{chartMode === "transit" ? "Current transit · whole sign" : "Birth chart · whole sign"}</p></div>
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-800 dark:bg-amber-400/10 dark:text-amber-300"><Crosshair className="size-3" /> {displayData?.ascendant.signName ?? "—"} rising</span>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-800 dark:bg-amber-400/10 dark:text-amber-300"><Crosshair className="size-3" /> {displayData?.ascendant.signName ?? "—"} rising · {displayData ? degreeToDms(displayData.ascendant.longitude % 30) : "—"}</span>
+                  {chartMode === "birth" && <BirthTimeAdjuster onAdjust={adjustBirthTime} />}
                   <button type="button" onClick={() => setChartMaximized(true)} aria-label="Maximize D1 chart" title="View chart full screen" className="grid size-8 place-items-center rounded-lg border border-slate-200 text-slate-600 transition hover:border-cyan-400 hover:text-cyan-700 dark:border-slate-700 dark:text-slate-300 dark:hover:text-cyan-300"><Maximize2 className="size-4" /></button>
                 </div>
               </div>
@@ -1946,7 +1500,7 @@ export function KundaliDashboard() {
               </div>
                 </div>
               </div>
-              <div className="relative flex-1 min-h-0 min-w-0 w-full overflow-hidden p-4 flex items-center justify-center bg-card">
+              <div className="relative h-[min(95vw,500px)] min-h-[360px] min-w-0 w-full overflow-hidden p-4 flex items-center justify-center bg-card">
                 <div className="relative h-full w-full max-w-[500px] max-h-[500px] aspect-square">
                   {displayData ? <SvgChart style={chartStyle} ascendant={displayData.ascendant} planets={displayData.planets} points={displayData.points} houseCusps={displayData.houseCusps} varga={1} referenceHouse={referenceHouseNumber} overlay={chartMode === "birth" && overlayTransits ? transitData?.planets : undefined} language={language} preferences={viewPreferences} /> : <div className="grid h-full w-full place-items-center text-xs text-slate-600">{displayLoading ? <LoaderCircle className="size-5 animate-spin text-cyan-500" /> : "Chart unavailable"}</div>}
                 </div>
@@ -1962,9 +1516,9 @@ export function KundaliDashboard() {
             </section>
           </div>
 
-          <div className="flex min-h-0 min-w-0">
-            <section id="auxiliary-chart" className="relative flex h-[700px] min-h-0 w-full flex-col overflow-hidden border border-border bg-card text-card-foreground shadow-sm" aria-label="Auxiliary chart viewer">
-              <div className="flex-none h-[160px] overflow-y-auto bg-muted/10 p-4 border-b border-border flex flex-col justify-between">
+          <div className="order-2 flex min-h-0 min-w-0 xl:col-start-2 xl:row-start-1">
+            <section id="auxiliary-chart" className="relative flex h-full min-h-0 w-full flex-col rounded-xl border border-border bg-card text-card-foreground shadow-sm" aria-label="Auxiliary chart viewer">
+              <div className="bg-muted/10 p-4 border-b border-border flex flex-col gap-3 xl:min-h-[232px]">
               <div className="grid flex-none grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold">{auxiliaryType === "divisional" ? selectedAuxiliaryChart.label : "Auxiliary chart viewer"}</p>
@@ -1996,7 +1550,8 @@ export function KundaliDashboard() {
                     <SelectTrigger aria-label="Select auxiliary divisional chart" className="h-9 w-full bg-card">
                       <SelectValue placeholder="Select a chart" />
                     </SelectTrigger>
-                    <SelectContent>
+                    {/* Opaque portal surface stays legible above the auxiliary chart. */}
+                    <SelectContent className="z-[100] !bg-white dark:!bg-gray-900">
                       <SelectGroup>
                         <SelectLabel>Primary</SelectLabel>
                         {AUXILIARY_CHARTS.filter((chart) => chart.group === "Primary").map((chart) => <SelectItem key={chart.id} value={chart.id}>{chart.label} · {chart.description}</SelectItem>)}
@@ -2027,15 +1582,15 @@ export function KundaliDashboard() {
                 </div>
               )}
               </div>
-              <div className="relative flex-1 min-h-0 min-w-0 w-full overflow-hidden p-4 flex items-center justify-center bg-card">
+              <div className="relative h-[min(95vw,500px)] min-h-[360px] min-w-0 w-full overflow-hidden p-4 flex items-center justify-center bg-card">
                 <div className="relative h-full w-full max-w-[500px] max-h-[500px] aspect-square">
                   {auxiliaryAscendant && auxiliaryPlanets
-                      ? <SvgChart style={chartStyle} ascendant={auxiliaryAscendant} planets={auxiliaryPlanets} points={auxiliaryPoints} houseCusps={auxiliaryCusps} varga={auxiliaryVarga} referenceHouse={auxiliaryReferenceHouseNumber} language={language} preferences={viewPreferences} />
-                    : <div className="grid h-full w-full place-items-center px-6 text-center text-xs text-slate-600">{auxiliaryType === "solar" || auxiliaryType === "tajika" ? loading ? "Calculating exact solar return…" : "Solar return data is not available." : auxiliaryType === "transit" && transitLoading ? "Calculating current transits…" : auxiliaryType === "progressions" ? "Choose a progression method to configure this view." : "Calculating chart…"}</div>}
+                    ? <SvgChart style={chartStyle} ascendant={auxiliaryAscendant} planets={auxiliaryPlanets} points={auxiliaryPoints ?? []} houseCusps={auxiliaryCusps ?? []} varga={auxiliaryVarga} referenceHouse={auxiliaryReferenceHouseNumber} overlay={undefined} language={language} preferences={viewPreferences} />
+                    : <div className="grid h-full w-full place-items-center px-6 text-center text-xs text-slate-600">{displayLoading ? <LoaderCircle className="size-5 animate-spin text-cyan-500" /> : "Auxiliary chart unavailable"}</div>}
                 </div>
               </div>
               {auxiliaryType === "solar" || auxiliaryType === "tajika"
-                ? <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">Exact sidereal solar return · {data?.solarReturn?.utc ? new Date(data.solarReturn.utc).toLocaleString() + " UTC" : "Awaiting calculation"} · {auxiliaryReferenceName === "Ascendant" ? "Ascendant" : `House ${auxiliaryReferenceHouseNumber}`} reference</p>
+                ? <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">Exact sidereal solar return · {solarReturnUtc ? `${new Date(solarReturnUtc ?? "").toLocaleString()} UTC` : "Awaiting calculation"} · {auxiliaryReferenceName === "Ascendant" ? "Ascendant" : `House ${auxiliaryReferenceHouseNumber}`} reference</p>
                 : auxiliaryType === "transit" ? <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">Current sky at chart coordinates · {currentTransitLabel} · {auxiliaryReferenceName === "Ascendant" ? "Ascendant" : `House ${auxiliaryReferenceHouseNumber}`} reference</p>
                   : auxiliaryType === "progressions" ? <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Progression controls are saved in this view, but progression calculations are not yet provided by the ephemeris engine. Reference lagna: {auxiliaryReferenceName === "Ascendant" ? "Ascendant" : `House ${auxiliaryReferenceHouseNumber}`}.</p>
                     : <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">D{varga} divisional placements · whole-sign houses · {auxiliaryReferenceName === "Ascendant" ? "Ascendant" : `House ${auxiliaryReferenceHouseNumber}`} reference</p>}
@@ -2046,7 +1601,7 @@ export function KundaliDashboard() {
             </section>
           </div>
 
-          <section className={`${PANEL_CLASS} min-w-0 xl:col-span-2`}>
+          <section className={`${PANEL_CLASS} order-3 min-w-0 xl:col-span-2 xl:row-start-2`}>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
               <div><p className="text-xs font-semibold">Planetary positions</p><p className="mt-0.5 text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400">Swiss Ephemeris · sidereal · Jaimini karakas</p></div>
               <div className="flex flex-wrap items-center gap-2">
@@ -2059,7 +1614,7 @@ export function KundaliDashboard() {
               </div>
             </div>
             {displayData?.unavailableBodies.map((body) => <p key={body.name} role="status" className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">{body.name} is unavailable because its Swiss Ephemeris data file is not installed; other chart calculations remain active.</p>)}
-            <div className="overflow-hidden rounded-xl border border-slate-200 dark:border-slate-800">
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
               {displayData ? <PlanetTable data={displayData} decimal={decimalDegrees} language={language} preferences={viewPreferences} nodeType={nodeType} interceptedSigns={displayData.interceptedSigns} /> : <div className="grid h-60 place-items-center text-xs text-slate-600">{displayLoading ? <span className="inline-flex items-center gap-2"><LoaderCircle className="size-4 animate-spin text-cyan-500" /> Calculating positions</span> : "No planetary data"}</div>}
             </div>
             {displayData && (
@@ -2083,83 +1638,42 @@ export function KundaliDashboard() {
               ].map(({ label, value, icon: Icon, color }) => <div key={label} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 dark:border-slate-800 dark:bg-slate-950/50"><Icon className={`size-3.5 shrink-0 ${color}`} /><div className="min-w-0"><p className="text-xs uppercase tracking-wider text-slate-600">{label}</p><p className="truncate text-xs">{value}</p></div></div>)}
             </div>
           </section>
+
         </div>
 
-        <section id="dasha-timeline" className={PANEL_CLASS}>
-          <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-            <div><p className="text-xs font-semibold">Vimshottari Dasha</p><p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">Maha · Antar · Pratyantar · Sookshma</p></div>
-            <div className="flex gap-2">
-              <label className="text-xs text-slate-600">System<select value={dashaSystem} onChange={(event) => setDashaSystem(event.target.value as DashaSystem)} className={`${CONTROL_CLASS} mt-1 h-8 text-xs`}><option value="vimshottari">Vimshottari</option><option value="chara">Chara Dasha</option><option value="ashtottari">Ashtottari</option><option value="yogini">Yogini</option></select></label>
-              <label className="text-xs text-slate-600">Calculation seed<select value={dashaSeed} onChange={(event) => setDashaSeed(event.target.value as "moon" | "ascendant" | "sun")} className={`${CONTROL_CLASS} mt-1 h-8 text-xs`}><option value="moon">Moon</option><option value="ascendant">Ascendant</option><option value="sun">Sun</option></select></label>
-            </div>
-          </div>
-          {dashaSystem !== "vimshottari" && <p role="status" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">The current ephemeris engine provides Vimshottari periods. {dashaSystem[0].toUpperCase() + dashaSystem.slice(1)} is selected as a view preference, but its period calculations are not represented as Vimshottari.</p>}
-          {data && dashaSystem === "vimshottari" ? (
-            <div className="grid min-w-0 items-stretch gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(360px,0.9fr)]">
-              <DashaTimeline data={data} onMajorSelect={(period) => setSelectedMahaDashaStart(period.start)} />
-              <div className="self-start sticky top-6 flex h-full w-full min-w-0 flex-col items-center justify-start border-t border-slate-200 pt-3 dark:border-slate-800 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <div>
-                    <p className="text-xs font-semibold">Mahadasha lagna</p>
-                    <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">{activeMahaDasha?.lord ?? "—"} natal sign as reference ascendant</p>
-                  </div>
-                  {activeMahaDasha && <span className="shrink-0 rounded-full bg-cyan-100 px-2 py-1 text-xs font-semibold text-cyan-900 dark:bg-cyan-400/10 dark:text-cyan-200">{activeMahaDasha.active ? "NOW" : "SELECTED"}</span>}
-                </div>
-                {dashaAscendant ? (
-                  <div className="flex min-h-0 w-full flex-1 items-center justify-center pt-8" title={`Dasha lagna uses ${activeMahaDasha?.lord}'s natal sign, ${dashaAscendant.signName}, as house one.`}>
-                    <div className="relative h-full w-full max-h-[450px] max-w-[450px] aspect-square">
-                      <SvgChart style="diamond" ascendant={dashaAscendant} planets={data.planets} points={[]} houseCusps={[]} varga={1} language={language} preferences={viewPreferences} />
-                    </div>
-                  </div>
-                ) : <p className="py-8 text-center text-xs text-slate-600">Waiting for the active dasha lord’s natal placement.</p>}
-                <p className="mt-1 text-center text-xs text-slate-600 dark:text-slate-400">Active period lord’s natal sign is set as House 1.</p>
-              </div>
-            </div>
-          ) : <div className="grid h-32 place-items-center text-xs text-slate-600">{data ? "Select Vimshottari to display calculated periods." : "Dasha timeline appears after calculation."}</div>}
-        </section>
-
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400">
-          <span className="inline-flex items-center gap-1.5"><Sparkles className="size-3 text-amber-600 dark:text-amber-300" /> Swiss Ephemeris · Lahiri default · sidereal positions</span>
           <span className="inline-flex items-center gap-1.5"><Clock3 className="size-3" /> Bhava cusps: Placidus · planetary houses: Whole Sign</span>
           {data && <span>Calculated {new Date(data.calculatedAt).toLocaleTimeString()}</span>}
         </div>
-        <KundaliYogasTable planets={displayData?.planets ?? []} />
-        <ShadbalaModule planets={displayData?.planets ?? []} />
-        {data && <BhavabalaDashboard data={data} />}
-        <div className="grid w-full grid-cols-1 items-start gap-6 xl:grid-cols-2">
-          <section className="flex-none h-fit flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <div className="border-b border-border bg-muted/10 p-4"><h3 className="text-lg font-medium text-foreground">Indian · Drishti</h3><p className="text-sm text-muted-foreground">Parashari graha aspects mapped to whole-sign houses</p></div>
-            <div className="flex-1 overflow-x-auto p-4">{displayData ? <AspectMatrix planets={displayData.planets.filter((planet) => chartPlanetVisible(planet, viewPreferences))} ascendant={displayData.ascendant} language={language} useSignIcons={viewPreferences.useSignIcons} /> : <div className="grid h-40 place-items-center text-xs text-slate-600">Waiting for planetary positions</div>}</div>
-          </section>
-          <section className="flex-none h-fit flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <div className="border-b border-border bg-muted/10 p-4"><h3 className="text-lg font-medium text-foreground">Western aspect grid</h3><p className="text-sm text-muted-foreground">Exact geocentric longitude separations · one cell per planetary pair</p></div>
-            <div className="flex-1 overflow-x-auto p-4">{displayData ? <WesternAspectGrid planets={displayData.planets.filter((planet) => chartPlanetVisible(planet, viewPreferences))} language={language} /> : <div className="grid h-32 place-items-center text-xs text-slate-600">Waiting for planetary positions</div>}</div>
-          </section>
         </div>
-        <section className="flex-none h-fit flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-          <div className="border-b border-border bg-muted/10 p-4"><h3 className="text-lg font-medium text-foreground">Element &amp; modality matrix</h3><p className="text-sm text-muted-foreground">Planetary placements by zodiac element and modality</p></div>
-          <div className="flex-1 overflow-x-auto p-4">{displayData ? <ElementalMatrix planets={displayData.planets.filter((planet) => chartPlanetVisible(planet, viewPreferences))} language={language} /> : <div className="grid h-24 place-items-center text-xs text-slate-600">Waiting for planetary positions</div>}</div>
-        </section>
-        <div className="w-full">
-          <section className="flex h-full w-full flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <div className="border-b border-border bg-muted/10 p-4"><h3 className="text-lg font-medium text-foreground">Ashtakavarga · Bhinna Bindus</h3><p className="text-sm text-muted-foreground">Eight contributors across the 12 signs · Sarvashtakavarga total</p></div>
-            <div className="flex-1 overflow-x-auto p-4">{displayData ? <AshtakavargaTable data={displayData} language={language} useSignIcons={viewPreferences.useSignIcons} ascendantSign={displayData.ascendant.sign} /> : <div className="grid h-20 place-items-center text-xs text-slate-600">Waiting for planetary positions</div>}</div>
-          </section>
+        )}
+        {dashboardTab === "ashtakavarga" && (
+          <Suspense fallback={<SecondaryTabSkeleton />}>
+            <div className="space-y-5">
+              <AshtakavargaTab data={displayData} language={language} useSignIcons={viewPreferences.useSignIcons} />
+              <Suspense fallback={<SecondaryTabSkeleton />}>
+                <StrengthAnalysisTab data={displayData} />
+              </Suspense>
+            </div>
+          </Suspense>
+        )}
+        {dashboardTab === "medical" && (
+          <Suspense fallback={<SecondaryTabSkeleton />}>
+            <MedicalTab
+              data={data}
+              transitData={transitData}
+              chartMode={chartMode}
+              transitLoading={transitLoading}
+              transitError={transitError}
+            />
+          </Suspense>
+        )}
+        {dashboardTab === "export" && (
+          <Suspense fallback={<SecondaryTabSkeleton />}>
+            <ChartExportTab data={displayData} chartName={profile.name || "Celestia chart"} />
+          </Suspense>
+        )}
         </div>
-        {data && <UpagrahaTable data={data} />}
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400">
-          <span className="inline-flex items-center gap-1.5"><Sparkles className="size-3 text-amber-600 dark:text-amber-300" /> Swiss Ephemeris · Lahiri default · sidereal positions</span>
-          <span className="inline-flex items-center gap-1.5"><Clock3 className="size-3" /> Bhava cusps: Placidus · planetary houses: Whole Sign</span>
-          {data && <span>Calculated {new Date(data.calculatedAt).toLocaleTimeString()}</span>}
-        </div>
-        <MedicalAstrologyVisualizer
-          natalAscendantSign={data?.ascendant.sign ?? null}
-          natalHouseForSign={(sign) => data ? getSignHouse(sign, data.ascendant.sign) : null}
-          birthPlanets={chartMode === "birth" ? data?.planets ?? [] : []}
-          transitPlanets={transitData?.planets ?? []}
-          transitLoading={transitLoading}
-          transitError={transitError}
-        />
       </div>
       {saveDialogOpen && (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm" onMouseDown={(event) => {

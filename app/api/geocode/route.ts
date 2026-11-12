@@ -29,11 +29,44 @@ export async function GET(request: Request) {
     if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90 || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
       return NextResponse.json({ error: "Coordinates must be valid latitude and longitude values." }, { status: 400 });
     }
+    let timezone: string;
     try {
-      return NextResponse.json({ timezone: tzLookup(latitude, longitude) });
+      timezone = tzLookup(latitude, longitude);
     } catch (error) {
       console.error("[geocode] Coordinate timezone lookup failed", error);
       return NextResponse.json({ error: "Could not determine a time zone for these coordinates." }, { status: 400 });
+    }
+    if (searchParams.get("reverse") !== "true") return NextResponse.json({ timezone });
+
+    try {
+      const url = new URL("https://nominatim.openstreetmap.org/reverse");
+      url.search = new URLSearchParams({
+        lat: String(latitude),
+        lon: String(longitude),
+        format: "jsonv2",
+        addressdetails: "1",
+      }).toString();
+      const upstream = await fetch(url, {
+        headers: {
+          "User-Agent": "ProjectCelestia/1.0 (global city and timezone lookup)",
+          "Accept-Language": "en",
+        },
+        cache: "no-store",
+        signal: AbortSignal.timeout(7000),
+      });
+      if (!upstream.ok) {
+        console.error("[geocode] Reverse place lookup returned an error", upstream.status);
+        return NextResponse.json({ error: "Could not identify a city for these coordinates." }, { status: 502 });
+      }
+
+      const place = await upstream.json() as NominatimResult;
+      const address = place.address ?? {};
+      const city = address.city ?? address.town ?? address.village ?? address.municipality ?? address.county ?? address.state;
+      if (!city) return NextResponse.json({ error: "Could not identify a city for these coordinates." }, { status: 404 });
+      return NextResponse.json({ timezone, city });
+    } catch (error) {
+      console.error("[geocode] Reverse place lookup failed", error);
+      return NextResponse.json({ error: "Could not identify a city for these coordinates." }, { status: 502 });
     }
   }
 

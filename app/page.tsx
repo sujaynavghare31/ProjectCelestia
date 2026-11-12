@@ -383,7 +383,7 @@ export default function Home() {
     : "—";
 
   return (
-    <main className="flex h-screen min-w-0 flex-col overflow-hidden bg-background text-foreground">
+    <main className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-background text-foreground">
         <header className="z-30 flex min-h-[60px] shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 sm:px-6">
           <a href="#" onClick={(event) => { event.preventDefault(); navigate("home"); }} className="flex min-w-0 items-center gap-2.5" aria-label="Project Celestia home">
             <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-900 dark:bg-slate-800">
@@ -415,13 +415,13 @@ export default function Home() {
           {renderNavigationItems(true)}
         </nav>
 
-        <div id="dashboard-scroll" className="cosmic-grid min-h-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <div id="dashboard-scroll" className="cosmic-grid p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-[1750px]">
           <div id="dashboard-home" className="pt-0">
             <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
               <div>
                 <h1 className="text-2xl font-semibold tracking-tight sm:text-[30px]">{activeTab === "kundali" ? "Your celestial map, at a glance." : "A little more aligned."}</h1>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{activeTab === "kundali" ? "Birth chart, Panchang, and planetary transits in one place." : "Explore the patterns and possibilities written in your numbers."}</p>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{activeTab === "kundali" ? "Birth chart, planetary positions, and Dasha in one place." : "Explore the patterns and possibilities written in your numbers."}</p>
               </div>
               <div className="hidden items-center gap-2 text-xs text-slate-600 sm:flex dark:text-slate-400"><CalendarDays className="size-3.5" /> {activeTab === "kundali" ? "Birth profile" : "Personal profile"} <span className="text-slate-400 dark:text-slate-700">/</span> {activeTab === "kundali" ? "Kundali" : "Vedic numerology"}</div>
             </div>

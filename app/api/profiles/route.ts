@@ -14,6 +14,7 @@ interface SaveChartInput {
   lng: number;
   timezone: string;
   city: string;
+  notes: string;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -22,7 +23,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function validateSaveInput(value: unknown): SaveChartInput {
   if (!isRecord(value)) throw new Error("Request body must be a JSON object.");
-  const { chartName, fullName, date, time, lat, lng, timezone, city } = value;
+  const { chartName, fullName, date, time, lat, lng, timezone, city, notes } = value;
   if (chartName !== undefined && chartName !== null && (typeof chartName !== "string" || chartName.trim().length > 100)) throw new Error("Chart Name must be 100 characters or fewer.");
   if (typeof fullName !== "string" || !fullName.trim() || fullName.trim().length > 120) throw new Error("Full name is required and must be 120 characters or fewer.");
   if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Birth date must use YYYY-MM-DD.");
@@ -39,7 +40,8 @@ function validateSaveInput(value: unknown): SaveChartInput {
     throw new Error("Birth place time zone must be a valid IANA time zone.");
   }
   if (typeof city !== "string" || city.length > 200) throw new Error("City must be 200 characters or fewer.");
-  return { chartName: typeof chartName === "string" && chartName.trim() ? chartName.trim() : null, fullName: fullName.trim(), date, time, lat, lng, timezone: timezone.trim(), city: city.trim() };
+  if (notes !== undefined && (typeof notes !== "string" || notes.length > 10000)) throw new Error("Chart notes must be 10,000 characters or fewer.");
+  return { chartName: typeof chartName === "string" && chartName.trim() ? chartName.trim() : null, fullName: fullName.trim(), date, time, lat, lng, timezone: timezone.trim(), city: city.trim(), notes: typeof notes === "string" ? notes : "" };
 }
 
 async function ensureUser(clerkId: string, email: string) {
@@ -68,6 +70,7 @@ export async function GET() {
         longitude: true,
         timezone: true,
         city: true,
+        notes: true,
         createdAt: true,
       },
     });
@@ -117,6 +120,7 @@ export async function POST(request: Request) {
               longitude: input.lng,
               timezone: input.timezone,
               city: input.city,
+              notes: input.notes,
             },
             select: {
               id: true,
@@ -128,6 +132,7 @@ export async function POST(request: Request) {
               longitude: true,
               timezone: true,
               city: true,
+              notes: true,
               createdAt: true,
             },
           });

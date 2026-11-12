@@ -1,7 +1,6 @@
-import type { PlanetPosition } from "@/lib/kundali-types";
-
 const CONTRIBUTOR_NAMES = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Ascendant"] as const;
 const TARGET_NAMES = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"] as const;
+type SignPosition = { name: string; sign: number };
 
 const BINDU_HOUSES: Record<(typeof TARGET_NAMES)[number], number[][]> = {
   Sun: [
@@ -39,7 +38,7 @@ const BINDU_HOUSES: Record<(typeof TARGET_NAMES)[number], number[][]> = {
   ],
 };
 
-export function calculateAshtakavarga(planets: PlanetPosition[], ascendant: PlanetPosition) {
+export function calculateAshtakavarga(planets: SignPosition[], ascendant: SignPosition) {
   const contributors = new Map<string, number>();
   for (const planet of planets) contributors.set(planet.name, planet.sign);
   contributors.set("Ascendant", ascendant.sign);
