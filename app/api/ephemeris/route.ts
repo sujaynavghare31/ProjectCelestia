@@ -3,6 +3,10 @@ import swe from "swisseph";
 import type { EphemerisRequest, DashaPeriod, PlanetPosition } from "@/lib/kundali-types";
 import { calculateBirthGhati } from "@/lib/astrology/ghati-calculator";
 import { calculateGrahaAvasthas } from "@/lib/astrology/graha-avastha-service";
+import { calculateAvasthaReport } from "@/lib/astrology/avastha/engine";
+import { avasthaConfigSchema } from "@/lib/astrology/avastha/validation";
+import { GRAHAS } from "@/lib/astrology/avastha/types";
+import type { Graha } from "@/lib/astrology/avastha/types";
 import { getInterceptedSigns } from "@/lib/astrology/intercepted-signs";
 import { mapPositionsToHouses } from "@/lib/astrology/house-placements";
 import { getPlanetaryDignity } from "@/lib/astrology/planetary-dignity-service";
@@ -59,7 +63,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function validateRequest(value: unknown): EphemerisRequest {
   if (!isRecord(value)) throw new Error("Request body must be a JSON object.");
-  const { date, time, lat, lng, timezone, ayanamsa, nodeType, targetAge, ageMode, dashaSeed, zodiacMode, customAyanamsaDegrees } = value;
+  const { date, time, lat, lng, timezone, ayanamsa, nodeType, targetAge, ageMode, dashaSeed, zodiacMode, customAyanamsaDegrees, avasthaConfig, nameFirstLetter, gender } = value;
   if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("date must use YYYY-MM-DD.");
   if (typeof time !== "string" || !/^\d{2}:\d{2}:\d{2}$/.test(time)) throw new Error("time must use HH:MM:SS.");
   const [year, month, day] = date.split("-").map(Number);
@@ -86,6 +90,14 @@ function validateRequest(value: unknown): EphemerisRequest {
   if (targetAge !== undefined && (typeof targetAge !== "number" || !Number.isInteger(targetAge) || targetAge < 0 || targetAge > 120)) throw new Error("targetAge must be a whole number from 0 to 120.");
   if (ageMode !== undefined && ageMode !== "completed" && ageMode !== "ongoing") throw new Error("ageMode must be 'completed' or 'ongoing'.");
   if (dashaSeed !== undefined && dashaSeed !== "moon" && dashaSeed !== "ascendant" && dashaSeed !== "sun") throw new Error("dashaSeed must be 'moon', 'ascendant', or 'sun'.");
+  if (nameFirstLetter !== undefined && (typeof nameFirstLetter !== "string" || nameFirstLetter.length > 12)) throw new Error("nameFirstLetter must be a string of at most 12 characters.");
+  if (gender !== undefined && gender !== "male" && gender !== "female" && gender !== "not-applicable") throw new Error("gender must be 'male', 'female', or 'not-applicable'.");
+  let validatedAvasthaConfig: EphemerisRequest["avasthaConfig"];
+  if (avasthaConfig !== undefined) {
+    const parsedConfig = avasthaConfigSchema.safeParse(avasthaConfig);
+    if (!parsedConfig.success) throw new Error(`Invalid avasthaConfig: ${parsedConfig.error.issues.map(({ message }) => message).join("; ")}`);
+    validatedAvasthaConfig = parsedConfig.data;
+  }
   return {
     date, time, lat, lng, timezone: timezone.trim(), ayanamsa: normalizedAyanamsa, nodeType,
     zodiacMode: normalizedZodiacMode,
@@ -93,6 +105,9 @@ function validateRequest(value: unknown): EphemerisRequest {
     ...(typeof targetAge === "number" ? { targetAge } : {}),
     ...(ageMode !== undefined ? { ageMode } : {}),
     ...(dashaSeed !== undefined ? { dashaSeed } : {}),
+    ...(validatedAvasthaConfig ? { avasthaConfig: validatedAvasthaConfig } : {}),
+    ...(typeof nameFirstLetter === "string" ? { nameFirstLetter } : {}),
+    ...(gender !== undefined ? { gender } : {}),
   };
 }
 
@@ -344,6 +359,16 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
     longitude: input.lng,
   });
   const grahaAvasthas = calculateGrahaAvasthas(chartPlanets, moon.nakshatra, birthGhati, ascSign);
+  const avasthaReport = calculateAvasthaReport({
+    planets: chartPlanets
+      .filter((planet): planet is typeof planet & { name: Graha } => GRAHAS.includes(planet.name as Graha))
+      .map(({ name, longitude, speed }) => ({ planet: name, longitude, speed })),
+    ascendantLongitude,
+    birthDateTimeUTC: birthGhati.birthUtc,
+    sunriseUTC: birthGhati.sunriseUtc,
+    nameFirstLetter: input.nameFirstLetter,
+    config: input.avasthaConfig,
+  });
 
   return {
     julianDay,
@@ -359,6 +384,7 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
     interceptedSigns,
     houseCuspSystem: bhavaSystem,
     grahaAvasthas,
+    avasthaReport,
     dashas: buildDashaTimeline(
       input.dashaSeed === "ascendant" ? ascendantLongitude
         : input.dashaSeed === "sun" ? planets.find(({ name }) => name === "Sun")?.longitude ?? 0

@@ -34,6 +34,7 @@
     "swisseph": "^0.5.17",
     "tailwind-merge": "^3.3.1",
     "tz-lookup": "^6.1.25",
+    "zod": "^4.6.7",
     "zustand": "^5.0.16"
   },
   "devDependencies": {
