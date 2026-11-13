@@ -236,15 +236,12 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
     speed: ascSpeed, declination: ascEquatorial.latitude, ascendantLongitude,
   });
 
-  const unavailableBodies: Array<{ name: string; reason: string }> = [];
   const planets: PlanetPosition[] = BODIES.flatMap((body) => {
     const ecliptic = swe.swe_calc_ut(julianDay, body.code, flags) as EclipticResult;
     const equatorial = swe.swe_calc_ut(julianDay, body.code, equatorialFlags) as EquatorialResult;
     if (ecliptic.error || equatorial.error) {
       const reason = ecliptic.error || equatorial.error || `Failed to calculate ${body.name}.`;
       if (body.name === "Chiron") {
-        unavailableBodies.push({ name: body.name, reason });
-        console.warn(`[ephemeris] ${body.name} omitted: ${reason}`);
         return [];
       }
       throw new Error(reason);
@@ -358,7 +355,6 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
     latitude: input.lat,
     longitude: input.lng,
   });
-  const grahaAvasthas = calculateGrahaAvasthas(chartPlanets, moon.nakshatra, birthGhati, ascSign);
   const avasthaReport = calculateAvasthaReport({
     planets: chartPlanets
       .filter((planet): planet is typeof planet & { name: Graha } => GRAHAS.includes(planet.name as Graha))
@@ -369,6 +365,7 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
     nameFirstLetter: input.nameFirstLetter,
     config: input.avasthaConfig,
   });
+  const grahaAvasthas = calculateGrahaAvasthas(chartPlanets, birthGhati, avasthaReport);
 
   return {
     julianDay,
@@ -379,7 +376,6 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
     bhavChalitPlanets,
     points: chartPoints,
     bhavChalitPoints,
-    unavailableBodies,
     houseCusps,
     interceptedSigns,
     houseCuspSystem: bhavaSystem,

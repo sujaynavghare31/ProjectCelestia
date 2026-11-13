@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { calculateDashaSystem, calculateNadiSystem, ASHTOTTARI_SEQUENCE } from "./DashaEngine";
+import {
+  calculateDashaSystem,
+  ASHTOTTARI_SEQUENCE,
+  ASHTOTTARI_NAKSHATRA_GROUPS_EXPORT,
+} from "./DashaEngine";
+import { calculateNadiSystem } from "./NadiEngine";
 import { createDashaSubperiods } from "./period-expansion";
+import { hasTimingBoundaryOverlap } from "./boundaries";
 import type { Graha } from "../avastha/types";
 import type { TimingInput } from "./types";
 
@@ -28,9 +34,10 @@ describe("Unified DashaEngine", () => {
     expect(result.nakshatra).toMatchObject({ number: 1, name: "Ashwini", progress: 0 });
     expect(result.cycleYears).toBe(120);
     expect(result.periods[0].start).toBe("2000-01-01T00:00:00.000Z");
-    expect(result.periods[0].subPeriods).toHaveLength(9);
-    expect(result.periods[0].subPeriods[0].lord).toBe("Ketu");
-    const pratyantar = result.periods[0].subPeriods[0].subPeriods[0];
+    expect(result.periods[0].subPeriods).toHaveLength(0);
+    const antar = createDashaSubperiods(result.periods[0], "vimshottari")[0];
+    expect(antar.lord).toBe("Ketu");
+    const pratyantar = createDashaSubperiods(antar, "vimshottari")[0];
     expect(pratyantar.subPeriods).toHaveLength(0);
     const sookshma = createDashaSubperiods(pratyantar, "vimshottari");
     expect(sookshma).toHaveLength(9);
@@ -45,10 +52,14 @@ describe("Unified DashaEngine", () => {
   it("starts Ashtottari with Sun for Krittika and uses the 108-year sequence", () => {
     const result = calculateDashaSystem("ashtottari", chart(360 / 27 * 2));
     expect(ASHTOTTARI_SEQUENCE.map(({ lord }) => lord)).toEqual(["Sun", "Moon", "Mars", "Mercury", "Saturn", "Jupiter", "Rahu", "Venus"]);
+    expect(ASHTOTTARI_NAKSHATRA_GROUPS_EXPORT.flat()).toHaveLength(28);
+    expect(ASHTOTTARI_NAKSHATRA_GROUPS_EXPORT.flat()).toContain("Abhijit");
     expect(result.periods[0].lord).toBe("Sun");
     expect(result.cycleYears).toBe(108);
     expect(result.nakshatra?.name).toBe("Krittika");
-    const pratyantar = result.periods[0].subPeriods[0].subPeriods[0];
+    expect(result.periods[0].subPeriods).toHaveLength(0);
+    const antar = createDashaSubperiods(result.periods[0], "ashtottari")[0];
+    const pratyantar = createDashaSubperiods(antar, "ashtottari")[0];
     expect(createDashaSubperiods(pratyantar, "ashtottari")).toHaveLength(8);
   });
 
@@ -57,13 +68,68 @@ describe("Unified DashaEngine", () => {
     const chara = calculateDashaSystem("chara", chart(0));
     expect(yogini.periods[0].name).toBe("Maha Dasha");
     expect(yogini.periods[0].subPeriods.length).toBeGreaterThan(0);
+    expect(yogini.periods[0].subPeriods[0].subPeriods).toHaveLength(0);
     expect(yogini.cycleYears).toBe(36);
     expect(chara.periods[0].name).toBe("Maha Dasha");
     expect(chara.periods[0].subPeriods.length).toBeGreaterThan(0);
     expect(chara.periods[0].subPeriods.every(({ subPeriods }) => subPeriods.length === 0)).toBe(true);
-    const yoginiPratyantar = yogini.periods[0].subPeriods[0].subPeriods[0];
+    const yoginiPratyantar = createDashaSubperiods(yogini.periods[0].subPeriods[0], "yogini")[0];
     expect(createDashaSubperiods(yoginiPratyantar, "yogini")).toHaveLength(8);
     expect(createDashaSubperiods(chara.periods[0].subPeriods[0], "chara")).toHaveLength(0);
+  });
+
+  it("uses the selected seed longitude without changing natal chart positions", () => {
+    const input = chart(0);
+    const moon = calculateDashaSystem("vimshottari", input);
+    const sun = calculateDashaSystem("vimshottari", { ...input, dashaSeed: "sun" });
+    const ascendant = calculateDashaSystem("vimshottari", { ...input, dashaSeed: "ascendant" });
+    expect(moon.nakshatra?.number).toBe(1);
+    expect(sun.nakshatra?.number).toBe(2);
+    expect(ascendant.nakshatra?.number).toBe(1);
+    expect(sun.periods[0].lord).not.toBe(moon.periods[0].lord);
+    const ascendantLord = calculateDashaSystem("vimshottari", { ...input, dashaSeed: "ascendant-lord" });
+    expect(ascendantLord.nakshatra?.number).toBe(8);
+    expect(input.planets.find(({ planet }) => planet === "Mars")?.longitude).toBe(94);
+  });
+
+  it("uses the Abhijit segment for Ashtottari and reports eligibility limits", () => {
+    const eligible = calculateDashaSystem("ashtottari", chart(278));
+    expect(eligible.nakshatra?.name).toBe("Abhijit");
+    const ineligible = calculateDashaSystem("ashtottari", {
+      ...chart(278),
+      planets: GRAHAS.map((planet, index) => ({
+        planet,
+        longitude: planet === "Moon" ? 278 : planet === "Rahu" ? 160 : (index * 37 + 20) % 360,
+        speed: 1,
+      })),
+    });
+    expect(ineligible.notices?.[0]).toContain("Traditional Ashtottari eligibility is not met");
+  });
+
+  it("generates a two-level Kalachakra timeline from the seed Navamsha", () => {
+    const result = calculateDashaSystem("kalachakra", chart(0));
+    expect(result.cycleYears).toBe(118);
+    expect(result.periods[0].lord).toBe("Aries");
+    expect(result.periods[0].subPeriods).toHaveLength(12);
+    expect(result.periods[0].subPeriods.every(({ subPeriods }) => subPeriods.length === 0)).toBe(true);
+    expect(result.periods[0].details).toMatchObject({ dehaSign: 1, jeevaSign: 9, direction: "Savya" });
+  });
+
+  it("flags seed and house-cusp boundary risks", () => {
+    expect(hasTimingBoundaryOverlap({
+      seed: "ascendant",
+      seedLongitude: 29.9,
+      ascendantLongitude: 29.9,
+      planetLongitudes: [100],
+      houseCusps: [180],
+    })).toBe(true);
+    expect(hasTimingBoundaryOverlap({
+      seed: "moon",
+      seedLongitude: 15,
+      ascendantLongitude: 44,
+      planetLongitudes: [100],
+      houseCusps: [180],
+    })).toBe(false);
   });
 
   it("calculates progressed longitudes at one degree per year and sign shifts per twelve years", async () => {

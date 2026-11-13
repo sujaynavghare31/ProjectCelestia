@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { addDashaHorizon, calculateDashaSystem, calculateNadiSystem } from "@/lib/astrology/timing/DashaEngine";
+import { addDashaHorizon, calculateDashaSystem } from "@/lib/astrology/timing/DashaEngine";
+import { calculateNadiSystem } from "@/lib/astrology/timing/NadiEngine";
 import type { DashaSystem } from "@/lib/astrology/timing/DashaEngine";
 import { timingInputSchema } from "@/lib/astrology/timing/validation";
 
@@ -7,7 +8,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-const SYSTEMS = new Set(["vimshottari", "yogini", "ashtottari", "chara", "nadi"]);
+const SYSTEMS = new Set(["vimshottari", "yogini", "ashtottari", "chara", "kalachakra", "nadi"]);
 
 export async function POST(
   request: Request,

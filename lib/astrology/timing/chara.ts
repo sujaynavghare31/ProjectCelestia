@@ -1,5 +1,5 @@
 import { DEBILITATION, EXALTATION, MOOLATRIKONA, OWN_SIGNS, SIGNS } from "../avastha/graha";
-import { addYears, getJaiminiSignAspects, getSignLord, getTimingChart, signAt, signDistance } from "./core";
+import { addYears, getDashaSeedLongitude, getJaiminiSignAspects, getSignLord, getTimingChart, signAt, signDistance } from "./core";
 import type { Period, TimingChart, TimingInput } from "./types";
 import type { Graha } from "../avastha/types";
 
@@ -179,9 +179,10 @@ function YEAR_MS(chart: TimingChart) {
 export function calculateCharaDasha(input: TimingInput): Period[] {
   const chart = getTimingChart(input);
   const karakas = getKarakas(chart);
-  const ninth = signAt(chart.lagnaSign, 8);
+  const seedSign = Math.floor(getDashaSeedLongitude(chart) / 30) + 1;
+  const ninth = signAt(seedSign, 8);
   const mdOrderForward = isSavya(ninth, chart);
-  const order = getCharaOrder(chart.lagnaSign, chart);
+  const order = getCharaOrder(seedSign, chart);
   const periods: Period[] = [];
   let cursor = new Date(chart.birth);
   let cycle = 1;
@@ -200,7 +201,7 @@ export function calculateCharaDasha(input: TimingInput): Period[] {
         end: end.toISOString(),
         years,
         reasons: [
-          `Cycle ${cycle}; Chara Dasha begins from Lagna sign ${SIGNS[chart.lagnaSign - 1]}.`,
+          `Cycle ${cycle}; Chara Dasha begins from selected seed sign ${SIGNS[seedSign - 1]}.`,
           `The ninth sign ${SIGNS[ninth - 1]} is in the ${mdOrderForward ? "Savya" : "Apasavya"} group; Mahadashas run ${mdOrderForward ? "forward" : "backward"}.`,
           ...base.reasons,
           ...(cycle === 2 ? [`Second-cycle duration is 12 - ${base.years} = ${years} years.`] : []),

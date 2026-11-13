@@ -17,7 +17,7 @@ export function createDashaSubperiods(
   period: DashaPeriodNode,
   system: DashaSystem,
 ): DashaPeriodNode[] {
-  if (system === "chara") return [];
+  if (system === "chara" || system === "kalachakra") return [];
   const name = NEXT_DEPTH[period.name];
   if (!name) return [];
 

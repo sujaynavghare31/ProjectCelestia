@@ -1,5 +1,5 @@
 import { getPlanetaryDignity } from "../planetary-dignity-service";
-import { addYears, getTimingChart, signAt } from "./core";
+import { addYears, getDashaSeedLongitude, getTimingChart, signAt } from "./core";
 import { YOGINI_DASHA_LORDS } from "./sequences";
 import type { Graha } from "../avastha/types";
 import type { Period, TimingChart, TimingInput } from "./types";
@@ -42,6 +42,7 @@ function buildSubperiods(
   avasthaSummary?: Record<string, unknown>,
   depth: 2 | 3 = 2,
   parentYoginiIndex = mdIndex,
+  includePratyantar = true,
 ): Period[] {
   let cursor = new Date(parent.start);
   return Array.from({ length: 8 }, (_, offset) => {
@@ -58,7 +59,9 @@ function buildSubperiods(
       reasons: [`Yogini subperiod length is ${parent.years.toFixed(8)} × ${yogini.years}/36 years.`],
       details: { ...detailsForYogini(yogini.planet, chart, avasthaSummary), years: yogini.years, index },
     };
-    if (depth === 3 && period.level === 2) period.children = buildSubperiods(period, mdIndex, chart, avasthaSummary, 2, index);
+    if (includePratyantar && depth === 3 && period.level === 2) {
+      period.children = buildSubperiods(period, mdIndex, chart, avasthaSummary, 2, index, true);
+    }
     cursor = end;
     return period;
   });
@@ -81,14 +84,18 @@ function clipAtBirth(period: Period, birth: Date): Period | null {
   };
 }
 
-export function calculateYoginiDasha(input: TimingInput, avasthaSummary?: Record<string, unknown>): Period[] {
+export function calculateYoginiDasha(
+  input: TimingInput,
+  avasthaSummary?: Record<string, unknown>,
+  includePratyantar = true,
+): Period[] {
   const chart = getTimingChart(input);
-  const moon = chart.byPlanet.get("Moon")!;
-  const moonPosition = ((moon.longitude % NAKSHATRA_SPAN) + NAKSHATRA_SPAN) % NAKSHATRA_SPAN;
-  const nakshatra = Math.floor(moon.longitude / NAKSHATRA_SPAN) + 1;
+  const seedLongitude = getDashaSeedLongitude(chart);
+  const seedPosition = ((seedLongitude % NAKSHATRA_SPAN) + NAKSHATRA_SPAN) % NAKSHATRA_SPAN;
+  const nakshatra = Math.floor(seedLongitude / NAKSHATRA_SPAN) + 1;
   const firstIndex = getYoginiIndex(nakshatra);
   const first = yoginiAt(firstIndex, chart.config);
-  const fractionLeft = (NAKSHATRA_SPAN - moonPosition) / NAKSHATRA_SPAN;
+  const fractionLeft = (NAKSHATRA_SPAN - seedPosition) / NAKSHATRA_SPAN;
   const balanceYears = fractionLeft * first.years;
   const elapsedYears = first.years - balanceYears;
   const virtualStart = addYears(chart.birth, -elapsedYears, chart.config.yearLength);
@@ -115,7 +122,7 @@ export function calculateYoginiDasha(input: TimingInput, avasthaSummary?: Record
       end: (clipped ? addYears(virtualStart, fullDuration, chart.config.yearLength) : end).toISOString(),
       years: fullDuration,
     };
-    md.children = buildSubperiods(fullTreeRoot, yoginiIndex, chart, avasthaSummary, 3, yoginiIndex)
+    md.children = buildSubperiods(fullTreeRoot, yoginiIndex, chart, avasthaSummary, 3, yoginiIndex, includePratyantar)
       .map((child) => clipAtBirth(child, chart.birth))
       .filter((child): child is Period => child !== null);
     return md;

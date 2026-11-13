@@ -17,7 +17,7 @@ export const avasthaConfigSchema = z.object({
     kshobhitaUseCombustionOrb: z.boolean().optional(),
     ketuNumber: z.union([z.literal(8), z.literal(9)]).optional(),
     navamsaMode: z.enum(["indexInSign", "navamsaSign"]).optional(),
-    ghatiRounding: z.enum(["ceil", "floor", "exact"]).optional(),
+    ghatiRounding: z.enum(["nearest", "ceil", "floor", "exact"]).optional(),
     rahuExaltSign: z.number().int().min(1).max(12).optional(),
     ketuExaltSign: z.number().int().min(1).max(12).optional(),
     rahuDebilSign: z.number().int().min(1).max(12).optional(),

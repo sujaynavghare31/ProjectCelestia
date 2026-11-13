@@ -6,11 +6,14 @@ export interface TimingPlanet {
   speed: number;
 }
 
+export type DashaSeed = "moon" | "ascendant" | "sun" | "ascendant-lord";
+
 export interface TimingInput {
   birthDateTimeUTC: string;
   timezone: string;
   planets: TimingPlanet[];
   ascendantLongitude: number;
+  dashaSeed?: DashaSeed;
   gender?: "male" | "female";
   fromDate?: string;
   toDate?: string;

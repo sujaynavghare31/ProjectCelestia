@@ -71,6 +71,7 @@ export interface GrahaAvasthaReport {
     state: string;
     signLord: string;
     naturalRelationship: string;
+    compoundRelationship?: string;
     explanation: string;
   } | null;
   shayanadi: {
@@ -89,7 +90,6 @@ export interface EphemerisResponse {
   bhavChalitPlanets: PlanetPosition[];
   points: PlanetPosition[];
   bhavChalitPoints: PlanetPosition[];
-  unavailableBodies: Array<{ name: string; reason: string }>;
   houseCusps: Array<{ house: number; longitude: number; sign: number; signName: string }>;
   interceptedSigns: number[];
   houseCuspSystem: string;

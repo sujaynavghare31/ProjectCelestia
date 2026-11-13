@@ -69,18 +69,18 @@ export const COMBUSTION_ORBS: Partial<Record<Graha, { direct: number; retrograde
 };
 
 export const SHAYANADI_STATES = [
-  "Nidra", "Shayana", "Upaveshana", "Netrapani", "Prakashana", "Gamana",
-  "Agamana", "Sabha", "Agama", "Bhojana", "Nrityalipsa", "Kautuka",
+  "Nidra", "Sayana", "Upavesana", "Netrapani", "Prakasana", "Gamana",
+  "Aagamana", "Sabha", "Aagama", "Bhojana", "Nritya Lipsa", "Kautuka",
 ] as const;
 
 export const SHAYANADI_SANSKRIT: Record<string, string> = {
-  Nidra: "निद्रा", Shayana: "शयन", Upaveshana: "उपवेशन", Netrapani: "नेत्रपाणि",
-  Prakashana: "प्रकाशन", Gamana: "गमन", Agamana: "आगमन", Sabha: "सभा",
-  Agama: "आगम", Bhojana: "भोजन", Nrityalipsa: "नृत्यलिप्सा", Kautuka: "कौतुक",
+  Nidra: "निद्रा", Sayana: "शयन", Upavesana: "उपवेशन", Netrapani: "नेत्रपाणि",
+  Prakasana: "प्रकाशन", Gamana: "गमन", Aagamana: "आगमन", Sabha: "सभा",
+  Aagama: "आगम", Bhojana: "भोजन", "Nritya Lipsa": "नृत्यलिप्सा", Kautuka: "कौतुक",
 };
 
 export const PLANET_NUMBER: Record<Graha, number> = {
-  Sun: 1, Moon: 2, Mars: 3, Mercury: 4, Jupiter: 5, Venus: 6, Saturn: 7, Rahu: 8, Ketu: 8,
+  Sun: 1, Moon: 2, Mars: 3, Mercury: 4, Jupiter: 5, Venus: 6, Saturn: 7, Rahu: 8, Ketu: 9,
 };
 
 export const CHESHTA_CONSTANT: Record<Graha, number> = {

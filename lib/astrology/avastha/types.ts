@@ -29,6 +29,22 @@ export interface AvasthaResult {
   ruleId: string;
 }
 
+export interface ShayanadiFormulaInputs {
+  nakshatra: number;
+  planetNumber: number;
+  navamsaNumber: number;
+  moonNakshatra: number;
+  ghati: number;
+  lagnaSign: number;
+}
+
+export interface ShayanadiAvasthaResult extends AvasthaResult {
+  remainder: number;
+  total: number;
+  formulaInputs: ShayanadiFormulaInputs;
+  cheshta?: "Drishti" | "Cheshta" | "Vicheshta";
+}
+
 export interface PlanetAvasthaReport {
   planet: Graha;
   sign: SignNumber;
@@ -42,10 +58,10 @@ export interface PlanetAvasthaReport {
   warStatus?: "winner" | "loser";
   baladi: AvasthaResult;
   jagradadi: AvasthaResult;
-  deeptadi: AvasthaResult & { secondaryStates: AvasthaResult[] };
-  lajjitadi: AvasthaResult[];
-  shayanadi: AvasthaResult & { cheshta?: "Drishti" | "Cheshta" | "Vicheshta" };
-  strengthSummary: { score: number; label: "Strong" | "Moderate" | "Weak" };
+  deeptadi?: AvasthaResult & { secondaryStates: AvasthaResult[] };
+  lajjitadi?: AvasthaResult[];
+  shayanadi?: ShayanadiAvasthaResult;
+  strengthSummary?: { score: number; label: "Strong" | "Moderate" | "Weak" };
 }
 
 export interface AvasthaReport {

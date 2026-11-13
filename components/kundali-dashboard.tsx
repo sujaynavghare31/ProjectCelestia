@@ -662,9 +662,15 @@ function DegreeValue({ position, decimal }: { position: PlanetPosition; decimal:
 }
 
 function dignityStyle(dignity: string) {
-  if (dignity === "Own" || dignity === "Friend" || dignity === "Exalted") return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-400";
-  if (dignity === "Enemy" || dignity === "Debilitated") return "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-400";
+  if (["Own", "Friend", "Friendly", "Mitra", "Adhimitra", "Exalted", "Moolatrikona"].includes(dignity)) return "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300";
+  if (["Enemy", "Debilitated", "Shatru", "Adhishatru"].includes(dignity)) return "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300";
   return "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400";
+}
+
+function motionStyle(motion: PlanetPosition["motion"]) {
+  return motion === "R"
+    ? "bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300"
+    : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300";
 }
 
 const JAIMINI_KARAKA_NAMES: Record<string, string> = {
@@ -701,19 +707,18 @@ function PlanetTable({
   ];
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[690px] border-collapse text-left text-xs">
+      <table className="w-full min-w-[690px] text-left text-xs">
         <thead className="sticky top-0 bg-card text-xs uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))]">
-          <tr>{["Graha", "Jaimini karaka", "Sign", "Nakshatra", "Pada", "Longitude", "Motion", "Declination", "Dignity", "Graha Avastha"].map((heading) => <th key={heading} className="whitespace-nowrap px-1.5 py-2 font-medium">{heading}</th>)}</tr>
+          <tr>{["Graha", "Jaimini karaka", "Sign", "Nakshatra", "Pada", "Longitude", "Motion", "Declination", "Dignity", "STATES (AVASTHAS)"].map((heading) => <th key={heading} className="whitespace-nowrap px-1.5 py-2 font-medium">{heading}</th>)}</tr>
         </thead>
-        <tbody>
+        <tbody className="divide-y divide-slate-200 dark:divide-slate-800/50">
           {rows.map((position) => {
             const isAscendant = position.name === "Ascendant";
             const isGoldPosition = isAscendant || position.name === "Sun" || position.name === "Moon";
             const vargottama = position.name !== "Ascendant" && position.sign === getVargaSign(position, 9);
-            const avastha = data.grahaAvasthas.find((report) => report.planet === position.name);
             const detailedAvastha = data.avasthaReport?.planets.find((report) => report.planet === position.name);
             return (
-              <tr key={position.id} className={`border-b border-[hsl(var(--border))] bg-transparent text-[hsl(var(--foreground))] transition-colors hover:bg-[hsl(var(--border)/0.2)] ${isGoldPosition ? "text-[hsl(var(--champagne-gold))]" : ""}`}>
+              <tr key={position.id} className={`bg-transparent text-[hsl(var(--foreground))] transition-colors hover:bg-[hsl(var(--border)/0.2)] ${isGoldPosition ? "text-[hsl(var(--champagne-gold))]" : ""}`}>
                 <td className="min-w-[108px] px-1.5 py-1.5 font-semibold">
                   <span className="block whitespace-nowrap">{preferences.usePlanetIcons && <PlanetMark name={position.name} label={position.symbol} enabled />} {planetName(position.name, "en", position.name)}</span>
                   {vargottama && <span title="Rasi and Navamsha signs are the same" className="mt-0.5 inline-flex rounded bg-violet-100 px-1 py-0.5 text-[10px] font-medium leading-none text-violet-800 dark:bg-violet-400/10 dark:text-violet-300">Vargottama</span>}
@@ -735,34 +740,18 @@ function PlanetTable({
                 <td className="whitespace-nowrap px-1.5 py-1.5 text-right text-[hsl(var(--muted-foreground))]"><DegreeValue position={position} decimal={decimal} /></td>
                 <td className="px-1.5 py-1.5">
                   {nodeType === "true" && (position.name === "Rahu" || position.name === "Ketu") && position.motion === "D"
-                    ? <span className="inline-flex items-center gap-1 font-semibold text-amber-700 dark:text-amber-300"><span>Direct</span><span role="img" aria-label="Rahu/Ketu is in direct motion for this specific ephemeris calculation time." title="Rahu/Ketu is in direct motion for this specific ephemeris calculation time."><Info className="size-4" /></span></span>
-                    : <span className={`whitespace-nowrap ${position.motion === "R" ? "font-semibold text-[hsl(var(--retrograde-crimson))]" : "text-[hsl(var(--muted-foreground))]"}`}>{position.motion === "R" ? "Retrograde" : "Direct"}</span>}
+                    ? <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium ${motionStyle(position.motion)}`}><span>Direct</span><span role="img" aria-label="Rahu/Ketu is in direct motion for this specific ephemeris calculation time." title="Rahu/Ketu is in direct motion for this specific ephemeris calculation time."><Info className="size-4" /></span></span>
+                    : <span className={`inline-flex whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium ${motionStyle(position.motion)}`}>{position.motion === "R" ? "Retrograde" : "Direct"}</span>}
                 </td>
                 <td className={`whitespace-nowrap px-1.5 py-1.5 text-right font-mono text-[hsl(var(--muted-foreground))] ${Math.abs(position.declination) > 23.45 ? "font-semibold text-[hsl(var(--retrograde-crimson))]" : ""}`} title={Math.abs(position.declination) > 23.45 ? "Out of Bounds (OOB) Declination" : undefined}>{declinationToDms(position.declination)}</td>
-                <td className="whitespace-nowrap px-1.5 py-1.5"><span className={`rounded-full px-1.5 py-1 text-[10px] ${dignityStyle(position.dignity)}`}>{position.dignity}</span></td>
+                <td className="whitespace-nowrap px-1.5 py-1.5"><span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${dignityStyle(position.dignity)}`}>{position.dignity}</span></td>
                 <td className="px-1.5 py-1.5">
-                  {avastha?.jagradadi && avastha.shayanadi ? (
-                    <div className="flex min-w-36 flex-col gap-0.5">
-                      <span className="text-cyan-800 dark:text-cyan-300" title={avastha.jagradadi.explanation}>Jagradadi: {avastha.jagradadi.state}</span>
-                      <span className="text-amber-800 dark:text-amber-300">Shayanadi: {avastha.shayanadi.state} · {avastha.shayanadi.remainder}</span>
-                      {detailedAvastha && (
-                        <details>
-                          <summary className="cursor-pointer list-none text-cyan-700 underline decoration-dotted underline-offset-2 dark:text-cyan-300">All states</summary>
-                          <div className="absolute z-10 mt-2 grid max-h-64 max-w-[min(90vw,540px)] gap-1 overflow-auto rounded-xl border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
-                            <span>Baladi: {detailedAvastha.baladi.state}</span>
-                            <span>Jagradadi: {detailedAvastha.jagradadi.state}</span>
-                            <span>Deeptadi: {detailedAvastha.deeptadi.state}{detailedAvastha.deeptadi.secondaryStates.length ? ` · ${detailedAvastha.deeptadi.secondaryStates.map(({ state }) => state).join(", ")}` : ""}</span>
-                            <span>Lajjitadi: {detailedAvastha.lajjitadi.map(({ state }) => state).join(", ") || "None"}</span>
-                            <span>Shayanadi: {detailedAvastha.shayanadi.state}{detailedAvastha.shayanadi.cheshta ? ` · ${detailedAvastha.shayanadi.cheshta}` : ""}</span>
-                            <span>Strength: {detailedAvastha.strengthSummary.label} ({detailedAvastha.strengthSummary.score})</span>
-                            <span>Dignity: {detailedAvastha.dignity}{detailedAvastha.isCombust ? " · Combust" : ""}{detailedAvastha.isRetrograde ? " · Retrograde" : ""}</span>
-                          </div>
-                        </details>
-                      )}
-                      <details className="group">
-                        <summary className="cursor-pointer list-none text-cyan-700 underline decoration-dotted underline-offset-2 dark:text-cyan-300">View trace</summary>
-                        <pre className="absolute z-10 mt-2 max-h-64 max-w-[min(90vw,540px)] overflow-auto rounded-xl border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">{JSON.stringify(avastha.calculationTrace, null, 2)}</pre>
-                      </details>
+                  {detailedAvastha ? (
+                    <div className="flex min-w-36 flex-col gap-0.5 text-xs text-slate-600 dark:text-slate-400">
+                      <span>Baladi: {detailedAvastha.baladi.state}</span>
+                      <span title={detailedAvastha.jagradadi.reasons.join(" ")}>Jagradadi: {detailedAvastha.jagradadi.state}</span>
+                      {detailedAvastha.shayanadi && <span>Shayanadi: {detailedAvastha.shayanadi.state}</span>}
+                      {!!detailedAvastha.lajjitadi?.length && <span>Lajjitadi: {detailedAvastha.lajjitadi.map(({ state }) => state).join(", ")}</span>}
                     </div>
                   ) : "—"}
                 </td>
@@ -776,7 +765,9 @@ function PlanetTable({
 }
 
 type AuxiliaryType = "divisional" | "transit" | "solar" | "tajika" | "progressions";
-type DashaSystem = "vimshottari" | "chara" | "ashtottari" | "yogini" | "nadi";
+type DashaSystem = "vimshottari" | "chara" | "ashtottari" | "yogini" | "kalachakra";
+type DashaSeed = "moon" | "ascendant" | "sun" | "ascendant-lord";
+type DashaLagnaMode = "natural" | "maha-lord" | "antar-lord";
 type DashboardTab = "core" | "dasha" | "element-modality" | "aspects" | "ashtakavarga" | "medical" | "export";
 
 // All existing astrology views remain available; strength modules are now grouped with Ashtakavarga.
@@ -890,7 +881,8 @@ export function KundaliDashboard() {
   const [nadiProgressions, setNadiProgressions] = useState(false);
   const [bhriguProgressions, setBhriguProgressions] = useState(false);
   const [dashaSystem, setDashaSystem] = useState<DashaSystem>("vimshottari");
-  const [dashaSeed, setDashaSeed] = useState<"moon" | "ascendant" | "sun">("moon");
+  const [dashaSeed, setDashaSeed] = useState<DashaSeed>("moon");
+  const [dashaLagnaMode, setDashaLagnaMode] = useState<DashaLagnaMode>("maha-lord");
   const [savedProfiles, setSavedProfiles] = useState<SavedChartRecord[]>([]);
   const [savedProfileId, setSavedProfileId] = useState("");
   const [notesFocused, setNotesFocused] = useState(false);
@@ -1055,7 +1047,7 @@ export function KundaliDashboard() {
             zodiacMode,
             customAyanamsaDegrees,
             nodeType,
-            dashaSeed,
+            dashaSeed: "moon",
             avasthaConfig: readSavedAstrologyConfig()?.avastha,
             nameFirstLetter: submittedProfile.name.trim().slice(0, 1).toUpperCase(),
             gender: submittedProfile.sex,
@@ -1082,7 +1074,7 @@ export function KundaliDashboard() {
       window.clearTimeout(timeout);
       abortController.abort();
     };
-  }, [submittedProfile, ayanamsa, zodiacMode, customAyanamsaDegrees, nodeType, dashaSeed, auxiliaryType, targetAge, ageMode]);
+  }, [submittedProfile, ayanamsa, zodiacMode, customAyanamsaDegrees, nodeType, auxiliaryType, targetAge, ageMode]);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -1438,7 +1430,15 @@ export function KundaliDashboard() {
         <div id="kundali-tab-panel" role="tabpanel" aria-labelledby={`kundali-tab-${dashboardTab}`} className="min-w-0">
         {dashboardTab === "dasha" && (
           <Suspense fallback={<SecondaryTabSkeleton />}>
-            <DashaTab data={data} system={dashaSystem} onSystemChange={setDashaSystem} />
+            <DashaTab
+              data={data}
+              system={dashaSystem}
+              onSystemChange={setDashaSystem}
+              seed={dashaSeed}
+              onSeedChange={setDashaSeed}
+              lagnaMode={dashaLagnaMode}
+              onLagnaModeChange={setDashaLagnaMode}
+            />
           </Suspense>
         )}
         {dashboardTab === "element-modality" && (
@@ -1641,8 +1641,7 @@ export function KundaliDashboard() {
                 </div>
               </div>
             </div>
-            {displayData?.unavailableBodies.map((body) => <p key={body.name} role="status" className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200">{body.name} is unavailable because its Swiss Ephemeris data file is not installed; other chart calculations remain active.</p>)}
-            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+            <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800">
               {displayData ? <PlanetTable data={displayData} decimal={decimalDegrees} language={language} preferences={viewPreferences} nodeType={nodeType} interceptedSigns={displayData.interceptedSigns} /> : <div className="grid h-60 place-items-center text-xs text-slate-600">{displayLoading ? <span className="inline-flex items-center gap-2"><LoaderCircle className="size-4 animate-spin text-cyan-500" /> Calculating positions</span> : "No planetary data"}</div>}
             </div>
             {displayData && (
