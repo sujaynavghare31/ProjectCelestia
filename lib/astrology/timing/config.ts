@@ -6,7 +6,6 @@ export const DEFAULT_TIMING_CONFIG: TimingConfig = {
   charaExaltAdjust: true,
   dualLordRule: "KNRao",
   adDirection: "byMDSign",
-  charaLevels: 2,
   karakaScheme: 7,
   sankataLord: "Rahu",
   bcpPlanetProgression: true,

@@ -9,7 +9,7 @@ import type { Graha } from "@/lib/astrology/avastha/types";
 import type { NadiEngineResult, DashaEngineResult, DashaPeriodNode, DashaSystem } from "@/lib/astrology/timing/DashaEngine";
 import type { TimingInput } from "@/lib/astrology/timing/types";
 import { readSavedAstrologyConfig } from "@/lib/astrology/config-storage";
-import DashaActiveCard from "./DashaActiveCard";
+import ActivePeriodCard from "./ActivePeriodCard";
 import DashaTable from "./DashaTable";
 
 const SYSTEM_OPTIONS: Array<{ id: DashaSystem | "nadi"; label: string; cycle: string }> = [
@@ -59,59 +59,82 @@ function findCurrent(periods: DashaPeriodNode[], now: number): DashaPeriodNode[]
   return [current, ...findCurrent(current.subPeriods, now)];
 }
 
-function polarPoint(radius: number, degrees: number) {
-  const angle = (degrees - 90) * Math.PI / 180;
-  return { x: 150 + radius * Math.cos(angle), y: 150 + radius * Math.sin(angle) };
-}
-
 function NadiProgressionVisualizer({ result }: { result: NadiEngineResult }) {
   const currentYear = result.timeline.find(({ ageYear }) => ageYear === Math.floor(result.ageYears) + 1);
-  const markerColors: Record<Graha, string> = {
-    Sun: "#d97706", Moon: "#64748b", Mars: "#dc2626", Mercury: "#059669", Jupiter: "#2563eb",
-    Venus: "#db2777", Saturn: "#475569", Rahu: "#7c3aed", Ketu: "#0f766e",
+  const signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
+  const planetColors: Record<"Jupiter" | "Saturn" | "Rahu" | "Ketu", string> = {
+    Jupiter: "#2563eb",
+    Saturn: "#475569",
+    Rahu: "#7c3aed",
+    Ketu: "#0f766e",
   };
-  const progresses = result.progressedPlanets.filter(({ planet }) => ["Jupiter", "Saturn", "Rahu", "Ketu"].includes(planet));
-  const activeAngle = (result.activeBcpHouse - 1) * 30;
-  const wedgeStart = polarPoint(95, activeAngle);
-  const wedgeEnd = polarPoint(95, activeAngle + 30);
-  const activeWedge = `M 150 150 L ${wedgeStart.x} ${wedgeStart.y} A 95 95 0 0 1 ${wedgeEnd.x} ${wedgeEnd.y} Z`;
+  const progresses = result.progressedPlanets.filter(
+    (planet): planet is typeof planet & { planet: keyof typeof planetColors } => planet.planet in planetColors,
+  );
+  const centers: Record<number, [number, number]> = {
+    1: [180, 78], 2: [88, 42], 3: [42, 90], 4: [84, 180], 5: [42, 270], 6: [88, 318],
+    7: [180, 282], 8: [272, 318], 9: [318, 270], 10: [276, 180], 11: [318, 90], 12: [272, 42],
+  };
+  const housePolygons: Record<number, string> = {
+    1: "180,10 265,95 180,180 95,95",
+    2: "10,10 180,10 95,95 10,180",
+    3: "10,10 95,95 10,180",
+    4: "10,180 95,95 180,180 95,265",
+    5: "10,180 95,265 10,350",
+    6: "10,350 95,265 180,350",
+    7: "180,180 265,265 180,350 95,265",
+    8: "180,350 265,265 350,350",
+    9: "350,350 265,265 350,180",
+    10: "350,180 265,265 180,180 265,95",
+    11: "350,180 265,95 350,10",
+    12: "350,10 265,95 180,10",
+  };
 
   return (
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-[minmax(260px,340px)_minmax(0,1fr)]">
         <figure className="rounded-xl border border-border bg-muted/20 p-3">
           <figcaption className="mb-2 flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold">Progression rings</span>
+            <span className="text-xs font-semibold">Nadi sign progression</span>
             <span className="text-[10px] tabular-nums text-muted-foreground">Age {result.ageYears.toFixed(1)}</span>
           </figcaption>
-          <svg viewBox="0 0 300 300" role="img" aria-labelledby="nadi-ring-title nadi-ring-description" className="mx-auto block w-full max-w-[300px]">
-            <title id="nadi-ring-title">Nadi and annual house progression rings</title>
-            <desc id="nadi-ring-description">Twelve houses with the current annual BCP house highlighted. Jupiter, Saturn, Rahu, and Ketu markers show progressed house positions after a one-sign-per-twelve-years shift.</desc>
-            <circle cx="150" cy="150" r="95" fill="none" stroke="currentColor" strokeOpacity="0.18" strokeWidth="1" />
-            <path d={activeWedge} fill="rgb(245 158 11 / 0.18)" />
+          <svg viewBox="0 0 360 360" role="img" aria-labelledby="nadi-chart-title nadi-chart-description" className="mx-auto block w-full max-w-[340px]">
+            <title id="nadi-chart-title">North Indian Nadi progression chart</title>
+            <desc id="nadi-chart-description">A twelve-house diamond chart showing Jupiter, Saturn, Rahu, and Ketu progressed one sign per twelve years from the natal ascendant.</desc>
+            <rect x="10" y="10" width="340" height="340" rx="8" fill="hsl(var(--card))" stroke="hsl(var(--chart-grid))" strokeWidth="1" />
             {Array.from({ length: 12 }, (_, index) => {
-              const edge = polarPoint(95, index * 30);
-              const label = polarPoint(113, index * 30 + 15);
+              const house = index + 1;
               return (
-                <g key={index}>
-                  <line x1="150" y1="150" x2={edge.x} y2={edge.y} stroke="currentColor" strokeOpacity="0.18" strokeWidth="1" />
-                  <text x={label.x} y={label.y} textAnchor="middle" dominantBaseline="middle" fill="currentColor" className="fill-foreground text-[9px]">
-                    {String(index + 1).padStart(2, "0")}
+                <polygon
+                  key={`house-${house}`}
+                  points={housePolygons[house]}
+                  fill={house === result.activeBcpHouse ? "rgb(245 158 11 / 0.13)" : "transparent"}
+                />
+              );
+            })}
+            <path d="M10 10 350 350M350 10 10 350M180 10 350 180 180 350 10 180 180 10" fill="none" stroke="hsl(var(--chart-grid))" strokeWidth="1" />
+            {Array.from({ length: 12 }, (_, index) => {
+              const house = index + 1;
+              const sign = ((result.lagnaSign - 1 + house - 1) % 12) + 1;
+              const [x, y] = centers[house];
+              const bodies = progresses.filter(({ progressedHouse }) => progressedHouse === house);
+              return (
+                <g key={`labels-${house}`}>
+                  <text x={x} y={y - 11} textAnchor="middle" fill={house === 1 ? "hsl(var(--champagne-gold))" : "hsl(var(--muted-foreground))"} fontSize="8">
+                    H{house} · {signs[sign - 1].toUpperCase()}
                   </text>
+                  {bodies.map(({ planet }, index) => (
+                    <text key={planet} x={x} y={y + 6 + index * 12} textAnchor="middle" fill={planetColors[planet]} fontSize="10" fontWeight="700">
+                      {planet}
+                      <title>{`${planet}, progressed to house ${house}`}</title>
+                    </text>
+                  ))}
                 </g>
               );
             })}
-            <circle cx="150" cy="150" r="53" fill="var(--card)" stroke="currentColor" strokeOpacity="0.18" />
-            <circle cx="150" cy="150" r="43" fill="none" stroke="currentColor" strokeOpacity="0.12" strokeDasharray="2 3" />
-            <text x="150" y="144" textAnchor="middle" dominantBaseline="middle" fill="currentColor" className="fill-muted-foreground text-[9px] uppercase tracking-widest">Age</text>
-            <text x="150" y="163" textAnchor="middle" dominantBaseline="middle" fill="currentColor" className="fill-foreground text-[17px] font-semibold tabular-nums">{Math.floor(result.ageYears)}</text>
-            {progresses.map(({ planet, progressedHouse }, index) => {
-              const point = polarPoint(81 - (index % 2) * 9, (progressedHouse - 1) * 30 + 15);
-              return <g key={planet}><circle cx={point.x} cy={point.y} r="5.5" fill={markerColors[planet]} stroke="var(--card)" strokeWidth="2"><title>{planet}, progressed to house {progressedHouse}</title></circle></g>;
-            })}
           </svg>
           <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1">
-            {progresses.map(({ planet }) => <span key={planet} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground"><span className="size-2 rounded-full" style={{ backgroundColor: markerColors[planet] }} />{planet}</span>)}
+            {progresses.map(({ planet }) => <span key={planet} className="inline-flex items-center gap-1 text-[10px] text-muted-foreground"><span className="size-2 rounded-full" style={{ backgroundColor: planetColors[planet] }} />{planet}</span>)}
           </div>
         </figure>
 
@@ -125,7 +148,7 @@ function NadiProgressionVisualizer({ result }: { result: NadiEngineResult }) {
             <div className="rounded-xl border border-border p-3">
               <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Planetary progression</p>
               <p className="mt-1 text-lg font-semibold">+{result.ageYears.toFixed(1)}° from natal</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">Longitude advances at 1° per year; the sign-ring offset is one sign per 12 years.</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">Longitude advances at 1° per year; the chart placement advances one sign per 12 years.</p>
             </div>
           </div>
 
@@ -285,8 +308,8 @@ export default function DashaDashboard({
               Moon in {result.nakshatra.name} · {(result.nakshatra.progress * 100).toFixed(2)}% elapsed · {(result.nakshatra.remaining * 100).toFixed(2)}% remaining
             </p>
           )}
-          <DashaActiveCard periods={periods} />
-          <DashaTable key={`${system}-${data.calculatedAt}`} periods={periods} title={result.title} />
+          <ActivePeriodCard periods={periods} system={result.system} />
+          <DashaTable key={`${system}-${data.calculatedAt}`} periods={periods} title={result.title} system={result.system} />
         </>
       )}
       {data && result?.system === "nadi" && (

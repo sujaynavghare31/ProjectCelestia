@@ -134,7 +134,6 @@ export default function AstrologyConfigForm() {
           <Choice label="Chara method" value={config.timing.charaMethod} options={["KNRao", "Iranganti"] as const} onChange={(value) => updateTiming("charaMethod", value)} />
           <Choice label="Dual-lord rule" value={config.timing.dualLordRule} options={["KNRao", "custom"] as const} onChange={(value) => updateTiming("dualLordRule", value)} />
           <Choice label="Antardasha direction" value={config.timing.adDirection} options={["byMDSign", "sameAsMD"] as const} onChange={(value) => updateTiming("adDirection", value)} />
-          <Choice label="Chara levels" value={String(config.timing.charaLevels)} options={["2", "3"]} onChange={(value) => updateTiming("charaLevels", Number(value) as 2 | 3)} />
           <Choice label="Karaka scheme" value={String(config.timing.karakaScheme)} options={["7", "8"]} onChange={(value) => updateTiming("karakaScheme", Number(value) as 7 | 8)} />
           <Choice label="Sankata lord" value={config.timing.sankataLord} options={["Rahu", "Ketu"] as const} onChange={(value) => updateTiming("sankataLord", value)} />
           <Choice label="BCP boundary" value={config.timing.bcpYearBoundary} options={["birthday", "solarReturn"] as const} onChange={(value) => updateTiming("bcpYearBoundary", value)} />

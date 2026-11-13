@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calculateDashaSystem, calculateNadiSystem, ASHTOTTARI_SEQUENCE } from "./DashaEngine";
+import { createDashaSubperiods } from "./period-expansion";
 import type { Graha } from "../avastha/types";
 import type { TimingInput } from "./types";
 
@@ -29,6 +30,15 @@ describe("Unified DashaEngine", () => {
     expect(result.periods[0].start).toBe("2000-01-01T00:00:00.000Z");
     expect(result.periods[0].subPeriods).toHaveLength(9);
     expect(result.periods[0].subPeriods[0].lord).toBe("Ketu");
+    const pratyantar = result.periods[0].subPeriods[0].subPeriods[0];
+    expect(pratyantar.subPeriods).toHaveLength(0);
+    const sookshma = createDashaSubperiods(pratyantar, "vimshottari");
+    expect(sookshma).toHaveLength(9);
+    expect(sookshma[0].name).toBe("Sookshma Dasha");
+    expect(sookshma[0].lord).toBe("Ketu");
+    expect(sookshma[0].start).toBe(pratyantar.start);
+    expect(sookshma.at(-1)?.end).toBe(pratyantar.end);
+    expect(sookshma.reduce((sum, period) => sum + period.durationYears, 0)).toBeCloseTo(pratyantar.durationYears, 6);
     expect(new Date(result.periods.at(-1)!.end).getTime()).toBeGreaterThanOrEqual(Date.parse("2120-01-01T00:00:00.000Z"));
   });
 
@@ -38,6 +48,8 @@ describe("Unified DashaEngine", () => {
     expect(result.periods[0].lord).toBe("Sun");
     expect(result.cycleYears).toBe(108);
     expect(result.nakshatra?.name).toBe("Krittika");
+    const pratyantar = result.periods[0].subPeriods[0].subPeriods[0];
+    expect(createDashaSubperiods(pratyantar, "ashtottari")).toHaveLength(8);
   });
 
   it("uses the established Yogini and Jaimini engines with the shared timeline shape", () => {
@@ -48,11 +60,16 @@ describe("Unified DashaEngine", () => {
     expect(yogini.cycleYears).toBe(36);
     expect(chara.periods[0].name).toBe("Maha Dasha");
     expect(chara.periods[0].subPeriods.length).toBeGreaterThan(0);
+    expect(chara.periods[0].subPeriods.every(({ subPeriods }) => subPeriods.length === 0)).toBe(true);
+    const yoginiPratyantar = yogini.periods[0].subPeriods[0].subPeriods[0];
+    expect(createDashaSubperiods(yoginiPratyantar, "yogini")).toHaveLength(8);
+    expect(createDashaSubperiods(chara.periods[0].subPeriods[0], "chara")).toHaveLength(0);
   });
 
   it("calculates progressed longitudes at one degree per year and sign shifts per twelve years", async () => {
     const result = await calculateNadiSystem(chart(0, "2120-01-01T00:00:00.000Z"), new Date("2012-01-01T00:00:00.000Z"));
     expect(result.ageYears).toBeCloseTo(12, 3);
+    expect(result.lagnaSign).toBe(1);
     expect(result.activeBcpHouse).toBe(1);
     const moon = result.progressedPlanets.find(({ planet }) => planet === "Moon")!;
     expect(moon.progressedLongitude).toBeCloseTo(12, 3);

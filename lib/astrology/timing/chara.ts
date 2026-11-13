@@ -151,7 +151,6 @@ function buildSubperiods(
   chart: TimingChart,
   karakas: Map<Graha, string>,
   mdOrderForward: boolean,
-  depth: 2 | 3,
 ): Period[] {
   const forward = directionForAd(sign, mdOrderForward, chart);
   let cursor = new Date(parent.start);
@@ -168,7 +167,6 @@ function buildSubperiods(
       reasons: [`${parent.lord} period is divided into twelve equal sign subperiods.`, `${SIGNS[childSign - 1]} is ${forward ? "the next" : "the previous"} sign in the configured direction.`],
       details,
     };
-    if (depth === 3 && child.level === 2) child.children = buildSubperiods(child, childSign, chart, karakas, mdOrderForward, 2);
     cursor = childEnd;
     return child;
   });
@@ -209,7 +207,7 @@ export function calculateCharaDasha(input: TimingInput): Period[] {
         ],
         details,
       };
-      if (cycle !== 2 || years > 0) period.children = buildSubperiods(period, sign, chart, karakas, mdOrderForward, chart.config.charaLevels);
+      if (cycle !== 2 || years > 0) period.children = buildSubperiods(period, sign, chart, karakas, mdOrderForward);
       if (end > chart.from) periods.push(period);
       cursor = end;
       if (cursor >= chart.to) break;

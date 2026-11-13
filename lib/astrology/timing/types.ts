@@ -35,7 +35,6 @@ export type TimingConfig = {
   charaExaltAdjust: boolean;
   dualLordRule: "KNRao" | "custom";
   adDirection: "byMDSign" | "sameAsMD";
-  charaLevels: 2 | 3;
   karakaScheme: 7 | 8;
   sankataLord: "Rahu" | "Ketu";
   bcpPlanetProgression: boolean;

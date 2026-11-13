@@ -1,18 +1,16 @@
 import { getPlanetaryDignity } from "../planetary-dignity-service";
 import { addYears, getTimingChart, signAt } from "./core";
+import { YOGINI_DASHA_LORDS } from "./sequences";
 import type { Graha } from "../avastha/types";
 import type { Period, TimingChart, TimingInput } from "./types";
 
-export const YOGINIS = [
-  { index: 1, name: "Mangala", planet: "Moon" as const, years: 1 },
-  { index: 2, name: "Pingala", planet: "Sun" as const, years: 2 },
-  { index: 3, name: "Dhanya", planet: "Jupiter" as const, years: 3 },
-  { index: 4, name: "Bhramari", planet: "Mars" as const, years: 4 },
-  { index: 5, name: "Bhadrika", planet: "Mercury" as const, years: 5 },
-  { index: 6, name: "Ulka", planet: "Saturn" as const, years: 6 },
-  { index: 7, name: "Siddha", planet: "Venus" as const, years: 7 },
-  { index: 8, name: "Sankata", planet: "Rahu" as const, years: 8 },
-] as const;
+const YOGINI_PLANETS: readonly Graha[] = ["Moon", "Sun", "Jupiter", "Mars", "Mercury", "Saturn", "Venus", "Rahu"];
+export const YOGINIS = YOGINI_DASHA_LORDS.map(({ lord: name, years }, index) => ({
+  index: index + 1,
+  name,
+  planet: YOGINI_PLANETS[index],
+  years,
+}));
 const NAKSHATRA_SPAN = 360 / 27;
 
 function getYoginiIndex(nakshatra: number) {

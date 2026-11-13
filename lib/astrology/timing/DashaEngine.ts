@@ -3,31 +3,11 @@ import { calculateCharaDasha } from "./chara";
 import { calculateYoginiDasha } from "./yogini";
 import { calculateSwissTransit } from "./swiss-transit-provider";
 import { addYears, getTimingChart, YEAR_LENGTH_DAYS } from "./core";
+import { ASHTOTTARI_LORDS, DASHA_LORDS } from "./sequences";
 import type { Graha } from "../avastha/types";
 import type { BcpYear, NadiYearView, Period, TimingChart, TimingInput } from "./types";
 
-export const DASHA_LORDS = [
-  { lord: "Ketu", years: 7 },
-  { lord: "Venus", years: 20 },
-  { lord: "Sun", years: 6 },
-  { lord: "Moon", years: 10 },
-  { lord: "Mars", years: 7 },
-  { lord: "Rahu", years: 18 },
-  { lord: "Jupiter", years: 16 },
-  { lord: "Saturn", years: 19 },
-  { lord: "Mercury", years: 17 },
-] as const;
-
-export const ASHTOTTARI_LORDS = [
-  { lord: "Sun", years: 6 },
-  { lord: "Moon", years: 15 },
-  { lord: "Mars", years: 8 },
-  { lord: "Mercury", years: 17 },
-  { lord: "Saturn", years: 10 },
-  { lord: "Jupiter", years: 19 },
-  { lord: "Rahu", years: 12 },
-  { lord: "Venus", years: 21 },
-] as const;
+export { ASHTOTTARI_LORDS, DASHA_LORDS };
 
 const ASHTOTTARI_NAKSHATRA_GROUPS: readonly (readonly string[])[] = [
   ["Krittika", "Rohini"],
@@ -47,17 +27,6 @@ const NAKSHATRA_NAMES = [
   "Purva Bhadrapada", "Uttara Bhadrapada", "Revati",
 ] as const;
 
-const YOGINI_LORDS = [
-  { lord: "Mangala", years: 1 },
-  { lord: "Pingala", years: 2 },
-  { lord: "Dhanya", years: 3 },
-  { lord: "Bhramari", years: 4 },
-  { lord: "Bhadrika", years: 5 },
-  { lord: "Ulka", years: 6 },
-  { lord: "Siddha", years: 7 },
-  { lord: "Sankata", years: 8 },
-] as const;
-
 export type DashaSystem = "vimshottari" | "yogini" | "ashtottari" | "chara";
 export type DashaDepth = "Maha Dasha" | "Antar Dasha" | "Pratyantar Dasha" | "Sookshma Dasha";
 
@@ -68,6 +37,7 @@ export interface DashaPeriodNode {
   start: string;
   end: string;
   durationYears: number;
+  yearLengthDays: number;
   clipped?: boolean;
   reasons: string[];
   details?: Record<string, unknown>;
@@ -97,6 +67,7 @@ export interface NadiEngineResult {
   system: "nadi";
   title: "Nadi Progression";
   ageYears: number;
+  lagnaSign: number;
   activeBcpHouse: number;
   progressedPlanets: NadiProgressedPlanet[];
   timeline: NadiYearView[];
@@ -150,6 +121,7 @@ function makeNode(
     start: new Date(start).toISOString(),
     end: new Date(end).toISOString(),
     durationYears: yearsBetween(start, end, chart),
+    yearLengthDays: YEAR_LENGTH_DAYS[chart.config.yearLength],
     ...(clipped ? { clipped: true } : {}),
     reasons,
     ...(details ? { details } : {}),
@@ -357,6 +329,7 @@ export async function calculateNadiSystem(input: TimingInput, now = new Date()):
     system: "nadi",
     title: "Nadi Progression",
     ageYears: Math.max(0, ageYears),
+    lagnaSign: chart.lagnaSign,
     activeBcpHouse,
     progressedPlanets,
     timeline,

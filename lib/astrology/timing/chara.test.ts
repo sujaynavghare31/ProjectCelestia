@@ -50,6 +50,7 @@ describe("Chara Dasha", () => {
     const periods = calculateCharaDasha(chart(1));
     const first = periods[0];
     expect(first.children).toHaveLength(12);
+    expect(first.children?.every((child) => !child.children?.length)).toBe(true);
     expect(first.children?.at(-1)?.lord).toBe(first.lord);
     const sum = first.children?.reduce((total, child) => total + child.years, 0) ?? 0;
     expect(sum).toBeCloseTo(first.years, 8);

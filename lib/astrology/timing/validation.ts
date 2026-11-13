@@ -9,7 +9,6 @@ export const timingConfigSchema = z.object({
   charaExaltAdjust: z.boolean().optional(),
   dualLordRule: z.enum(["KNRao", "custom"]).optional(),
   adDirection: z.enum(["byMDSign", "sameAsMD"]).optional(),
-  charaLevels: z.union([z.literal(2), z.literal(3)]).optional(),
   karakaScheme: z.union([z.literal(7), z.literal(8)]).optional(),
   sankataLord: z.enum(["Rahu", "Ketu"]).optional(),
   bcpPlanetProgression: z.boolean().optional(),
