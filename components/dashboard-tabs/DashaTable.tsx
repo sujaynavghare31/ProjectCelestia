@@ -12,14 +12,6 @@ function makeKey(period: DashaPeriodNode, parent = "") {
   return parent ? `${parent}/${key}` : key;
 }
 
-function findActivePath(periods: DashaPeriodNode[], now: number, parent = "", expanded = new Set<string>()): Set<string> {
-  const active = periods.find((period) => Date.parse(period.start) <= now && now < Date.parse(period.end));
-  if (!active || !active.subPeriods.length) return expanded;
-  const key = makeKey(active, parent);
-  expanded.add(key);
-  return findActivePath(active.subPeriods, now, key, expanded);
-}
-
 function flatten(
   periods: DashaPeriodNode[],
   expanded: Set<string>,
@@ -40,6 +32,20 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
 }
 
+const MAX_LEVEL: Record<DashaSystem, number> = {
+  vimshottari: 4,
+  ashtottari: 3,
+  yogini: 3,
+  chara: 2,
+  kalachakra: 2,
+};
+
+function levelOf(period: DashaPeriodNode) {
+  return period.name === "Maha Dasha" ? 1
+    : period.name === "Antar Dasha" ? 2
+      : period.name === "Pratyantar Dasha" ? 3 : 4;
+}
+
 export default function DashaTable({
   periods,
   title,
@@ -49,7 +55,7 @@ export default function DashaTable({
   title: string;
   system: DashaSystem;
 }) {
-  const [expanded, setExpanded] = useState(() => findActivePath(periods, Date.now()));
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [generated, setGenerated] = useState<Record<string, DashaPeriodNode[]>>({});
   const now = Date.now();
   const rows = useMemo(() => flatten(periods, expanded, generated), [periods, expanded, generated]);
@@ -59,7 +65,9 @@ export default function DashaTable({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
           {periods.length} major periods · Expand rows to inspect nested periods
-          {system === "chara" ? "." : "; expand a Pratyantar row to calculate Sookshma dates on demand."}
+          {system === "chara" || system === "kalachakra"
+            ? "."
+            : `; expand rows to calculate up to ${system === "vimshottari" ? "Sookshma" : "Pratyantar"} dates on demand.`}
         </p>
       </div>
 
@@ -77,10 +85,13 @@ export default function DashaTable({
             {rows.map(({ period, depth, key }) => {
               const isCurrent = Date.parse(period.start) <= now && now < Date.parse(period.end);
               const children = period.subPeriods.length ? period.subPeriods : generated[key] ?? [];
-              const canGenerateSookshma = system !== "chara" && period.name === "Pratyantar Dasha";
-              const hasChildren = children.length > 0 || canGenerateSookshma;
+              const canGenerateChildren = levelOf(period) < MAX_LEVEL[system] && system !== "chara" && system !== "kalachakra";
+              const hasChildren = children.length > 0 || canGenerateChildren;
               const isExpanded = expanded.has(key);
               const nestedShade = ["", "bg-muted/20", "bg-muted/35", "bg-muted/50"][Math.min(depth, 3)];
+              const role = system === "kalachakra" && depth === 0 && typeof period.details?.role === "string"
+                ? `${period.details.role} · `
+                : "";
               return (
                 <tr
                   key={key}
@@ -92,10 +103,10 @@ export default function DashaTable({
                       {hasChildren ? (
                         <button
                           type="button"
-                          aria-label={`${isExpanded ? "Collapse" : "Expand"} ${period.lord} ${period.name}${canGenerateSookshma ? " to Sookshma periods" : ""}`}
+                          aria-label={`${isExpanded ? "Collapse" : "Expand"} ${period.lord} ${period.name}${canGenerateChildren ? " to subperiods" : ""}`}
                           aria-expanded={isExpanded}
                           onClick={() => {
-                            if (!isExpanded && canGenerateSookshma && !generated[key]) {
+                            if (!isExpanded && canGenerateChildren && !generated[key]) {
                               setGenerated((current) => ({
                                 ...current,
                                 [key]: createDashaSubperiods(period, system),
@@ -113,7 +124,7 @@ export default function DashaTable({
                           <ChevronDown className={`size-3.5 transition-transform ${isExpanded ? "" : "-rotate-90"}`} />
                         </button>
                       ) : <span className="w-5 shrink-0" />}
-                      <span className={`truncate ${depth ? "text-muted-foreground" : "font-semibold"}`}>{period.lord}</span>
+                      <span className={`truncate ${depth ? "text-muted-foreground" : "font-semibold"}`}>{role}{period.lord}</span>
                       <span className="shrink-0 text-[10px] text-muted-foreground">{period.name.replace(" Dasha", "")}</span>
                       {isCurrent && <span className="ml-auto shrink-0 rounded-full bg-amber-200/80 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-950 dark:bg-amber-400/20 dark:text-amber-100">Now</span>}
                     </div>

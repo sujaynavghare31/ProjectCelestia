@@ -5,17 +5,15 @@ import { useTheme } from "next-themes";
 import {
   ArrowDownRight,
   ArrowRight,
-  Bookmark,
   CalendarCheck2,
   CalendarDays,
   CarFront,
   Check,
   CircleHelp,
-  Clock3,
   Compass,
   Gem,
   Heart,
-  Home as HomeIcon,
+  Info,
   Moon,
   Orbit,
   PanelTop,
@@ -31,27 +29,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KundaliDashboard } from "@/components/kundali-dashboard";
+import PanchangDashboard from "@/components/panchang/PanchangDashboard";
 import { AuthActions } from "@/components/auth-actions";
-import { AboutModal } from "@/components/about-modal";
+import About from "@/components/About";
 import { useKundaliStore } from "@/lib/kundali-store";
+import NumerologyWorkbench from "@/components/numerology/NumerologyWorkbench";
+import { TABLES, chaldeanSum, computeProfile, digitSum, kuaOf, masterReduce, pythSum, reduce, relationLabel } from "@/lib/numerology";
 
 const gridNumbers = [4, 9, 2, 3, 5, 7, 8, 1, 6];
-const masterNumbers = new Set([11, 22, 33]);
-
-const chaldeanValues: Record<string, number> = {
-  A: 1, I: 1, J: 1, Q: 1, Y: 1,
-  B: 2, K: 2, R: 2,
-  C: 3, G: 3, L: 3, S: 3,
-  D: 4, M: 4, T: 4,
-  E: 5, H: 5, N: 5, X: 5,
-  U: 6, V: 6, W: 6,
-  O: 7, Z: 7,
-  F: 8, P: 8,
-};
-
-const pythagoreanValues: Record<string, number> = Object.fromEntries(
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((letter, index) => [letter, (index % 9) + 1]),
-);
 
 const planetDetails: Record<number, {
   planet: string;
@@ -89,40 +74,11 @@ const arrowCoordinates: Record<number, [number, number]> = {
 };
 
 const navigationItems = [
-  { id: "home", label: "Home", icon: HomeIcon },
+  { id: "panchang", label: "Panchang", icon: CalendarDays },
   { id: "kundali", label: "Kundali", icon: Compass },
   { id: "numerology", label: "Numerology", icon: Sparkles },
-  { id: "saved-charts", label: "Saved Charts", icon: Bookmark },
-  { id: "matchmaking", label: "Matchmaking", icon: Heart },
-  { id: "panchang", label: "Panchang", icon: CalendarDays },
+  { id: "about", label: "About", icon: Info },
 ] as const;
-
-function digitSum(value: number) {
-  return String(Math.abs(Math.trunc(value))).split("").reduce((sum, digit) => sum + Number(digit), 0);
-}
-
-export function reduceToSingleDigit(value: number): number {
-  if (!Number.isFinite(value)) return 0;
-  let result = Math.abs(Math.trunc(value));
-  while (result > 9) result = digitSum(result);
-  return result;
-}
-
-function reduceWithTrace(value: number) {
-  if (!Number.isFinite(value)) return { value: 0, trace: "" };
-  let current = Math.abs(Math.trunc(value));
-  const steps = [String(current)];
-  while (current > 9 && !masterNumbers.has(current)) {
-    current = digitSum(current);
-    steps.push(String(current));
-  }
-  if (masterNumbers.has(current)) {
-    const finalValue = reduceToSingleDigit(current);
-    steps.push(String(finalValue));
-    return { value: finalValue, trace: steps.join(" → ") };
-  }
-  return { value: current, trace: steps.join(" → ") };
-}
 
 function parseBirthDate(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -131,8 +87,12 @@ function parseBirthDate(value: string) {
   const year = Number(yearText);
   const month = Number(monthText);
   const day = Number(dayText);
+  if (year < 1900 || year > 2100) return null;
   const check = new Date(year, month - 1, day);
   if (check.getFullYear() !== year || check.getMonth() !== month - 1 || check.getDate() !== day) return null;
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (check > today) return null;
   return { year, month, day };
 }
 
@@ -199,19 +159,6 @@ function MetricCard({
   );
 }
 
-function PlaceholderPanel({ title }: { title: string }) {
-  return (
-    <Card className="min-h-[400px]">
-      <CardContent className="flex min-h-[400px] flex-col items-center justify-center px-6 text-center">
-        <div className="mb-4 grid size-14 place-items-center rounded-2xl bg-cyan-50 text-cyan-700 dark:bg-cyan-400/10 dark:text-cyan-300"><Sparkles className="size-6" /></div>
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="mt-2 max-w-sm text-sm leading-6 text-slate-600 dark:text-slate-400">This space is ready for your personalized {title.toLowerCase()} insights. Connect your data source to bring the full experience to life.</p>
-        <span className="mt-5 inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-400"><Clock3 className="size-3.5" /> Coming soon</span>
-      </CardContent>
-    </Card>
-  );
-}
-
 export default function Home() {
   const { resolvedTheme, setTheme } = useTheme();
   const birthProfile = useKundaliStore((state) => state.profile);
@@ -231,13 +178,13 @@ export default function Home() {
 
   const numerology = useMemo(() => {
     const birth = parseBirthDate(dateOfBirth);
-    const letterMap = system ? pythagoreanValues : chaldeanValues;
+    const letterMap = system ? TABLES.pythagorean : TABLES.chaldean;
     const letters = Array.from(fullName.toUpperCase()).flatMap((character, index) => {
       const value = letterMap[character];
       return value ? [{ character, value, index }] : [];
     });
-    const nameCompound = letters.reduce((sum, letter) => sum + letter.value, 0);
-    const nameReduced = letters.length ? reduceWithTrace(nameCompound) : null;
+    const nameTotal = system ? pythSum(fullName) : chaldeanSum(fullName);
+    const nameNumber = !letters.length ? null : system ? masterReduce(nameTotal) : reduce(nameTotal);
 
     if (!birth) {
       return {
@@ -247,9 +194,9 @@ export default function Home() {
         mulankBreakdown: "",
         bhagyank: null,
         bhagyankBreakdown: "",
-        nameCompound: letters.length ? nameCompound : null,
-        nameNumber: nameReduced?.value ?? null,
-        nameTrace: nameReduced?.trace ?? "",
+        nameCompound: letters.length ? nameTotal : null,
+        nameNumber,
+        nameTrace: letters.length ? `${nameTotal} → ${nameNumber}` : "",
         letters,
         kuaNumber: null,
         kuaMaleNumber: null,
@@ -257,56 +204,48 @@ export default function Home() {
         personalYear: null,
         personalYearTrace: "",
         personalYearProgress: 0,
+        profile: null,
       };
     }
 
-    const dateDigits = `${String(birth.year).padStart(4, "0")}${String(birth.month).padStart(2, "0")}${String(birth.day).padStart(2, "0")}`;
-    const digitCounts = dateDigits.split("").reduce<Record<number, number>>((counts, digit) => {
-      const number = Number(digit);
-      if (number > 0) counts[number] = (counts[number] ?? 0) + 1;
-      return counts;
-    }, {});
-    const daySum = digitSum(birth.day);
-    const mulank = reduceToSingleDigit(daySum);
-    const mulankTrace = reduceWithTrace(birth.day);
-    const dobSum = dateDigits.split("").reduce((sum, digit) => sum + Number(digit), 0);
-    const bhagyankTrace = reduceWithTrace(dobSum);
-
-    const yearDigit = reduceToSingleDigit(String(birth.year).split("").reduce((sum, digit) => sum + Number(digit), 0));
-    const kuaMaleNumber = reduceToSingleDigit(11 - yearDigit);
-    const kuaFemaleNumber = reduceToSingleDigit(4 + yearDigit);
-    const kuaNumber = kuaGender === "male" ? kuaMaleNumber : kuaFemaleNumber;
-
-    const personalYearTotal = currentYear + birth.month + birth.day;
-    const personalYear = reduceWithTrace(personalYearTotal);
-    const today = new Date();
-    const thisYearBirthday = new Date(today.getFullYear(), birth.month - 1, birth.day);
-    const cycleStart = thisYearBirthday <= today
+    const todayDate = new Date();
+    const todayISO = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, "0")}-${String(todayDate.getDate()).padStart(2, "0")}`;
+    const profile = computeProfile({
+      fullName,
+      dob: dateOfBirth,
+      gender: kuaGender === "male" ? "Male" : "Female",
+      forecastYear: currentYear,
+      today: todayISO,
+    });
+    const currentDate = new Date();
+    const thisYearBirthday = new Date(currentDate.getFullYear(), birth.month - 1, birth.day);
+    const cycleStart = thisYearBirthday <= currentDate
       ? thisYearBirthday
-      : new Date(today.getFullYear() - 1, birth.month - 1, birth.day);
+      : new Date(currentDate.getFullYear() - 1, birth.month - 1, birth.day);
     const cycleEnd = new Date(cycleStart.getFullYear() + 1, birth.month - 1, birth.day);
     const cycleLength = cycleEnd.getTime() - cycleStart.getTime();
-    const personalYearProgress = Math.max(0, Math.min(100, ((today.getTime() - cycleStart.getTime()) / cycleLength) * 100));
+    const personalYearProgress = Math.max(0, Math.min(100, ((currentDate.getTime() - cycleStart.getTime()) / cycleLength) * 100));
+    const dateDigits = dateOfBirth.replaceAll("-", "").split("").map(Number);
+    const nameTrace = `${nameTotal} → ${nameNumber}`;
 
     return {
       birth,
-      digitCounts,
-      mulank,
-      mulankBreakdown: masterNumbers.has(birth.day)
-        ? `${birth.day} → ${mulankTrace.trace.split(" → ").slice(1).join(" → ")}`
-        : `${String(birth.day).split("").join(" + ")} = ${daySum}${masterNumbers.has(daySum) ? ` → ${mulank}` : ""}`,
-      bhagyank: bhagyankTrace.value,
-      bhagyankBreakdown: `${dateDigits.split("").join(" + ")} = ${dobSum} → ${bhagyankTrace.trace.split(" → ").slice(1).join(" → ") || bhagyankTrace.value}`,
-      nameCompound: letters.length ? nameCompound : null,
-      nameNumber: nameReduced?.value ?? null,
-      nameTrace: nameReduced?.trace ?? "",
+      digitCounts: profile.loShu.counts,
+      mulank: profile.chaldean.moolank,
+      mulankBreakdown: `${String(birth.day).split("").join(" + ")} → ${profile.chaldean.moolank}`,
+      bhagyank: profile.chaldean.bhagyank,
+      bhagyankBreakdown: `${dateDigits.join(" + ")} = ${digitSum(dateOfBirth)} → ${profile.chaldean.bhagyank}`,
+      nameCompound: letters.length ? nameTotal : null,
+      nameNumber: letters.length ? (system ? profile.pythagorean.expression : profile.chaldean.nameNumber) : null,
+      nameTrace: letters.length ? nameTrace : "",
       letters,
-      kuaNumber,
-      kuaMaleNumber,
-      kuaFemaleNumber,
-      personalYear: personalYear.value,
-      personalYearTrace: `${currentYear} + ${birth.month} + ${birth.day} = ${personalYearTotal} → ${personalYear.trace.split(" → ").slice(1).join(" → ") || personalYear.value}`,
+      kuaNumber: profile.chaldean.kua,
+      kuaMaleNumber: kuaOf(dateOfBirth, "Male"),
+      kuaFemaleNumber: kuaOf(dateOfBirth, "Female"),
+      personalYear: profile.forecast.personalYear,
+      personalYearTrace: profile.forecast.personalYearTheme,
       personalYearProgress,
+      profile,
     };
   }, [dateOfBirth, fullName, system, kuaGender, currentYear]);
 
@@ -314,7 +253,9 @@ export default function Home() {
   const destinyInfo = numerology.bhagyank ? planetDetails[numerology.bhagyank] : null;
   const nameInfo = numerology.nameNumber ? planetDetails[numerology.nameNumber] : null;
   const luckyNumbers = [...new Set([numerology.mulank, numerology.bhagyank, numerology.nameNumber].filter((value): value is number => value !== null))];
-  const enemyNumbers = mulankInfo?.enemies ?? [];
+  const enemyNumbers = numerology.mulank
+    ? [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((number) => relationLabel(numerology.mulank, number) === "Enemy")
+    : [];
   const planes = [
     { name: "Mental", numbers: [4, 9, 2] },
     { name: "Emotional", numbers: [3, 5, 7] },
@@ -330,24 +271,14 @@ export default function Home() {
     count: numerology.birth ? arrow.numbers.filter((number) => (numerology.digitCounts[number] ?? 0) > 0).length : 0,
   }));
   const missingNumbers = numerology.birth ? gridNumbers.filter((number) => !(numerology.digitCounts[number] > 0)) : [];
-  const luckyDates = numerology.mulank
-    ? [numerology.mulank, numerology.mulank + 9, numerology.mulank + 18, numerology.mulank + 27].filter((day) => day <= 31)
-    : [];
+  const luckyDates = numerology.profile?.lucky.datesEveryMonth ?? [];
   const navigate = (destination: typeof navigationItems[number]["id"]) => {
     setActiveNavigation(destination);
-    if (destination === "home" || destination === "kundali" || destination === "saved-charts") {
-      setActiveTab("kundali");
-    } else {
-      setActiveTab(destination);
-    }
+    setActiveTab(destination);
     window.requestAnimationFrame(() => {
       const scroller = document.getElementById("dashboard-scroll");
       if (!scroller) return;
-      const targetId = destination === "saved-charts"
-        ? "saved-charts"
-        : destination === "kundali"
-          ? "kundali-charts"
-          : null;
+      const targetId = destination === "kundali" ? "kundali-charts" : null;
       const target = targetId ? document.getElementById(targetId) : null;
       if (target) {
         const scrollerTop = scroller.getBoundingClientRect().top;
@@ -374,19 +305,15 @@ export default function Home() {
     );
   });
   const relationship = numerology.mulank && numerology.bhagyank
-    ? numerology.mulank === numerology.bhagyank
+    ? relationLabel(numerology.mulank, numerology.bhagyank) === "Friend"
       ? "Friendly"
-      : planetDetails[numerology.mulank].enemies.includes(numerology.bhagyank)
-        ? "Enemy"
-        : planetDetails[numerology.mulank].friends.includes(numerology.bhagyank)
-          ? "Friendly"
-          : "Neutral"
+      : relationLabel(numerology.mulank, numerology.bhagyank)
     : "—";
 
   return (
     <main className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-background text-foreground">
         <header className="z-30 flex min-h-[60px] shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 sm:px-6">
-          <a href="#" onClick={(event) => { event.preventDefault(); navigate("home"); }} className="flex min-w-0 items-center gap-2.5" aria-label="Project Celestia home">
+          <a href="#kundali-charts" onClick={(event) => { event.preventDefault(); navigate("kundali"); }} className="flex min-w-0 items-center gap-2.5" aria-label="Project Celestia Kundali dashboard">
             <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-900 dark:bg-slate-800">
               <svg viewBox="0 0 36 36" aria-hidden="true" className="size-5">
                 <circle cx="18" cy="18" r="6.5" fill="#f59e0b" />
@@ -414,13 +341,12 @@ export default function Home() {
         </header>
         <nav aria-label="Main navigation" className="flex shrink-0 gap-1 overflow-x-auto border-b border-border bg-card px-3 py-1.5">
           {renderNavigationItems(true)}
-          <AboutModal />
         </nav>
 
         <div id="dashboard-scroll" className="cosmic-grid p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-[1750px]">
           <div id="dashboard-home" className="pt-0">
-            {activeTab !== "kundali" && (
+            {activeTab === "numerology" && (
               <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
                 <div>
                   <h1 className="text-2xl font-semibold tracking-tight sm:text-[30px]">A little more aligned.</h1>
@@ -432,10 +358,10 @@ export default function Home() {
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="min-w-0 max-w-full overflow-x-clip">
               <TabsList aria-label="Dashboard sections" className="hidden">
-                <TabsTrigger value="numerology"><Sparkles className="size-3.5" /> Numerology</TabsTrigger>
-                <TabsTrigger value="kundali"><Compass className="size-3.5" /> Kundali &amp; Charts</TabsTrigger>
-                <TabsTrigger value="matchmaking"><Heart className="size-3.5" /> Matchmaking</TabsTrigger>
                 <TabsTrigger value="panchang"><CalendarDays className="size-3.5" /> Panchang</TabsTrigger>
+                <TabsTrigger value="kundali"><Compass className="size-3.5" /> Kundali &amp; Charts</TabsTrigger>
+                <TabsTrigger value="numerology"><Sparkles className="size-3.5" /> Numerology</TabsTrigger>
+                <TabsTrigger value="about"><Info className="size-3.5" /> About</TabsTrigger>
               </TabsList>
 
               <TabsContent value="numerology" className="mt-6 focus-visible:outline-none">
@@ -489,7 +415,7 @@ export default function Home() {
 
                   <section className="flex flex-col gap-4" aria-label="Lo Shu grid and planes">
                     <Card>
-                      <CardHeader><CardHeading icon={PanelTop} title="Lo Shu grid" detail="DOB FREQUENCY" /></CardHeader>
+                      <CardHeader><CardHeading icon={PanelTop} title="Lo Shu grid" detail="DOB + CORE NUMBERS" /></CardHeader>
                       <CardContent>
                         <div className="relative mx-auto aspect-square w-full max-w-[330px]">
                           <svg className="pointer-events-none absolute inset-0 z-10 size-full p-2" viewBox="0 0 300 300" fill="none" aria-hidden="true">
@@ -584,7 +510,7 @@ export default function Home() {
                           </div>
                           <div className="mb-1 text-right">
                             <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-yellow-400/10 dark:text-yellow-300"><Orbit className="size-3.5" /> {nameInfo?.planet ?? "—"}</span>
-                            <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">Compound value <strong className="text-slate-900 dark:text-slate-200">{numerology.nameCompound ?? "—"}</strong></p>
+                            <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">{system ? "Pythagorean total" : "Compound value"} <strong className="text-slate-900 dark:text-slate-200">{numerology.nameCompound ?? "—"}</strong></p>
                           </div>
                         </div>
                         <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800">
@@ -690,12 +616,13 @@ export default function Home() {
                     </Card>
                   </section>
                 </div>
+                <NumerologyWorkbench profile={numerology.profile} />
                 <div className="mt-5 flex items-center justify-center gap-1.5 text-xs text-slate-600 dark:text-slate-400"><CircleHelp className="size-3" /> Calculations update as you type. Interpretations are traditional and for personal reflection.</div>
               </TabsContent>
 
               <TabsContent value="kundali" className="mt-3 focus-visible:outline-none"><KundaliDashboard /></TabsContent>
-              <TabsContent value="matchmaking" className="mt-6 focus-visible:outline-none"><PlaceholderPanel title="Matchmaking" /></TabsContent>
-              <TabsContent value="panchang" className="mt-6 focus-visible:outline-none"><PlaceholderPanel title="Panchang" /></TabsContent>
+              <TabsContent value="panchang" className="mt-6 focus-visible:outline-none"><PanchangDashboard /></TabsContent>
+              <TabsContent value="about" className="mt-0 focus-visible:outline-none"><About /></TabsContent>
             </Tabs>
           </div>
 

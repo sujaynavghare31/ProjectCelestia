@@ -95,6 +95,14 @@ export function getPlanetAt(chart: TimingChart, planet: Graha) {
   return result;
 }
 
+export function getDashaSeedLongitude(chart: TimingChart) {
+  const seed = chart.input.dashaSeed ?? "moon";
+  if (seed === "ascendant") return chart.input.ascendantLongitude;
+  if (seed === "sun") return getPlanetAt(chart, "Sun").longitude;
+  if (seed === "ascendant-lord") return getPlanetAt(chart, getSignLord(chart.lagnaSign)).longitude;
+  return getPlanetAt(chart, "Moon").longitude;
+}
+
 export function localDisplay(iso: string, timezone: string) {
   return new Intl.DateTimeFormat("en-GB", {
     timeZone: timezone,

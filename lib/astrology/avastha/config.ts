@@ -17,7 +17,7 @@ export type AvasthaConfig = {
   kshobhitaUseCombustionOrb: boolean;
   ketuNumber: 8 | 9;
   navamsaMode: "indexInSign" | "navamsaSign";
-  ghatiRounding: "ceil" | "floor" | "exact";
+  ghatiRounding: "nearest" | "ceil" | "floor" | "exact";
   rahuExaltSign: number;
   ketuExaltSign: number;
   rahuDebilSign: number;
@@ -69,9 +69,9 @@ export const DEFAULT_AVASTHA_CONFIG: AvasthaConfig = {
   moonBeneficRule: "paksha",
   wateryExtended: false,
   kshobhitaUseCombustionOrb: false,
-  ketuNumber: 8,
+  ketuNumber: 9,
   navamsaMode: "indexInSign",
-  ghatiRounding: "ceil",
+  ghatiRounding: "nearest",
   rahuExaltSign: 2,
   ketuExaltSign: 8,
   rahuDebilSign: 8,

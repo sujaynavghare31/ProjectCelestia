@@ -35,6 +35,7 @@ export const timingInputSchema = z.object({
     speed: z.number(),
   })).length(9),
   ascendantLongitude: z.number().min(0).max(359.999999999),
+  dashaSeed: z.enum(["moon", "ascendant", "sun", "ascendant-lord"]).optional(),
   gender: z.enum(["male", "female"]).optional(),
   fromDate: z.iso.datetime().optional(),
   toDate: z.iso.datetime().optional(),

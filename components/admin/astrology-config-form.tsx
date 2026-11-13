@@ -92,7 +92,7 @@ export default function AstrologyConfigForm() {
           <Choice label="Moon benefic rule" value={config.avastha.moonBeneficRule} options={["paksha", "shuklaAshtami"] as const} onChange={(value) => updateAvastha("moonBeneficRule", value)} />
           <Choice label="Ketu numbering" value={String(config.avastha.ketuNumber)} options={["8", "9"]} onChange={(value) => updateAvastha("ketuNumber", Number(value) as 8 | 9)} />
           <Choice label="Navamsa mode" value={config.avastha.navamsaMode} options={["indexInSign", "navamsaSign"] as const} onChange={(value) => updateAvastha("navamsaMode", value)} />
-          <Choice label="Ghati rounding" value={config.avastha.ghatiRounding} options={["ceil", "floor", "exact"] as const} onChange={(value) => updateAvastha("ghatiRounding", value)} />
+          <Choice label="Ghati rounding" value={config.avastha.ghatiRounding} options={["nearest", "ceil", "floor", "exact"] as const} onChange={(value) => updateAvastha("ghatiRounding", value)} />
           <Choice label="Planetary war winner" value="lowerLongitude" options={["lowerLongitude"] as const} onChange={(value) => updateAvastha("yuddhaWinnerRule", value)} />
           <NumberField label="Vriddha strength (%)" value={config.avastha.vriddhaResultPercent} min={0} max={100} step={0.5} onChange={(value) => updateAvastha("vriddhaResultPercent", value)} />
           <NumberField label="Conjunction orb (degrees)" value={config.avastha.conjunctionOrb ?? 8} min={0} max={15} step={0.1} onChange={(value) => updateAvastha("conjunctionOrb", value)} />

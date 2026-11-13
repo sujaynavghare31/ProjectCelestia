@@ -12,7 +12,7 @@ export interface GhatiResult {
   sunriseLocalDate: string;
   elapsedMinutes: number;
   runningGhati: number;
-  convention: "ceiling(elapsed minutes / 24)";
+  convention: "nearest(elapsed minutes / 24)";
 }
 
 type RiseResult = { transitTime: number; error?: string };
@@ -33,7 +33,7 @@ export function calculateRunningGhati(elapsedMinutes: number): number {
   if (!Number.isFinite(elapsedMinutes) || elapsedMinutes < 0) {
     throw new Error("Elapsed time from sunrise must be a non-negative number of minutes.");
   }
-  return Math.ceil(elapsedMinutes / 24);
+  return Math.round(elapsedMinutes / 24);
 }
 
 export function selectBirthSunrise(
@@ -93,6 +93,6 @@ export function calculateBirthGhati({
     sunriseLocalDate: sunrise.localDate,
     elapsedMinutes: Number(elapsedMinutes.toFixed(6)),
     runningGhati: calculateRunningGhati(elapsedMinutes),
-    convention: "ceiling(elapsed minutes / 24)",
+    convention: "nearest(elapsed minutes / 24)",
   };
 }

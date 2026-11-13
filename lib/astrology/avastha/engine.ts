@@ -23,10 +23,11 @@ import type {
   AvasthaResult,
   Graha,
   PlanetAvasthaReport,
+  ShayanadiFormulaInputs,
 } from "./types";
 import { GRAHAS } from "./types";
 
-const ENGINE_VERSION = "1.0.0";
+const ENGINE_VERSION = "1.1.1";
 const BASE_MALEFICS: Graha[] = ["Sun", "Mars", "Saturn", "Rahu", "Ketu"];
 const WARRING_PLANETS: Graha[] = ["Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
 const COMBUSTION_SANSKRIT: Record<string, string> = {
@@ -117,7 +118,7 @@ export function getPlanetaryRelationship(
   const a = positions.find((position) => position.planet === planet);
   const b = positions.find((position) => position.planet === other);
   const temporalFriend = a && b && [2, 3, 4, 10, 11, 12].includes(relationHouse(a.sign, b.sign));
-  if (natural === "friend") return temporalFriend ? "Adhimitra" : "Sama";
+  if (natural === "friend") return temporalFriend ? "Adhimitra" : "Mitra";
   if (natural === "enemy") return temporalFriend ? "Sama" : "Adhishatru";
   return temporalFriend ? "Mitra" : "Shatru";
 }
@@ -266,6 +267,10 @@ function jagradadi(planet: DerivedPlanet, chart: ChartContext): AvasthaResult {
     return makeResult("Jagradadi", "Jagrat", "auspicious", "JAGRADADI_OWN_OR_EXALT", [`${planet.planet} is ${dignity.toLowerCase()} in sign ${planet.sign}.`], 100);
   }
   if (dignity === "Debilitated") {
+    const cancellation = getNeechaBhangaReason(planet, chart);
+    if (cancellation) {
+      return makeResult("Jagradadi", "Swapna", "mixed", "JAGRADADI_NEECHA_BHANGA", [cancellation], 50);
+    }
     return makeResult("Jagradadi", "Sushupti", "inauspicious", "JAGRADADI_DEBILITATED", [`${planet.planet} occupies its debilitation sign.`], 0);
   }
   const relationship = relationToSignLord(planet.planet, planet.sign, chart);
@@ -273,6 +278,34 @@ function jagradadi(planet: DerivedPlanet, chart: ChartContext): AvasthaResult {
     return makeResult("Jagradadi", "Swapna", "mixed", `JAGRADADI_${relationship.toUpperCase()}`, [`The sign lord's compound relationship to ${planet.planet} is ${relationship}.`], 50);
   }
   return makeResult("Jagradadi", "Sushupti", "inauspicious", `JAGRADADI_${relationship.toUpperCase()}`, [`The sign lord's compound relationship to ${planet.planet} is ${relationship}.`], 0);
+}
+
+function getNeechaBhangaReason(planet: DerivedPlanet, chart: ChartContext): string | null {
+  const debilitationSign = planet.planet === "Rahu"
+    ? chart.config.rahuDebilSign
+    : planet.planet === "Ketu"
+      ? chart.config.ketuDebilSign
+      : DEBILITATION[planet.planet];
+  if (planet.sign !== debilitationSign) return null;
+
+  const exaltationSign = planet.planet === "Rahu"
+    ? chart.config.rahuExaltSign
+    : planet.planet === "Ketu"
+      ? chart.config.ketuExaltSign
+      : EXALTATION[planet.planet].sign;
+  const cancellationLords = [
+    { planet: SIGN_LORDS[debilitationSign], source: "lord of the debilitation sign" },
+    { planet: SIGN_LORDS[exaltationSign], source: "lord of the exaltation sign" },
+  ];
+  const referenceSigns = [chart.lagna.sign, chart.byPlanet.get("Moon")?.sign]
+    .filter((sign): sign is number => sign !== undefined);
+  for (const { planet: lord, source } of cancellationLords) {
+    const lordPosition = chart.byPlanet.get(lord);
+    if (lordPosition && referenceSigns.some((sign) => [1, 4, 7, 10].includes(relationHouse(sign, lordPosition.sign)))) {
+      return `${planet.planet} is debilitated, but the ${source} (${lord}) is in a kendra from the Ascendant or Moon; Neecha Bhanga gives Swapna.`;
+    }
+  }
+  return null;
 }
 
 function deeptadi(planet: DerivedPlanet, chart: ChartContext): AvasthaResult & { secondaryStates: AvasthaResult[] } {
@@ -366,31 +399,54 @@ export function calculateShayanadiState({
   ghati: number;
   lagnaSign: number;
 }) {
-  const values = [nakshatra, planetNumber, navamsaNumber, moonNakshatra, ghati, lagnaSign];
-  if (values.some((value) => !Number.isFinite(value) || value <= 0)) throw new Error("Shayanadi formula inputs must be positive finite numbers.");
+  const boundedIntegers = [
+    { name: "nakshatra", value: nakshatra, min: 1, max: 27 },
+    { name: "planetNumber", value: planetNumber, min: 1, max: 9 },
+    { name: "navamsaNumber", value: navamsaNumber, min: 1, max: 12 },
+    { name: "moonNakshatra", value: moonNakshatra, min: 1, max: 27 },
+    { name: "lagnaSign", value: lagnaSign, min: 1, max: 12 },
+  ];
+  for (const { name, value, min, max } of boundedIntegers) {
+    if (!Number.isInteger(value) || value < min || value > max) {
+      throw new Error(`${name} must be an integer from ${min} to ${max}.`);
+    }
+  }
+  if (!Number.isFinite(ghati) || ghati < 0) throw new Error("ghati must be a non-negative finite number.");
   const total = nakshatra * planetNumber * navamsaNumber + moonNakshatra + ghati + lagnaSign;
-  const remainder = total % 12 || 12;
+  const remainder = Math.round(total) % 12 || 12;
   return { total, remainder, state: SHAYANADI_STATES[remainder % 12] };
 }
 
-function shayanadi(planet: DerivedPlanet, chart: ChartContext, moonNakshatra: number, nameFirstLetter?: string): AvasthaResult & { cheshta?: "Drishti" | "Cheshta" | "Vicheshta" } {
+function shayanadi(planet: DerivedPlanet, chart: ChartContext, moonNakshatra: number, nameFirstLetter?: string): AvasthaResult & {
+  remainder: number;
+  total: number;
+  formulaInputs: ShayanadiFormulaInputs;
+  cheshta?: "Drishti" | "Cheshta" | "Vicheshta";
+} {
   const elapsedMinutes = (chart.birth.getTime() - chart.sunrise.getTime()) / 60_000;
   if (elapsedMinutes < 0) throw new Error("sunriseUTC must not be after birthDateTimeUTC.");
   const rawGhati = elapsedMinutes / 24;
-  const ghati = chart.config.ghatiRounding === "ceil" ? Math.ceil(rawGhati) :
-    chart.config.ghatiRounding === "floor" ? Math.floor(rawGhati) : rawGhati;
+  const ghati = chart.config.ghatiRounding === "nearest" ? Math.round(rawGhati)
+    : chart.config.ghatiRounding === "ceil" ? Math.ceil(rawGhati)
+      : chart.config.ghatiRounding === "floor" ? Math.floor(rawGhati) : rawGhati;
   const navamsaValue = chart.config.navamsaMode === "indexInSign" ? planet.navamsaIndex : planet.navamsaSign;
   const planetNumber = planet.planet === "Ketu" ? chart.config.ketuNumber : PLANET_NUMBER[planet.planet];
-  const { total, remainder, state } = calculateShayanadiState({
+  const formulaInputs: ShayanadiFormulaInputs = {
     nakshatra: planet.nakshatra,
     planetNumber,
     navamsaNumber: navamsaValue,
     moonNakshatra,
     ghati,
     lagnaSign: chart.lagna.sign,
-  });
+  };
+  const { total, remainder, state } = calculateShayanadiState(formulaInputs);
   const reasons = [`X = (${planet.nakshatra} × ${planetNumber} × ${navamsaValue}) + ${moonNakshatra} + ${ghati} + ${chart.lagna.sign} = ${total}; remainder ${remainder} maps to ${state}.`];
-  const result = makeResult("Shayanadi", state, "mixed", "SHAYANADI_BIRTH_GHATI_FORMULA", reasons);
+  const result = {
+    ...makeResult("Shayanadi", state, "mixed", "SHAYANADI_BIRTH_GHATI_FORMULA", reasons),
+    total,
+    remainder,
+    formulaInputs,
+  };
   if (!nameFirstLetter) return result;
   const key = nameFirstLetter.trim().toUpperCase().slice(0, 1);
   const ankas = chart.config.nameLetterAnkas[key];
@@ -467,9 +523,10 @@ export function calculateAvasthaReport(input: AvasthaInput): AvasthaReport {
     .map((planet) => {
       const baladiResult = baladi(planet, chart);
       const jagradadiResult = jagradadi(planet, chart);
-      const deeptadiResult = deeptadi(planet, chart);
-      const lajjitadiResults = lajjitadi(planet, chart);
-      const avastha = shayanadi(planet, chart, moon.nakshatra, input.nameFirstLetter);
+      const isNode = planet.planet === "Rahu" || planet.planet === "Ketu";
+      const deeptadiResult = isNode ? undefined : deeptadi(planet, chart);
+      const lajjitadiResults = isNode ? undefined : lajjitadi(planet, chart);
+      const avastha = isNode ? undefined : shayanadi(planet, chart, moon.nakshatra, input.nameFirstLetter);
       return {
         planet: planet.planet,
         sign: planet.sign as PlanetAvasthaReport["sign"],
@@ -483,10 +540,12 @@ export function calculateAvasthaReport(input: AvasthaInput): AvasthaReport {
         ...(chart.war.has(planet.planet) ? { warStatus: chart.war.get(planet.planet) } : {}),
         baladi: baladiResult,
         jagradadi: jagradadiResult,
-        deeptadi: deeptadiResult,
-        lajjitadi: lajjitadiResults,
-        shayanadi: avastha,
-        strengthSummary: getStrengthSummary(baladiResult, jagradadiResult, deeptadiResult, lajjitadiResults, config),
+        ...(deeptadiResult ? { deeptadi: deeptadiResult } : {}),
+        ...(lajjitadiResults ? { lajjitadi: lajjitadiResults } : {}),
+        ...(avastha ? { shayanadi: avastha } : {}),
+        ...(deeptadiResult ? {
+          strengthSummary: getStrengthSummary(baladiResult, jagradadiResult, deeptadiResult, lajjitadiResults ?? [], config),
+        } : {}),
       };
     });
   return { planets: output, configUsed: config, engineVersion: ENGINE_VERSION };

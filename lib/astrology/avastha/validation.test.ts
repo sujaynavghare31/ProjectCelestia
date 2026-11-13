@@ -11,6 +11,7 @@ describe("Avastha request validation", () => {
       sunriseUTC: "1999-12-31T23:00:00.000Z",
     };
     expect(avasthaInputSchema.safeParse(input).success).toBe(true);
+    expect(avasthaConfigSchema.safeParse({ ghatiRounding: "nearest", ketuNumber: 9 }).success).toBe(true);
   });
 
   it("rejects out-of-range values and unsupported brightness-based war", () => {

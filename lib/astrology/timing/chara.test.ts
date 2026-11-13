@@ -24,8 +24,8 @@ function chart(lagna: number, signs: Partial<Record<Graha, number>> = {}, config
 
 describe("Chara Dasha", () => {
   it("uses the specified Savya and Apasavya sign order", () => {
-    const aries = calculateCharaDasha(chart(1));
-    const cancer = calculateCharaDasha(chart(4));
+    const aries = calculateCharaDasha({ ...chart(1), dashaSeed: "ascendant" });
+    const cancer = calculateCharaDasha({ ...chart(4), dashaSeed: "ascendant" });
     expect(aries.slice(0, 3).map(({ lord }) => lord)).toEqual(["Aries", "Taurus", "Gemini"]);
     expect(cancer.slice(0, 3).map(({ lord }) => lord)).toEqual(["Cancer", "Gemini", "Taurus"]);
   });

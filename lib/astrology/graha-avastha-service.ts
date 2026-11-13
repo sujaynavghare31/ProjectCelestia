@@ -1,30 +1,22 @@
 import type { PlanetPosition } from "../kundali-types";
 import type { GhatiResult } from "./ghati-calculator";
-import { getNaturalFriendship, getPlanetaryDignity, getSignLord } from "./planetary-dignity-service";
-
-const CLASSICAL_GRAHAS = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
-const PLANET_VALUES: Record<string, number> = {
-  Sun: 1,
-  Moon: 2,
-  Mars: 3,
-  Mercury: 4,
-  Jupiter: 5,
-  Venus: 6,
-  Saturn: 7,
-};
+import { getPlanetaryRelationship, calculateShayanadiState } from "./avastha/engine";
+import { SIGN_LORDS } from "./avastha/graha";
+import { GRAHAS, type AvasthaReport, type Graha } from "./avastha/types";
+import { getNaturalFriendship, getPlanetaryDignity } from "./planetary-dignity-service";
 
 const SHAYANADI_STATES: Record<number, string> = {
   0: "Nidra",
-  1: "Shayana",
-  2: "Upaveshana",
+  1: "Sayana",
+  2: "Upavesana",
   3: "Netrapani",
-  4: "Prakashana",
+  4: "Prakasana",
   5: "Gamana",
-  6: "Agamana",
+  6: "Aagamana",
   7: "Sabha",
-  8: "Agama",
+  8: "Aagama",
   9: "Bhojana",
-  10: "Nrityalipsa",
+  10: "Nritya Lipsa",
   11: "Kautuka",
 };
 
@@ -47,37 +39,45 @@ export interface ShayanadiResult {
 
 export function calculateShayanadiAvastha(inputs: ShayanadiInputs): ShayanadiResult {
   const { nakshatra, planetValue, navamshaNumber, moonNakshatra, birthGhati, lagnaSign } = inputs;
-  const total = (nakshatra * planetValue * navamshaNumber) + moonNakshatra + birthGhati + lagnaSign;
-  const remainder = total % 12;
+  const { total, remainder, state } = calculateShayanadiState({
+    nakshatra,
+    planetNumber: planetValue,
+    navamsaNumber: navamshaNumber,
+    moonNakshatra,
+    ghati: birthGhati,
+    lagnaSign,
+  });
+  const rawRemainder = total % 12;
 
   return {
-    state: SHAYANADI_STATES[remainder],
+    state: SHAYANADI_STATES[remainder % 12] ?? state,
     remainder,
     total,
     inputs,
-    formula: `(${nakshatra} × ${planetValue} × ${navamshaNumber}) + ${moonNakshatra} + ${birthGhati} + ${lagnaSign} = ${total}; ${total} mod 12 = ${remainder}`,
+    formula: `(${nakshatra} × ${planetValue} × ${navamshaNumber}) + ${moonNakshatra} + ${birthGhati} + ${lagnaSign} = ${total}; ${total} mod 12 = ${rawRemainder}${rawRemainder === 0 ? " → 12" : ""}`,
   };
 }
 
 export function calculateGrahaAvasthas(
   planets: PlanetPosition[],
-  moonNakshatra: number,
   birthGhati: GhatiResult,
-  lagnaSign: number,
+  report: AvasthaReport,
 ) {
+  const byPlanet = new Map(report.planets.map((planet) => [planet.planet, planet]));
+  const relationshipPositions = report.planets.map(({ planet, sign }) => ({ planet, sign }));
   return planets.map((planet) => {
-    const dignity = getPlanetaryDignity(planet.name, planet.sign, planet.degree);
-    const planetValue = PLANET_VALUES[planet.name];
-    if (planetValue === undefined) {
+    const graha = GRAHAS.includes(planet.name as Graha) ? planet.name as Graha : null;
+    const detailed = graha ? byPlanet.get(graha) : undefined;
+    if (!graha || !detailed) {
       return {
         planet: planet.name,
         sign: planet.signName,
-        dignity,
+        dignity: getPlanetaryDignity(planet.name, planet.sign, planet.degree),
         jagradadi: null,
         shayanadi: null,
         calculationTrace: {
           applicable: false,
-          reason: "The supplied BPHS/JHora Shayanadi planet values cover the seven classical grahas only.",
+          reason: "The detailed Avastha report does not include this body.",
           planetValue: null,
           birthGhati: birthGhati.runningGhati,
           sunrise: birthGhati,
@@ -85,57 +85,63 @@ export function calculateGrahaAvasthas(
       };
     }
 
-    const signLord = getSignLord(planet.sign);
-    const relationship = getNaturalFriendship(planet.name, planet.sign);
-    const jagradadiState = dignity === "Exalted" || dignity === "Own" || dignity === "Moolatrikona"
-      ? "Jagrat"
-      : dignity === "Debilitated" || relationship === "Enemy"
-        ? "Sushupti"
-        : "Swapna";
-    const jagradadiExplanation = `${dignity} dignity in ${planet.signName}; ${signLord} is a natural ${relationship.toLowerCase()} of ${planet.name}. ${jagradadiState} follows the requested dignity/friendship mapping.`;
-    const shayanadi = calculateShayanadiAvastha({
-      nakshatra: planet.nakshatra,
-      planetValue,
-      navamshaNumber: Math.min(9, Math.floor(planet.degree / (30 / 9)) + 1),
-      moonNakshatra,
-      birthGhati: birthGhati.runningGhati,
-      lagnaSign: lagnaSign + 1,
-    });
+    const signLord = SIGN_LORDS[planet.sign + 1];
+    const relationship = getPlanetaryRelationship(graha, signLord, relationshipPositions, report.configUsed);
+    const naturalRelationship = getNaturalFriendship(graha, planet.sign);
+    const jagradadiResult = {
+      state: detailed.jagradadi.state,
+      signLord,
+      naturalRelationship,
+      compoundRelationship: relationship,
+      explanation: detailed.jagradadi.reasons.join(" "),
+    };
+
+    if (!detailed.shayanadi) {
+      return {
+        planet: planet.name,
+        sign: planet.signName,
+        dignity: detailed.dignity,
+        jagradadi: jagradadiResult,
+        shayanadi: null,
+        calculationTrace: { applicable: false, reason: "Shayanadi does not apply to Rahu or Ketu." },
+      };
+    }
+
+    const { nakshatra, planetNumber, navamsaNumber, moonNakshatra, ghati, lagnaSign } = detailed.shayanadi.formulaInputs;
+    const { total, remainder } = detailed.shayanadi;
+    const product = nakshatra * planetNumber * navamsaNumber;
 
     return {
       planet: planet.name,
       sign: planet.signName,
-      dignity,
-      jagradadi: {
-        state: jagradadiState,
-        signLord,
-        naturalRelationship: relationship,
-        explanation: jagradadiExplanation,
-      },
+      dignity: detailed.dignity,
+      jagradadi: jagradadiResult,
       shayanadi: {
-        state: shayanadi.state,
-        remainder: shayanadi.remainder,
+        state: detailed.shayanadi.state,
+        remainder,
       },
       calculationTrace: {
         applicable: true,
         formula: "(S × P × N) + B + G + L",
-        S: planet.nakshatra,
-        P: planetValue,
-        N: shayanadi.inputs.navamshaNumber,
+        S: nakshatra,
+        P: planetNumber,
+        N: navamsaNumber,
         B: moonNakshatra,
-        G: birthGhati.runningGhati,
-        L: lagnaSign + 1,
-        product: planet.nakshatra * planetValue * shayanadi.inputs.navamshaNumber,
-        total: shayanadi.total,
-        remainder: shayanadi.remainder,
-        remainderMapping: shayanadi.remainder === 0 ? "0 → 12 → Nidra" : `${shayanadi.remainder} → ${shayanadi.state}`,
-        equation: shayanadi.formula,
+        G: ghati,
+        L: lagnaSign,
+        product,
+        total,
+        remainder,
+        remainderMapping: remainder === 12 ? "0 → 12 → Nidra" : `${remainder} → ${detailed.shayanadi.state}`,
+        equation: `(${nakshatra} × ${planetNumber} × ${navamsaNumber}) + ${moonNakshatra} + ${ghati} + ${lagnaSign} = ${total}; ${total} mod 12 = ${total % 12}${remainder === 12 ? " → 12" : ""}`,
         jagradadi: {
-          dignity,
+          dignity: detailed.dignity,
           signLord,
-          naturalRelationship: relationship,
-          state: jagradadiState,
-          explanation: jagradadiExplanation,
+          naturalRelationship,
+          compoundRelationship: relationship,
+          state: detailed.jagradadi.state,
+          ruleId: detailed.jagradadi.ruleId,
+          explanation: detailed.jagradadi.reasons.join(" "),
         },
         sunrise: birthGhati,
       },

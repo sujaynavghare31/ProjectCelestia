@@ -32,9 +32,10 @@ describe("GhatiCalculator", () => {
     expect(calculateRunningGhati(0)).toBe(0);
   });
 
-  it("applies the ceiling convention at 24-minute Ghati boundaries", () => {
-    expect(calculateRunningGhati(23.999)).toBe(1);
-    expect(calculateRunningGhati(24)).toBe(1);
-    expect(calculateRunningGhati(24.001)).toBe(2);
+  it("rounds elapsed Ghatis to the nearest whole value", () => {
+    expect(calculateRunningGhati(11.999)).toBe(0);
+    expect(calculateRunningGhati(12)).toBe(1);
+    expect(calculateRunningGhati(35.999)).toBe(1);
+    expect(calculateRunningGhati(36)).toBe(2);
   });
 });
