@@ -1,5 +1,5 @@
 export type NodeType = "true" | "mean";
-export type ChartStyle = "diamond" | "circular" | "south" | "placidus";
+export type ChartStyle = "diamond" | "south" | "east" | "placidus";
 export type CelestialLanguage = "en" | "hi" | "mr" | "initials";
 export type ZodiacMode = "sidereal" | "tropical";
 
