@@ -4,6 +4,7 @@ import type { EphemerisRequest, DashaPeriod, PlanetPosition } from "@/lib/kundal
 import { calculateBirthGhati } from "@/lib/astrology/ghati-calculator";
 import { calculateGrahaAvasthas } from "@/lib/astrology/graha-avastha-service";
 import { getInterceptedSigns } from "@/lib/astrology/intercepted-signs";
+import { mapPositionsToHouses } from "@/lib/astrology/house-placements";
 import { getPlanetaryDignity } from "@/lib/astrology/planetary-dignity-service";
 import { localDateTimeToUtc } from "@/lib/astrology/timezone";
 import { calculateGulikaMandi } from "@/lib/astrology/upagrahas";
@@ -270,6 +271,7 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
     ...planet,
     house: ((planet.sign - ascSign + 12) % 12) + 1,
   }));
+  const bhavChalitPlanets = mapPositionsToHouses(chartPlanets, houseCusps);
   const moon = planets.find(({ name }) => name === "Moon");
   const sun = planets.find(({ name }) => name === "Sun");
   if (!moon || !sun) throw new Error("Sun and Moon positions are required for the ephemeris calculation.");
@@ -328,6 +330,12 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
   };
   const gulika = makeUpagraha("gulika", "Gulika", "Gu", upagrahas.gulikaLongitude);
   const mandi = makeUpagraha("mandi", "Mandi", "Ma", upagrahas.mandiLongitude);
+  const chartPoints = [
+    { ...partOfFortune, house: ((partOfFortune.sign - ascSign + 12) % 12) + 1 },
+    { ...gulika, house: ((gulika.sign - ascSign + 12) % 12) + 1 },
+    { ...mandi, house: ((mandi.sign - ascSign + 12) % 12) + 1 },
+  ];
+  const bhavChalitPoints = mapPositionsToHouses(chartPoints, houseCusps);
   const birthGhati = calculateBirthGhati({
     date: input.date,
     time: input.time,
@@ -343,11 +351,9 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
     zodiacMode: input.zodiacMode,
     ascendant,
     planets: chartPlanets,
-    points: [
-      { ...partOfFortune, house: ((partOfFortune.sign - ascSign + 12) % 12) + 1 },
-      { ...gulika, house: ((gulika.sign - ascSign + 12) % 12) + 1 },
-      { ...mandi, house: ((mandi.sign - ascSign + 12) % 12) + 1 },
-    ],
+    bhavChalitPlanets,
+    points: chartPoints,
+    bhavChalitPoints,
     unavailableBodies,
     houseCusps,
     interceptedSigns,

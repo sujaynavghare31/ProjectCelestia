@@ -124,6 +124,7 @@ public/
 ## Calculation notes
 
 The dashboard uses Swiss Ephemeris-backed calculations through `/api/ephemeris`. The default chart mode is a current transit chart; birth-chart calculations are performed explicitly from the submitted birth details.
+Bhava Chalit placements use each planet's exact longitude against the calculated Placidus house-cusp spans; D1 placements remain based on zodiac signs.
 
 Some dashboard modules are presentation-oriented analytical views. In particular, the current Shadbala display uses a dashboard-side strength model for visualization and should not be treated as a complete traditional Shadbala authority without further domain validation.
 

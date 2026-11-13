@@ -32,6 +32,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KundaliDashboard } from "@/components/kundali-dashboard";
 import { AuthActions } from "@/components/auth-actions";
+import { AboutModal } from "@/components/about-modal";
 import { useKundaliStore } from "@/lib/kundali-store";
 
 const gridNumbers = [4, 9, 2, 3, 5, 7, 8, 1, 6];
@@ -413,18 +414,21 @@ export default function Home() {
         </header>
         <nav aria-label="Main navigation" className="flex shrink-0 gap-1 overflow-x-auto border-b border-border bg-card px-3 py-1.5">
           {renderNavigationItems(true)}
+          <AboutModal />
         </nav>
 
         <div id="dashboard-scroll" className="cosmic-grid p-4 sm:p-6 lg:p-8">
           <div className="mx-auto max-w-[1750px]">
           <div id="dashboard-home" className="pt-0">
-            <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-              <div>
-                <h1 className="text-2xl font-semibold tracking-tight sm:text-[30px]">{activeTab === "kundali" ? "Your celestial map, at a glance." : "A little more aligned."}</h1>
-                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{activeTab === "kundali" ? "Birth chart, planetary positions, and Dasha in one place." : "Explore the patterns and possibilities written in your numbers."}</p>
+            {activeTab !== "kundali" && (
+              <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <h1 className="text-2xl font-semibold tracking-tight sm:text-[30px]">A little more aligned.</h1>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Explore the patterns and possibilities written in your numbers.</p>
+                </div>
+                <div className="hidden items-center gap-2 text-xs text-slate-600 sm:flex dark:text-slate-400"><CalendarDays className="size-3.5" /> Personal profile <span className="text-slate-400 dark:text-slate-700">/</span> Vedic numerology</div>
               </div>
-              <div className="hidden items-center gap-2 text-xs text-slate-600 sm:flex dark:text-slate-400"><CalendarDays className="size-3.5" /> {activeTab === "kundali" ? "Birth profile" : "Personal profile"} <span className="text-slate-400 dark:text-slate-700">/</span> {activeTab === "kundali" ? "Kundali" : "Vedic numerology"}</div>
-            </div>
+            )}
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="min-w-0 max-w-full overflow-x-clip">
               <TabsList aria-label="Dashboard sections" className="hidden">

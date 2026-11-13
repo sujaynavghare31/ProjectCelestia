@@ -5,7 +5,6 @@ import {
   Activity,
   AlertCircle,
   ArrowDownUp,
-  Bookmark,
   ChevronDown,
   Clock3,
   Compass,
@@ -19,7 +18,6 @@ import {
   MapPin,
   Minimize2,
   Orbit,
-  RefreshCw,
   Search,
   Settings2,
   Save,
@@ -462,6 +460,7 @@ function SvgChart({
   ascendant,
   planets,
   varga,
+  houseBasedPlacement = false,
   referenceHouse = 1,
   overlay,
   points = [],
@@ -473,6 +472,7 @@ function SvgChart({
   ascendant: PlanetPosition;
   planets: PlanetPosition[];
   varga: number;
+  houseBasedPlacement?: boolean;
   referenceHouse?: number;
   overlay?: PlanetPosition[];
   points?: PlanetPosition[];
@@ -483,19 +483,22 @@ function SvgChart({
   const hoveredPlanet = useKundaliStore((state) => state.hoveredPlanet);
   const setHoveredPlanet = useKundaliStore((state) => state.setHoveredPlanet);
   const ascSign = normalizeSign(getVargaSign(ascendant, varga) + referenceHouse - 1);
+  const chartHouseForPlanet = (planet: PlanetPosition) => houseBasedPlacement && varga === 1
+    ? normalizeSign(planet.house - referenceHouse) + 1
+    : getSignHouse(getVargaSign(planet, varga), ascSign);
   const visiblePlanets = planets.filter((planet) => chartPlanetVisible(planet, preferences));
   const visiblePoints = points.filter((planet) => chartPointVisible(planet, preferences));
   const chartBodies = [ascendant, ...visiblePlanets, ...visiblePoints].map((planet) => ({
     ...planet,
     chartSign: getVargaSign(planet, varga),
-    chartHouse: getSignHouse(getVargaSign(planet, varga), ascSign),
+    chartHouse: chartHouseForPlanet(planet),
     isTransit: false,
   }));
   const transitBodies = (overlay ?? []).filter((planet) => chartPlanetVisible(planet, preferences)).map((planet) => ({
     ...planet,
     id: `transit-${planet.id}`,
     chartSign: getVargaSign(planet, varga),
-    chartHouse: getSignHouse(getVargaSign(planet, varga), ascSign),
+    chartHouse: chartHouseForPlanet(planet),
     isTransit: true,
   }));
   const spotlightActive = hoveredPlanet !== null;
@@ -574,7 +577,9 @@ function SvgChart({
         {signOrder.map((sign, index) => {
           if (sign < 0) return <div key={`empty-${index}`} className="border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/60" />;
           const signHouse = getSignHouse(sign, ascSign);
-          const bodies = [...chartBodies, ...transitBodies].filter((body) => body.chartSign === sign);
+          const bodies = [...chartBodies, ...transitBodies].filter((body) => (
+            houseBasedPlacement && varga === 1 ? body.chartHouse === signHouse : body.chartSign === sign
+          ));
           return (
             <div key={sign} className={`flex min-w-0 flex-col items-center justify-center gap-1 border border-slate-200 p-1 text-center dark:border-slate-700 ${signHouse === 1 ? "bg-amber-100/70 dark:bg-amber-400/10" : ""}`}>
               <span className="text-xs" style={{ color: signColor(sign) }}>{chartSignDisplay(sign, language, preferences)}{preferences.showHouseLabels ? ` · H${signHouse}` : ""}</span>
@@ -858,7 +863,6 @@ export function KundaliDashboard() {
   const [transitLoading, setTransitLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [transitError, setTransitError] = useState<string | null>(null);
-  const [requestNumber, setRequestNumber] = useState(0);
   const [referenceName, setReferenceName] = useState("Ascendant");
   const [auxiliaryReferenceName, setAuxiliaryReferenceName] = useState("Ascendant");
   const [overlayTransits, setOverlayTransits] = useState(false);
@@ -873,6 +877,7 @@ export function KundaliDashboard() {
   const [dashaSeed, setDashaSeed] = useState<"moon" | "ascendant" | "sun">("moon");
   const [savedProfiles, setSavedProfiles] = useState<SavedChartRecord[]>([]);
   const [savedProfileId, setSavedProfileId] = useState("");
+  const [notesFocused, setNotesFocused] = useState(false);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [chartNameDraft, setChartNameDraft] = useState("");
   const [savingChart, setSavingChart] = useState(false);
@@ -883,13 +888,13 @@ export function KundaliDashboard() {
   const [useCoordinates, setUseCoordinates] = useState(false);
   const [latitudeDraft, setLatitudeDraft] = useState(profile.lat.toFixed(2));
   const [longitudeDraft, setLongitudeDraft] = useState(profile.lng.toFixed(2));
-  const [notesOpen, setNotesOpen] = useState(false);
+  const notesInputRef = useRef<HTMLTextAreaElement>(null);
   const [locationResults, setLocationResults] = useState<GeocodeResult[]>([]);
   const [locationLoading, setLocationLoading] = useState(false);
+  const [currentLocationLoading, setCurrentLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [coordinateTimezoneError, setCoordinateTimezoneError] = useState<string | null>(null);
   const initialProfileSubmitted = useRef(false);
-  const geolocationRequested = useRef(false);
 
   useEffect(() => {
     const syncTab = () => setDashboardTab(dashboardTabFromLocation());
@@ -916,41 +921,6 @@ export function KundaliDashboard() {
     setSubmittedProfile(initialTransitProfile);
     setChartMode("transit");
   }, [profile.date, profile.time, profile.lat, profile.lng, profile.timezone, profile.name, profile.sex, setProfile]);
-
-  useEffect(() => {
-    if (chartMode !== "transit" || profile.name !== "Current transit" || geolocationRequested.current) return;
-    let active = true;
-    const timeout = window.setTimeout(() => {
-      if (!navigator.geolocation) return;
-      geolocationRequested.current = true;
-      navigator.geolocation.getCurrentPosition((position) => {
-        const { latitude, longitude } = position.coords;
-        void fetch(`/api/geocode?lat=${latitude}&lng=${longitude}&reverse=true`)
-          .then(async (response) => {
-            const result = await response.json() as { timezone?: string; city?: string; error?: string };
-            if (!response.ok || !result.timezone || !result.city) {
-              throw new Error(result.error ?? `Current location lookup failed (${response.status}).`);
-            }
-            if (!active || useKundaliStore.getState().profile.name !== "Current transit") return;
-            setProfile({ lat: latitude, lng: longitude, timezone: result.timezone, city: result.city });
-            setLatitudeDraft(latitude.toFixed(2));
-            setLongitudeDraft(longitude.toFixed(2));
-            setLocationSearch(result.city);
-          })
-          .catch((requestError: unknown) => {
-            if (active) console.error("[kundali] Unable to identify the current city", requestError);
-          });
-      }, (error) => {
-        if (error.code !== error.PERMISSION_DENIED && active) {
-          console.warn("[kundali] Current location is unavailable", error.message);
-        }
-      }, { maximumAge: 600_000, timeout: 8_000 });
-    }, 0);
-    return () => {
-      active = false;
-      window.clearTimeout(timeout);
-    };
-  }, [chartMode, profile.name, setProfile]);
 
   useEffect(() => {
     if (!authLoaded) return;
@@ -981,6 +951,13 @@ export function KundaliDashboard() {
   useEffect(() => {
     setLocationSearch(profile.city);
   }, [profile.city]);
+
+  useEffect(() => {
+    const notesInput = notesInputRef.current;
+    if (!notesInput) return;
+    notesInput.style.height = "36px";
+    notesInput.style.height = `${profile.notes ? Math.max(notesInput.scrollHeight, 36) : 36}px`;
+  }, [profile.notes]);
 
   useEffect(() => {
     const query = locationSearch.trim();
@@ -1086,7 +1063,7 @@ export function KundaliDashboard() {
       window.clearTimeout(timeout);
       abortController.abort();
     };
-  }, [submittedProfile, ayanamsa, zodiacMode, customAyanamsaDegrees, nodeType, dashaSeed, auxiliaryType, targetAge, ageMode, requestNumber]);
+  }, [submittedProfile, ayanamsa, zodiacMode, customAyanamsaDegrees, nodeType, dashaSeed, auxiliaryType, targetAge, ageMode]);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -1185,8 +1162,9 @@ export function KundaliDashboard() {
       setSavingChart(false);
     }
   };
-  const openSavedChart = () => {
-    const selected = savedProfiles.find((item) => item.id === savedProfileId);
+  const openSavedChart = (profileId: string) => {
+    setSavedProfileId(profileId);
+    const selected = savedProfiles.find((item) => item.id === profileId);
     if (selected) {
       setChartMode("birth");
       setProfile({
@@ -1215,7 +1193,6 @@ export function KundaliDashboard() {
       setLatitudeDraft(selected.latitude.toFixed(2));
       setLongitudeDraft(selected.longitude.toFixed(2));
       setUseCoordinates(false);
-      setNotesOpen(Boolean(selected.notes?.trim()));
     }
   };
   const chooseLocation = (location: GeocodeResult) => {
@@ -1231,6 +1208,44 @@ export function KundaliDashboard() {
     setLocationSearch(location.city);
     setLocationResults([]);
     setLocationError(null);
+  };
+  const useCurrentLocation = () => {
+    setLocationError(null);
+    if (!navigator.geolocation) {
+      setLocationError("Location access is unavailable in this browser. Search for a city or enter coordinates instead.");
+      return;
+    }
+
+    setCurrentLocationLoading(true);
+    navigator.geolocation.getCurrentPosition(({ coords }) => {
+      const { latitude, longitude } = coords;
+      void fetch(`/api/geocode?lat=${latitude}&lng=${longitude}&reverse=true`)
+        .then(async (response) => {
+          const result = await response.json() as { timezone?: string; city?: string; error?: string };
+          if (!response.ok || !result.timezone || !result.city) {
+            throw new Error(result.error ?? `Current location lookup failed (${response.status}).`);
+          }
+          chooseLocation({
+            label: result.city,
+            city: result.city,
+            latitude,
+            longitude,
+            timezone: result.timezone,
+          });
+        })
+        .catch((requestError: unknown) => {
+          setLocationError(requestError instanceof Error ? requestError.message : "Unable to identify this location. Search for a city or enter coordinates instead.");
+        })
+        .finally(() => setCurrentLocationLoading(false));
+    }, (error) => {
+      const message = error.code === error.PERMISSION_DENIED
+        ? "Location access was denied. Search for a city or enter coordinates instead."
+        : error.code === error.TIMEOUT
+          ? "Location lookup timed out. Search for a city or enter coordinates instead."
+          : "Your device could not determine its location. Search for a city or enter coordinates instead.";
+      setLocationError(message);
+      setCurrentLocationLoading(false);
+    }, { maximumAge: 600_000, timeout: 8_000 });
   };
   const adjustBirthTime = (seconds: number) => {
     adjustTime(seconds);
@@ -1257,10 +1272,12 @@ export function KundaliDashboard() {
   const auxiliaryAscendant = auxiliaryType === "solar" || auxiliaryType === "tajika"
     ? data?.solarReturn?.ascendant
     : auxiliaryChart?.ascendant;
+  const isBhavaChalitChart = auxiliaryType === "divisional" && auxiliaryChartId === "BHAVA";
   const auxiliaryPlanets = auxiliaryType === "solar" || auxiliaryType === "tajika"
     ? data?.solarReturn?.planets
+    : isBhavaChalitChart ? displayData?.bhavChalitPlanets
     : auxiliaryChart?.planets;
-  const auxiliaryPoints = auxiliaryType === "solar" || auxiliaryType === "tajika" ? [] : auxiliaryType === "transit" ? transitData?.points : displayData?.points;
+  const auxiliaryPoints = auxiliaryType === "solar" || auxiliaryType === "tajika" ? [] : auxiliaryType === "transit" ? transitData?.points : isBhavaChalitChart ? displayData?.bhavChalitPoints : displayData?.points;
   const auxiliaryCusps = auxiliaryType === "solar" || auxiliaryType === "tajika" ? [] : auxiliaryType === "transit" ? transitData?.houseCusps : displayData?.houseCusps;
   const selectedAuxiliaryChart = AUXILIARY_CHARTS.find((chart) => chart.id === auxiliaryChartId) ?? AUXILIARY_CHARTS[0];
   const auxiliaryVarga = auxiliaryType === "divisional" ? auxiliaryChartId === "BHAVA" ? 1 : Number(auxiliaryChartId.slice(1)) : 1;
@@ -1276,49 +1293,52 @@ export function KundaliDashboard() {
               <p className="text-xs font-semibold">Chart profile</p>
             </div>
             <div className="flex flex-nowrap items-center gap-1.5">
-              <button type="button" onClick={saveChart} className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 px-2.5 text-xs font-medium transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 dark:border-slate-700 dark:hover:border-amber-800 dark:hover:bg-amber-950/30 dark:hover:text-amber-200"><Save className="size-3.5" /> Save chart</button>
-              <select aria-label="Saved charts" value={savedProfileId} onChange={(event) => setSavedProfileId(event.target.value)} className={`${CONTROL_CLASS} h-8 max-w-32 text-xs`}>
+              <button type="button" onClick={saveChart} title="Save chart" aria-label="Save chart" className="inline-grid size-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-700 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 dark:border-slate-700 dark:text-slate-200 dark:hover:border-amber-800 dark:hover:bg-amber-950/30 dark:hover:text-amber-200"><Save className="size-4" /></button>
+              <select aria-label="Saved charts; select one to load" title="Select a saved chart to load" value={savedProfileId} onChange={(event) => openSavedChart(event.target.value)} className={`${CONTROL_CLASS} h-9 max-w-48 text-xs`}>
                 <option value="">Saved charts ({savedProfiles.length})</option>
                 {savedProfiles.map((saved) => <option key={saved.id} value={saved.id}>{saved.chartName ?? saved.fullName} · {saved.dateOfBirth.slice(0, 10)}</option>)}
               </select>
-              <button type="button" onClick={openSavedChart} disabled={!savedProfileId} aria-label="Open Saved Chart" className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-slate-200 px-2.5 text-xs font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"><Bookmark className="size-3.5" /> Open</button>
             </div>
           </div>
           <form onSubmit={submitBirthChart} className="space-y-2">
-            <div className="grid grid-cols-2 items-start gap-3 sm:grid-cols-4">
-              <label className="min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300">
-                <span className="flex items-center justify-between gap-1">
-                  <span>Chart name</span>
-                  <button type="button" aria-label={notesOpen ? "Close chart notes" : "Add chart notes"} aria-expanded={notesOpen} aria-controls="chart-notes-panel" title={notesOpen ? "Close chart notes" : "Add chart notes"} onClick={() => setNotesOpen((open) => !open)} className="inline-flex h-5 items-center rounded px-1 text-[11px] font-medium text-amber-800 transition hover:bg-amber-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600/40 dark:text-amber-300 dark:hover:bg-amber-950/30">
-                    {notesOpen ? "− Notes" : "+ Notes"}
-                  </button>
-                </span>
-                <input aria-label="Chart name" type="text" value={profile.name === "Current transit" ? "" : profile.name} placeholder={chartMode === "transit" ? "Current Transit" : "Enter your name"} onChange={(event) => setProfile({ name: event.target.value })} className={`${CONTROL_CLASS} mt-1 w-full placeholder:text-slate-600 dark:placeholder:text-slate-400`} />
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+              <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">
+                Chart name
+                <input aria-label="Chart name" type="text" value={profile.name === "Current transit" ? "" : profile.name} placeholder={chartMode === "transit" ? "Current Transit" : "Enter your name"} onChange={(event) => setProfile({ name: event.target.value })} className={`${CONTROL_CLASS} mt-1 h-9 w-full text-sm placeholder:text-slate-600 dark:placeholder:text-slate-400`} />
               </label>
-              <label className="min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300">Gender
-                <select aria-label="Gender" value={profile.sex} onChange={(event) => setProfile({ sex: event.target.value as BirthProfile["sex"] })} className={`${CONTROL_CLASS} mt-1 w-full`}>
+              <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Gender
+                <select aria-label="Gender" value={profile.sex} onChange={(event) => setProfile({ sex: event.target.value as BirthProfile["sex"] })} className={`${CONTROL_CLASS} mt-1 h-9 w-full min-w-0 px-2 text-sm`}>
                   <option value="not-applicable">Not specified</option>
                   <option value="male">Male</option>
                   <option value="female">Female</option>
                 </select>
               </label>
-              <label className="min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300">Birth date
-                <input aria-label="Birth date" type="date" value={profile.date} onChange={(event) => setProfile({ date: event.target.value })} className={`${CONTROL_CLASS} mt-1 w-full`} />
+              <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Birth date
+                <input aria-label="Birth date" type="date" value={profile.date} onChange={(event) => setProfile({ date: event.target.value })} className={`${CONTROL_CLASS} mt-1 h-9 w-full px-2 text-sm`} />
               </label>
-              <label className="min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300">Birth time
+              <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Birth time
                 <input aria-label="Time of birth" type="time" step={1} value={profile.time} onChange={(event) => {
                   const time = event.target.value;
                   if (time) setProfile({ time: time.length === 5 ? `${time}:00` : time });
-                }} className={`${CONTROL_CLASS} mt-1 w-full font-mono`} />
+                }} className={`${CONTROL_CLASS} mt-1 h-9 w-full px-2 text-sm font-mono`} />
               </label>
-              <div className="relative col-span-2 min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300 sm:col-span-3">
+              <div className="relative min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300">
                 {!useCoordinates ? (
                   <>
                     <label htmlFor="birth-city-search">Birth city</label>
                     <span className="relative mt-1 block">
                       <MapPin className="pointer-events-none absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
-                      <input id="birth-city-search" aria-label="Birth city; search anywhere" type="search" value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="Search city or place…" autoComplete="off" aria-autocomplete="list" aria-expanded={locationResults.length > 0} className={`${CONTROL_CLASS} w-full pl-8`} />
-                      {locationLoading && <Search className="absolute right-2.5 top-2.5 size-3.5 animate-pulse text-primary" />}
+                      <input id="birth-city-search" aria-label="Birth city; search anywhere" type="search" value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="Search city…" autoComplete="off" aria-autocomplete="list" aria-expanded={locationResults.length > 0} className={`${CONTROL_CLASS} h-9 w-full min-w-0 px-2 pr-16 text-sm`} />
+                      {locationLoading && <Search className="absolute right-14 top-2.5 size-3.5 animate-pulse text-primary" />}
+                      <button type="button" onClick={useCurrentLocation} disabled={currentLocationLoading} title={currentLocationLoading ? "Finding current location" : "Use current location"} aria-label={currentLocationLoading ? "Finding current location" : "Use current location"} className="absolute right-8 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60">
+                        {currentLocationLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <Crosshair className="size-3.5" />}
+                      </button>
+                      <button type="button" onClick={() => {
+                        if (Number.isFinite(profile.lat)) setLatitudeDraft(profile.lat.toFixed(2));
+                        if (Number.isFinite(profile.lng)) setLongitudeDraft(profile.lng.toFixed(2));
+                        setUseCoordinates(true);
+                        setLocationError(null);
+                      }} title="Enter birth coordinates" aria-label="Enter birth coordinates" className="absolute right-1 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"><MapPin className="size-3.5" /></button>
                     </span>
                     {locationError && <p role="status" className="absolute z-10 mt-1 rounded bg-card px-1 text-xs text-destructive">{locationError}</p>}
                     {locationResults.length > 0 && (
@@ -1328,65 +1348,53 @@ export function KundaliDashboard() {
                     )}
                   </>
                 ) : (
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="min-w-0">Latitude
+                  <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_1.5rem] items-end gap-1">
+                    <label className="min-w-0 truncate">Latitude
                       <input aria-label="Latitude" type="text" inputMode="decimal" autoComplete="off" value={latitudeDraft} onChange={(event) => {
                         const value = limitCoordinatePrecision(event.target.value);
                         setLatitudeDraft(value);
                         setProfile({ lat: parseCoordinateDraft(value) });
-                      }} className={`${CONTROL_CLASS} mt-1 w-full font-mono tabular-nums`} placeholder="28.66" />
+                      }} className={`${CONTROL_CLASS} mt-1 h-9 w-full min-w-0 px-1 text-xs font-mono tabular-nums`} placeholder="28.66" />
                     </label>
-                    <label className="min-w-0">Longitude
+                    <label className="min-w-0 truncate">Longitude
                       <input aria-label="Longitude" type="text" inputMode="decimal" autoComplete="off" value={longitudeDraft} onChange={(event) => {
                         const value = limitCoordinatePrecision(event.target.value);
                         setLongitudeDraft(value);
                         setProfile({ lng: parseCoordinateDraft(value) });
-                      }} className={`${CONTROL_CLASS} mt-1 w-full font-mono tabular-nums`} placeholder="72.87" />
+                      }} className={`${CONTROL_CLASS} mt-1 h-9 w-full min-w-0 px-1 text-xs font-mono tabular-nums`} placeholder="72.87" />
                     </label>
+                    <button type="button" onClick={() => {
+                      setUseCoordinates(false);
+                      setLocationError(null);
+                    }} title="Search for a birth city" aria-label="Search for a birth city" className="grid size-9 place-items-center rounded-lg border border-input text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                      <MapPin className="size-3.5" />
+                    </button>
                   </div>
                 )}
-                <button type="button" onClick={() => {
-                  if (!useCoordinates) {
-                    if (Number.isFinite(profile.lat)) setLatitudeDraft(profile.lat.toFixed(2));
-                    if (Number.isFinite(profile.lng)) setLongitudeDraft(profile.lng.toFixed(2));
-                  }
-                  setUseCoordinates(!useCoordinates);
-                  setLocationError(null);
-                }} className="mt-1.5 text-xs font-medium text-amber-800 underline decoration-amber-800/30 underline-offset-2 transition hover:decoration-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600/40 dark:text-amber-300 dark:decoration-amber-300/30 dark:hover:decoration-amber-300">
-                  {useCoordinates ? "Search by birth city instead" : "Can’t find your city? Use coordinates"}
-                </button>
               </div>
-              <button type="submit" className="col-span-2 mt-[19px] inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-amber-700 px-3 text-xs font-semibold text-white transition hover:bg-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600/40 sm:col-span-1">
+              <button type="submit" className="inline-flex h-9 w-full min-w-0 items-center justify-center gap-1.5 rounded-lg bg-amber-700 px-1 text-xs font-semibold text-white transition hover:bg-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600/40">
                 Load birth chart
               </button>
-            </div>
-            <div>
-              <div id="chart-notes-panel" className={`grid transition-[grid-template-rows,opacity] duration-200 ease-out ${notesOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
-                <div className="overflow-hidden">
-                  {notesOpen && <label htmlFor="chart-notes" className="block pt-1 text-xs font-medium text-slate-700 dark:text-slate-300">Life events &amp; notes
-                    <textarea id="chart-notes" maxLength={10000} rows={3} value={profile.notes} onChange={(event) => setProfile({ notes: event.target.value })} placeholder="Record important dates, life events, or observations for this chart…" className="mt-1 w-full resize-y rounded-lg border border-input bg-card px-3 py-2 text-xs leading-relaxed text-card-foreground outline-none transition placeholder:text-muted-foreground/80 focus:border-primary focus:ring-2 focus:ring-primary/10" />
-                    <span className="mt-1 block text-right text-[11px] font-normal text-muted-foreground">{profile.notes.length}/10,000</span>
-                  </label>}
+              <div className="-mx-3 -mb-3 mt-1 flex min-w-0 items-start gap-2 rounded-b-xl border-t border-border bg-slate-50/80 px-3 py-2 dark:bg-slate-800/50 sm:col-span-2 md:col-span-3 lg:col-span-6">
+                  <label htmlFor="chart-notes" className="sr-only">Chart notes</label>
+                  <textarea
+                    ref={notesInputRef}
+                    id="chart-notes"
+                    maxLength={10000}
+                    rows={1}
+                    value={profile.notes}
+                    onChange={(event) => setProfile({ notes: event.target.value })}
+                    onFocus={() => setNotesFocused(true)}
+                    onBlur={() => setNotesFocused(false)}
+                    placeholder="Add personal notes, life events, or reference details..."
+                    className="min-h-9 min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent p-1.5 text-sm leading-5 text-foreground outline-none placeholder:whitespace-nowrap placeholder:text-ellipsis placeholder:text-muted-foreground focus:outline-none focus:ring-0"
+                  />
+                  {notesFocused && <span aria-live="polite" className="shrink-0 pt-2 text-[10px] tabular-nums text-muted-foreground">{profile.notes.length}/10,000</span>}
                 </div>
-              </div>
             </div>
           </form>
           {coordinateTimezoneError && <p role="status" className="mt-1 truncate text-[11px] text-rose-700 dark:text-rose-300">{coordinateTimezoneError}</p>}
         </section>
-
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-300"><Orbit className="size-3.5" /> {zodiacMode === "sidereal" ? "Sidereal (Nirayana)" : "Tropical (Sayana)"} {chartMode === "transit" ? "transit chart" : "birth chart"}</div>
-            <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">Kundali &amp; Charts</h2>
-            <p title={chartMode === "transit" ? `Current transit · ${transitData?.calculatedAt ?? "calculating"} · ${profile.city}` : `${activeBirthProfile.name || "New profile"} · ${activeBirthProfile.date || "Date not set"} · ${activeBirthProfile.time} · ${activeBirthProfile.city}`} className="mt-1 min-w-0 truncate text-xs text-slate-600 dark:text-slate-400">
-              {chartMode === "transit" ? `Current transit · ${transitData ? new Date(transitData.calculatedAt).toLocaleString() : "calculating"} · ${profile.city}` : `${activeBirthProfile.name || "New profile"} · ${activeBirthProfile.date || "Date not set"} · ${activeBirthProfile.time} · ${activeBirthProfile.city}`}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
-            {(displayLoading || displayError) && <span role="status" aria-live="polite">{displayLoading ? "Calculating chart…" : "Calculation error"}</span>}
-            <button type="button" onClick={() => setRequestNumber((number) => number + 1)} className="grid size-8 place-items-center rounded-lg border border-slate-200 hover:bg-slate-100 dark:border-slate-800 dark:hover:bg-slate-800" aria-label="Refresh chart"><RefreshCw className={`size-3 ${displayLoading ? "animate-spin" : ""}`} /></button>
-          </div>
-        </div>
 
         <nav role="tablist" aria-label="Kundali analysis" className="flex w-full gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 shadow-sm">
           {DASHBOARD_TABS.map(({ id, label }) => (
@@ -1585,7 +1593,7 @@ export function KundaliDashboard() {
               <div className="relative h-[min(95vw,500px)] min-h-[360px] min-w-0 w-full overflow-hidden p-4 flex items-center justify-center bg-card">
                 <div className="relative h-full w-full max-w-[500px] max-h-[500px] aspect-square">
                   {auxiliaryAscendant && auxiliaryPlanets
-                    ? <SvgChart style={chartStyle} ascendant={auxiliaryAscendant} planets={auxiliaryPlanets} points={auxiliaryPoints ?? []} houseCusps={auxiliaryCusps ?? []} varga={auxiliaryVarga} referenceHouse={auxiliaryReferenceHouseNumber} overlay={undefined} language={language} preferences={viewPreferences} />
+                    ? <SvgChart style={chartStyle} ascendant={auxiliaryAscendant} planets={auxiliaryPlanets} points={auxiliaryPoints ?? []} houseCusps={auxiliaryCusps ?? []} varga={auxiliaryVarga} houseBasedPlacement={isBhavaChalitChart} referenceHouse={auxiliaryReferenceHouseNumber} overlay={undefined} language={language} preferences={viewPreferences} />
                     : <div className="grid h-full w-full place-items-center px-6 text-center text-xs text-slate-600">{displayLoading ? <LoaderCircle className="size-5 animate-spin text-cyan-500" /> : "Auxiliary chart unavailable"}</div>}
                 </div>
               </div>
