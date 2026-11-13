@@ -30,6 +30,9 @@ export interface EphemerisRequest {
   targetAge?: number;
   ageMode?: "completed" | "ongoing";
   dashaSeed?: "moon" | "ascendant" | "sun";
+  avasthaConfig?: Partial<import("@/lib/astrology/avastha/config").AvasthaConfig>;
+  nameFirstLetter?: string;
+  gender?: "male" | "female" | "not-applicable";
 }
 
 export interface PlanetPosition {
@@ -94,6 +97,7 @@ export interface EphemerisResponse {
   sarvashtakavarga?: number[];
   dashas: DashaPeriod[];
   grahaAvasthas: GrahaAvasthaReport[];
+  avasthaReport?: import("@/lib/astrology/avastha/types").AvasthaReport;
   solarReturn?: {
     targetAge: number;
     ageMode: "completed" | "ongoing";

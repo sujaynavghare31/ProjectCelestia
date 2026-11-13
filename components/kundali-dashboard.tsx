@@ -28,9 +28,10 @@ import { getBirthDateTimeDefaults, useKundaliStore, type BirthProfile } from "@/
 import { limitCoordinatePrecision, parseCoordinateDraft } from "@/lib/coordinate-input";
 import { planetName, signName } from "@/lib/astrology/localization";
 import { dagdhaRashis } from "@/lib/astrology/dagdha-rashi";
+import { readSavedAstrologyConfig } from "@/lib/astrology/config-storage";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const loadDashaTab = () => import("@/components/dashboard-tabs/dasha-tab");
+const loadDashaTab = () => import("@/components/dashboard-tabs/DashaDashboard");
 const loadElementModalityTab = () => import("@/components/dashboard-tabs/element-modality-tab");
 const loadAspectsTab = () => import("@/components/dashboard-tabs/aspects-tab");
 const loadAshtakavargaTab = () => import("@/components/dashboard-tabs/ashtakavarga-tab");
@@ -710,6 +711,7 @@ function PlanetTable({
             const isGoldPosition = isAscendant || position.name === "Sun" || position.name === "Moon";
             const vargottama = position.name !== "Ascendant" && position.sign === getVargaSign(position, 9);
             const avastha = data.grahaAvasthas.find((report) => report.planet === position.name);
+            const detailedAvastha = data.avasthaReport?.planets.find((report) => report.planet === position.name);
             return (
               <tr key={position.id} className={`border-b border-[hsl(var(--border))] bg-transparent text-[hsl(var(--foreground))] transition-colors hover:bg-[hsl(var(--border)/0.2)] ${isGoldPosition ? "text-[hsl(var(--champagne-gold))]" : ""}`}>
                 <td className="min-w-[108px] px-1.5 py-1.5 font-semibold">
@@ -743,6 +745,20 @@ function PlanetTable({
                     <div className="flex min-w-36 flex-col gap-0.5">
                       <span className="text-cyan-800 dark:text-cyan-300" title={avastha.jagradadi.explanation}>Jagradadi: {avastha.jagradadi.state}</span>
                       <span className="text-amber-800 dark:text-amber-300">Shayanadi: {avastha.shayanadi.state} · {avastha.shayanadi.remainder}</span>
+                      {detailedAvastha && (
+                        <details>
+                          <summary className="cursor-pointer list-none text-cyan-700 underline decoration-dotted underline-offset-2 dark:text-cyan-300">All states</summary>
+                          <div className="absolute z-10 mt-2 grid max-h-64 max-w-[min(90vw,540px)] gap-1 overflow-auto rounded-xl border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                            <span>Baladi: {detailedAvastha.baladi.state}</span>
+                            <span>Jagradadi: {detailedAvastha.jagradadi.state}</span>
+                            <span>Deeptadi: {detailedAvastha.deeptadi.state}{detailedAvastha.deeptadi.secondaryStates.length ? ` · ${detailedAvastha.deeptadi.secondaryStates.map(({ state }) => state).join(", ")}` : ""}</span>
+                            <span>Lajjitadi: {detailedAvastha.lajjitadi.map(({ state }) => state).join(", ") || "None"}</span>
+                            <span>Shayanadi: {detailedAvastha.shayanadi.state}{detailedAvastha.shayanadi.cheshta ? ` · ${detailedAvastha.shayanadi.cheshta}` : ""}</span>
+                            <span>Strength: {detailedAvastha.strengthSummary.label} ({detailedAvastha.strengthSummary.score})</span>
+                            <span>Dignity: {detailedAvastha.dignity}{detailedAvastha.isCombust ? " · Combust" : ""}{detailedAvastha.isRetrograde ? " · Retrograde" : ""}</span>
+                          </div>
+                        </details>
+                      )}
                       <details className="group">
                         <summary className="cursor-pointer list-none text-cyan-700 underline decoration-dotted underline-offset-2 dark:text-cyan-300">View trace</summary>
                         <pre className="absolute z-10 mt-2 max-h-64 max-w-[min(90vw,540px)] overflow-auto rounded-xl border border-slate-200 bg-white p-3 text-xs leading-relaxed text-slate-700 shadow-xl dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">{JSON.stringify(avastha.calculationTrace, null, 2)}</pre>
@@ -760,13 +776,13 @@ function PlanetTable({
 }
 
 type AuxiliaryType = "divisional" | "transit" | "solar" | "tajika" | "progressions";
-type DashaSystem = "vimshottari" | "chara" | "ashtottari" | "yogini";
+type DashaSystem = "vimshottari" | "chara" | "ashtottari" | "yogini" | "nadi";
 type DashboardTab = "core" | "dasha" | "element-modality" | "aspects" | "ashtakavarga" | "medical" | "export";
 
 // All existing astrology views remain available; strength modules are now grouped with Ashtakavarga.
 const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
   { id: "core", label: "Core Dashboard" },
-  { id: "dasha", label: "Vimshottari Dasha" },
+  { id: "dasha", label: "Dasha Systems" },
   { id: "element-modality", label: "Element & Modality" },
   { id: "aspects", label: "Drishti & Aspects" },
   { id: "ashtakavarga", label: "Ashtakavarga & Strength" },
@@ -1040,6 +1056,9 @@ export function KundaliDashboard() {
             customAyanamsaDegrees,
             nodeType,
             dashaSeed,
+            avasthaConfig: readSavedAstrologyConfig()?.avastha,
+            nameFirstLetter: submittedProfile.name.trim().slice(0, 1).toUpperCase(),
+            gender: submittedProfile.sex,
             ...(auxiliaryType === "solar" || auxiliaryType === "tajika" ? { targetAge, ageMode } : {}),
           }),
         });
@@ -1087,6 +1106,7 @@ export function KundaliDashboard() {
             customAyanamsaDegrees,
             nodeType,
             dashaSeed: "moon",
+            avasthaConfig: readSavedAstrologyConfig()?.avastha,
           }),
         });
         const responseText = await response.text();
@@ -1418,7 +1438,7 @@ export function KundaliDashboard() {
         <div id="kundali-tab-panel" role="tabpanel" aria-labelledby={`kundali-tab-${dashboardTab}`} className="min-w-0">
         {dashboardTab === "dasha" && (
           <Suspense fallback={<SecondaryTabSkeleton />}>
-            <DashaTab data={data} system={dashaSystem} onSystemChange={setDashaSystem} seed={dashaSeed} onSeedChange={setDashaSeed} />
+            <DashaTab data={data} system={dashaSystem} onSystemChange={setDashaSystem} />
           </Suspense>
         )}
         {dashboardTab === "element-modality" && (
