@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { getBirthDateTimeDefaults, getCurrentBirthDateTime, useKundaliStore } from "./kundali-store";
 
 describe("chart settings store", () => {
+  it("shows the Part of Fortune by default", () => {
+    expect(useKundaliStore.getState().viewPreferences.showFortune).toBe(true);
+  });
+
   it("commits calculation, language, and view settings in one shared state update", () => {
     const state = useKundaliStore.getState();
     const previousSettings = {

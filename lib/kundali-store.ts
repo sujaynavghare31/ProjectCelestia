@@ -129,7 +129,7 @@ export const useKundaliStore = create<KundaliState>((set) => ({
     showOuterPlanets: true,
     showAsteroids: false,
     showUpagrahas: true,
-    showFortune: false,
+    showFortune: true,
     usePlanetIcons: false,
     useSignIcons: false,
     showEqualHouses: false,
