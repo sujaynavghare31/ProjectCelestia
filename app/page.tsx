@@ -12,6 +12,7 @@ import {
   CircleHelp,
   Compass,
   Gem,
+  Globe2,
   Heart,
   Info,
   Moon,
@@ -30,11 +31,12 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KundaliDashboard } from "@/components/kundali-dashboard";
 import PanchangDashboard from "@/components/panchang/PanchangDashboard";
-import { AuthActions } from "@/components/auth-actions";
 import About from "@/components/About";
+import type { CelestialLanguage } from "@/lib/kundali-types";
 import { useKundaliStore } from "@/lib/kundali-store";
 import NumerologyWorkbench from "@/components/numerology/NumerologyWorkbench";
 import { TABLES, chaldeanSum, computeProfile, digitSum, kuaOf, masterReduce, pythSum, reduce, relationLabel } from "@/lib/numerology";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const gridNumbers = [4, 9, 2, 3, 5, 7, 8, 1, 6];
 
@@ -163,6 +165,8 @@ export default function Home() {
   const { resolvedTheme, setTheme } = useTheme();
   const birthProfile = useKundaliStore((state) => state.profile);
   const setBirthProfile = useKundaliStore((state) => state.setProfile);
+  const language = useKundaliStore((state) => state.language);
+  const setLanguage = useKundaliStore((state) => state.setLanguage);
   const [mounted, setMounted] = useState(false);
   const [system, setSystem] = useState(false);
   const fullName = birthProfile.name;
@@ -312,7 +316,7 @@ export default function Home() {
 
   return (
     <main className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-background text-foreground">
-        <header className="z-30 flex min-h-[60px] shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 sm:px-6">
+        <header className="z-30 flex min-h-[60px] shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-card px-4 py-2 sm:flex-nowrap sm:gap-3 sm:px-6 sm:py-0">
           <a href="#kundali-charts" onClick={(event) => { event.preventDefault(); navigate("kundali"); }} className="flex min-w-0 items-center gap-2.5" aria-label="Project Celestia Kundali dashboard">
             <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-900 dark:bg-slate-800">
               <svg viewBox="0 0 36 36" aria-hidden="true" className="size-5">
@@ -326,8 +330,20 @@ export default function Home() {
               <span className="hidden text-xs tracking-wide text-slate-600 sm:block dark:text-slate-400">YOUR PERSONAL COSMIC COMPASS</span>
             </span>
           </a>
-          <div className="ml-auto flex items-center gap-2 sm:gap-3">
-            <AuthActions />
+          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+            <Select value={language} onValueChange={(value) => setLanguage(value as CelestialLanguage)}>
+              <SelectTrigger aria-label="Display language" className="h-9 w-[118px] gap-1.5 bg-background px-2 text-xs sm:w-[156px]">
+                <Globe2 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                <SelectValue className="min-w-0 flex-1 truncate" />
+              </SelectTrigger>
+              <SelectContent align="end" className="z-[100] bg-card text-card-foreground">
+                <SelectItem value="en">English</SelectItem>
+                <SelectItem value="hi">Hindi</SelectItem>
+                <SelectItem value="mr">Marathi</SelectItem>
+                <SelectItem value="initials">English · initials</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Guest mode</p>
             <button
               type="button"
               onClick={() => setTheme(isDark ? "light" : "dark")}

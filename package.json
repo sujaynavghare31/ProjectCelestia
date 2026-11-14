@@ -16,7 +16,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@clerk/nextjs": "^7.9.25",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@radix-ui/react-select": "^2.4.1",
