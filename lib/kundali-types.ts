@@ -2,6 +2,21 @@ export type NodeType = "true" | "mean";
 export type ChartStyle = "diamond" | "south" | "east" | "placidus";
 export type CelestialLanguage = "en" | "hi" | "mr" | "initials";
 export type ZodiacMode = "sidereal" | "tropical";
+export type HouseSystem = "placidus" | "carter";
+export type CarterZodiac = "sayana" | "nirayanaA" | "nirayanaB";
+
+export interface MidpointPreferences {
+  mode: import("@/lib/astrology/engines/midpoints").MidpointMode;
+  orbConjOpp: number;
+  orbSquare: number;
+  orbSemi: number;
+  cuspReceivers: "axes" | "all" | "none";
+  includeKetu: boolean;
+  onlyActivated: boolean;
+  dialSort: boolean;
+  planetFilter: string;
+  showAllTrees: boolean;
+}
 
 export interface ViewPreferences {
   showHouseLabels: boolean;
@@ -21,6 +36,8 @@ export interface ChartSettings {
   zodiacMode: ZodiacMode;
   ayanamsa: string;
   customAyanamsaDegrees: number;
+  houseSystem: HouseSystem;
+  carterZodiac: CarterZodiac;
   language: CelestialLanguage;
   viewPreferences: ViewPreferences;
 }
@@ -94,6 +111,7 @@ export interface EphemerisResponse {
   julianDay: number;
   ayanamsa: { name: string; degrees: number };
   ascendant: PlanetPosition;
+  mc: PlanetPosition;
   planets: PlanetPosition[];
   bhavChalitPlanets: PlanetPosition[];
   points: PlanetPosition[];

@@ -22,13 +22,16 @@ import {
   Settings,
   X,
 } from "lucide-react";
-import type { ChartSettings, ChartStyle, CelestialLanguage, EphemerisResponse, PlanetPosition, ViewPreferences } from "@/lib/kundali-types";
+import type { CarterZodiac, ChartSettings, ChartStyle, CelestialLanguage, EphemerisResponse, HouseSystem, MidpointPreferences, PlanetPosition, ViewPreferences } from "@/lib/kundali-types";
 import PlacidusWheel from "@/components/PlacidusWheel";
 import { getBirthDateTimeDefaults, useKundaliStore, type BirthProfile } from "@/lib/kundali-store";
 import { limitCoordinatePrecision, parseCoordinateDraft } from "@/lib/coordinate-input";
 import { formatPlanetDegree, planetChartDisplayName, planetName, signName } from "@/lib/astrology/localization";
 import { dagdhaRashis } from "@/lib/astrology/dagdha-rashi";
 import { readSavedAstrologyConfig } from "@/lib/astrology/config-storage";
+import { calculateCarterCusps, getCarterPlacementCusps, placeInCarterHouses } from "@/lib/astrology/carter-chart";
+import { readAnalysisPreferences, writeAnalysisPreferences } from "@/lib/astrology/analysis-preferences";
+import { createMidpointReport, visibleMidpointRows, visibleMidpointTrees } from "@/lib/astrology/midpoint-chart";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 
@@ -39,6 +42,8 @@ const loadAshtakavargaTab = () => import("@/components/dashboard-tabs/ashtakavar
 const loadStrengthAnalysisTab = () => import("@/components/dashboard-tabs/strength-analysis-tab");
 const loadMedicalTab = () => import("@/components/dashboard-tabs/medical-tab");
 const loadChartExportTab = () => import("@/components/dashboard-tabs/chart-export-tab");
+const loadMidpointsTab = () => import("@/components/dashboard-tabs/midpoints-tab");
+const loadCarterCuspsPanel = () => import("@/components/dashboard-tabs/carter-cusps-panel");
 const DashaTab = lazy(loadDashaTab);
 const ElementModalityTab = lazy(loadElementModalityTab);
 const AspectsTab = lazy(loadAspectsTab);
@@ -46,6 +51,8 @@ const AshtakavargaTab = lazy(loadAshtakavargaTab);
 const StrengthAnalysisTab = lazy(loadStrengthAnalysisTab);
 const MedicalTab = lazy(loadMedicalTab);
 const ChartExportTab = lazy(loadChartExportTab);
+const MidpointsTab = lazy(loadMidpointsTab);
+const CarterCuspsPanel = lazy(loadCarterCuspsPanel);
 
 const DIVISIONAL_CHARTS = {
   2: { name: "Hora", significance: "Wealth & Sustenance" },
@@ -943,7 +950,7 @@ type AuxiliaryType = "divisional" | "transit" | "solar" | "tajika" | "progressio
 type DashaSystem = "vimshottari" | "chara" | "ashtottari" | "yogini" | "kalachakra";
 type DashaSeed = "moon" | "ascendant" | "sun" | "ascendant-lord";
 type DashaLagnaMode = "natural" | "maha-lord" | "antar-lord";
-type DashboardTab = "core" | "dasha" | "element-modality" | "aspects" | "ashtakavarga" | "medical" | "export";
+type DashboardTab = "core" | "dasha" | "element-modality" | "aspects" | "midpoints" | "ashtakavarga" | "medical" | "export";
 
 // All existing astrology views remain available; strength modules are now grouped with Ashtakavarga.
 const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
@@ -951,6 +958,7 @@ const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
   { id: "dasha", label: "Dasha Systems" },
   { id: "element-modality", label: "Element & Modality" },
   { id: "aspects", label: "Drishti & Aspects" },
+  { id: "midpoints", label: "Midpoints" },
   { id: "ashtakavarga", label: "Ashtakavarga & Strength" },
   { id: "medical", label: "Medical Astrology" },
   { id: "export", label: "Chart Image / Export" },
@@ -966,6 +974,7 @@ function preloadDashboardTab(tab: DashboardTab) {
     dasha: loadDashaTab,
     "element-modality": loadElementModalityTab,
     aspects: loadAspectsTab,
+    midpoints: loadMidpointsTab,
     ashtakavarga: () => Promise.all([loadAshtakavargaTab(), loadStrengthAnalysisTab()]),
     medical: loadMedicalTab,
     export: loadChartExportTab,
@@ -1002,6 +1011,9 @@ const PANEL_CLASS = "min-w-0 rounded-xl border border-border bg-card p-4 text-ca
 export function KundaliDashboard() {
   const profile = useKundaliStore((state) => state.profile);
   const chartStyle = useKundaliStore((state) => state.chartStyle);
+  const houseSystem = useKundaliStore((state) => state.houseSystem);
+  const carterZodiac = useKundaliStore((state) => state.carterZodiac);
+  const midpointPreferences = useKundaliStore((state) => state.midpointPreferences);
   const varga = useKundaliStore((state) => state.varga);
   const decimalDegrees = useKundaliStore((state) => state.decimalDegrees);
   const nodeType = useKundaliStore((state) => state.nodeType);
@@ -1013,6 +1025,9 @@ export function KundaliDashboard() {
   const setHoveredPlanet = useKundaliStore((state) => state.setHoveredPlanet);
   const setProfile = useKundaliStore((state) => state.setProfile);
   const setChartStyle = useKundaliStore((state) => state.setChartStyle);
+  const setHouseSystem = useKundaliStore((state) => state.setHouseSystem);
+  const setCarterZodiac = useKundaliStore((state) => state.setCarterZodiac);
+  const setMidpointPreferences = useKundaliStore((state) => state.setMidpointPreferences);
   const setVarga = useKundaliStore((state) => state.setVarga);
   const setDecimalDegrees = useKundaliStore((state) => state.setDecimalDegrees);
   const setNodeType = useKundaliStore((state) => state.setNodeType);
@@ -1049,6 +1064,7 @@ export function KundaliDashboard() {
   const [latitudeDraft, setLatitudeDraft] = useState(profile.lat.toFixed(2));
   const [longitudeDraft, setLongitudeDraft] = useState(profile.lng.toFixed(2));
   const notesInputRef = useRef<HTMLTextAreaElement>(null);
+  const [analysisPreferencesLoaded, setAnalysisPreferencesLoaded] = useState(false);
   const [locationResults, setLocationResults] = useState<GeocodeResult[]>([]);
   const [locationLoading, setLocationLoading] = useState(false);
   const [currentLocationLoading, setCurrentLocationLoading] = useState(false);
@@ -1059,9 +1075,31 @@ export function KundaliDashboard() {
     zodiacMode,
     ayanamsa,
     customAyanamsaDegrees,
+    houseSystem,
+    carterZodiac,
     language,
     viewPreferences,
-  }), [zodiacMode, ayanamsa, customAyanamsaDegrees, language, viewPreferences]);
+  }), [zodiacMode, ayanamsa, customAyanamsaDegrees, houseSystem, carterZodiac, language, viewPreferences]);
+
+  useEffect(() => {
+    const state = useKundaliStore.getState();
+    const saved = readAnalysisPreferences({
+      houseSystem: state.houseSystem,
+      carterZodiac: state.carterZodiac,
+      midpointPreferences: state.midpointPreferences,
+    });
+    if (saved) {
+      setHouseSystem(saved.houseSystem);
+      setCarterZodiac(saved.carterZodiac);
+      setMidpointPreferences(saved.midpointPreferences);
+    }
+    setAnalysisPreferencesLoaded(true);
+  }, [setHouseSystem, setCarterZodiac, setMidpointPreferences]);
+
+  useEffect(() => {
+    if (!analysisPreferencesLoaded) return;
+    writeAnalysisPreferences({ houseSystem, carterZodiac, midpointPreferences });
+  }, [analysisPreferencesLoaded, houseSystem, carterZodiac, midpointPreferences]);
 
   useEffect(() => {
     const syncTab = () => setDashboardTab(dashboardTabFromLocation());
@@ -1336,9 +1374,61 @@ export function KundaliDashboard() {
     window.history.pushState(null, "", `${url.pathname}${url.search}${url.hash}`);
   };
 
-  const displayData = chartMode === "transit" ? transitData : data;
+  const sourceDisplayData = chartMode === "transit" ? transitData : data;
+  const carterCalculation = useMemo(() => {
+    if (!sourceDisplayData || houseSystem !== "carter") return null;
+    try {
+      return { result: calculateCarterCusps(sourceDisplayData), error: null };
+    } catch (calculationError) {
+      return {
+        result: null,
+        error: calculationError instanceof Error ? calculationError.message : "The Carter calculation failed.",
+      };
+    }
+  }, [sourceDisplayData, houseSystem]);
+  const carterResult = carterCalculation?.result ?? null;
+  const carterError = carterCalculation?.error ?? null;
+  const displayData = useMemo(() => {
+    if (!sourceDisplayData || houseSystem !== "carter" || !carterResult) return sourceDisplayData;
+    const cuspPositions = getCarterPlacementCusps(carterResult, carterZodiac);
+    const cuspLongitudes = cuspPositions.map(({ longitude }) => longitude);
+    const houseCusps = cuspPositions.map((position, index) => ({
+      house: index + 1,
+      longitude: position.longitude,
+      sign: position.signIndex,
+      signName: position.sign,
+    }));
+    const planets = placeInCarterHouses(sourceDisplayData.planets, cuspLongitudes);
+    const points = placeInCarterHouses(sourceDisplayData.points, cuspLongitudes);
+    return {
+      ...sourceDisplayData,
+      houseCusps,
+      planets,
+      points,
+      bhavChalitPlanets: planets,
+      bhavChalitPoints: points,
+      houseCuspSystem: "Carter (Poli-Equatorial)",
+    };
+  }, [sourceDisplayData, houseSystem, carterResult, carterZodiac]);
   const displayLoading = chartMode === "transit" ? transitLoading : loading;
   const displayError = chartMode === "transit" ? transitError : error;
+  const midpointReport = useMemo(
+    () => createMidpointReport(displayData, midpointPreferences),
+    [displayData, midpointPreferences],
+  );
+  const midpointRows = useMemo(
+    () => midpointReport ? visibleMidpointRows(midpointReport, midpointPreferences) : [],
+    [midpointReport, midpointPreferences],
+  );
+  const midpointTrees = useMemo(
+    () => midpointReport ? visibleMidpointTrees(midpointReport, midpointPreferences.showAllTrees) : [],
+    [midpointReport, midpointPreferences.showAllTrees],
+  );
+  const midpointUnavailableReason = !displayData
+    ? "Load a chart to view its midpoint analysis."
+    : displayData.input.zodiacMode === "tropical"
+      ? "Midpoint analysis uses sidereal longitudes. Switch the chart to Sidereal · Nirayana in Chart Settings."
+      : null;
   const activeBirthProfile = submittedProfile ?? profile;
   const referenceHouseNumber = getReferenceHouse(referenceName, displayData?.planets ?? []);
   const referenceLabel = referenceName === "Ascendant"
@@ -1513,6 +1603,17 @@ export function KundaliDashboard() {
             <AspectsTab data={displayData} language={language} useSignIcons={viewPreferences.useSignIcons} />
           </Suspense>
         )}
+        {dashboardTab === "midpoints" && (
+          <Suspense fallback={<SecondaryTabSkeleton />}>
+            <MidpointsTab
+              report={midpointReport}
+              preferences={midpointPreferences}
+              onPreferencesChange={setMidpointPreferences}
+              decimal={decimalDegrees}
+              unavailableReason={midpointUnavailableReason}
+            />
+          </Suspense>
+        )}
         {dashboardTab === "core" && (
         <div className="space-y-4">
         {displayError && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 size-4 shrink-0" /><span>{displayError}</span></div>}
@@ -1592,6 +1693,18 @@ export function KundaliDashboard() {
                       ))}
                     </div>
                   </fieldset>
+                  <label className="w-[190px] shrink-0 text-xs font-medium text-muted-foreground">
+                    House cusps
+                    <Select value={houseSystem} onValueChange={(value) => setHouseSystem(value as HouseSystem)}>
+                      <SelectTrigger aria-label="House cusp system" className="mt-1 h-[58px] w-full bg-card text-foreground">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="z-[110] !bg-white !text-slate-900 shadow-md dark:!bg-slate-950 dark:!text-slate-100">
+                        <SelectItem value="placidus">Placidus</SelectItem>
+                        <SelectItem value="carter">Carter (Poli-Equatorial)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </label>
                   <div className="w-[168px] shrink-0 text-xs font-medium text-muted-foreground">
                     <span className="sr-only">Reference Lagna</span>
                     <Select value={referenceName} onValueChange={setReferenceName}>
@@ -1755,7 +1868,7 @@ export function KundaliDashboard() {
               <details className="group mt-3 rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/40">
                 <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-xs marker:content-none">
                   <Crosshair className="size-3.5 text-amber-700 dark:text-amber-300" />
-                  <span className="font-medium">Bhava Chalit cusps</span><span className="text-slate-600">· {displayData.houseCuspSystem}</span>
+                  <span className="font-medium">{houseSystem === "carter" ? "Carter house cusps" : "Bhava Chalit cusps"}</span><span className="text-slate-600">· {displayData.houseCuspSystem}</span>
                   <ChevronDown className="ml-auto size-3.5 text-slate-600 transition group-open:rotate-180" />
                 </summary>
                 <div className="grid grid-cols-3 gap-1.5 border-t border-slate-200 p-2 sm:grid-cols-4 lg:grid-cols-6 dark:border-slate-800">
@@ -1763,12 +1876,23 @@ export function KundaliDashboard() {
                 </div>
               </details>
             )}
+            {houseSystem === "carter" && (
+              <Suspense fallback={<div className="mt-4 h-40 animate-pulse rounded-lg border border-border bg-muted/30" />}>
+                <CarterCuspsPanel
+                  result={carterResult}
+                  error={carterError}
+                  zodiacMode={carterZodiac}
+                  onZodiacModeChange={setCarterZodiac}
+                  decimal={decimalDegrees}
+                />
+              </Suspense>
+            )}
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
               {[
                 { label: "Ascendant", value: displayData?.ascendant.signName ?? "—", icon: Compass, color: "text-amber-700 dark:text-amber-300" },
                 { label: "Ayanamsa", value: displayData ? `${displayData.ayanamsa.degrees.toFixed(4)}°` : "—", icon: Orbit, color: "text-cyan-700 dark:text-cyan-300" },
                 { label: "Node mode", value: `${nodeType === "true" ? "True" : "Mean"} Node`, icon: ArrowDownUp, color: "text-cyan-700 dark:text-cyan-300" },
-                { label: "House system", value: `Whole Sign + ${displayData?.houseCuspSystem ?? "Bhava"}`, icon: Globe2, color: "text-slate-600" },
+                { label: "House system", value: houseSystem === "carter" ? "Carter (Poli-Equatorial)" : "Whole Sign + Placidus", icon: Globe2, color: "text-slate-600" },
               ].map(({ label, value, icon: Icon, color }) => <div key={label} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 dark:border-slate-800 dark:bg-slate-950/50"><Icon className={`size-3.5 shrink-0 ${color}`} /><div className="min-w-0"><p className="text-xs uppercase tracking-wider text-slate-600">{label}</p><p className="truncate text-xs">{value}</p></div></div>)}
             </div>
           </section>
@@ -1776,7 +1900,7 @@ export function KundaliDashboard() {
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400">
-          <span className="inline-flex items-center gap-1.5"><Clock3 className="size-3" /> Bhava cusps: Placidus · planetary houses: Whole Sign</span>
+          <span className="inline-flex items-center gap-1.5"><Clock3 className="size-3" /> House cusps: {houseSystem === "carter" ? "Carter (Poli-Equatorial)" : "Placidus"} · planetary houses: {houseSystem === "carter" ? "Carter" : "Whole Sign"}</span>
           {data && <span>Calculated {new Date(data.calculatedAt).toLocaleTimeString()}</span>}
         </div>
         </div>
@@ -1804,7 +1928,25 @@ export function KundaliDashboard() {
         )}
         {dashboardTab === "export" && (
           <Suspense fallback={<SecondaryTabSkeleton />}>
-            <ChartExportTab data={displayData} chartName={profile.name || "Celestia chart"} />
+            <ChartExportTab
+              data={displayData}
+              chartName={profile.name || "Celestia chart"}
+              carterCusps={houseSystem === "carter" && carterResult
+                ? carterResult.cusps.map((cusp) => {
+                  const position = carterZodiac === "sayana" ? cusp.sayana : carterZodiac === "nirayanaB" ? cusp.nirayanaB : cusp.nirayanaA;
+                  return {
+                    house: cusp.house,
+                    position: decimalDegrees
+                      ? `${position.sign} ${position.degreeInSign.toFixed(4)}° (${position.longitude.toFixed(4)}°)`
+                      : position.text,
+                  };
+                })
+                : null}
+              midpointRows={midpointRows}
+              midpointTrees={midpointTrees}
+              includeMidpoints={midpointReport !== null}
+              decimal={decimalDegrees}
+            />
           </Suspense>
         )}
         </div>

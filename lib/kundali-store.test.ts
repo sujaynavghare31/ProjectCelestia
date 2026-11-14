@@ -12,6 +12,8 @@ describe("chart settings store", () => {
       ayanamsa: state.ayanamsa,
       zodiacMode: state.zodiacMode,
       customAyanamsaDegrees: state.customAyanamsaDegrees,
+      houseSystem: state.houseSystem,
+      carterZodiac: state.carterZodiac,
       language: state.language,
       viewPreferences: state.viewPreferences,
     };
@@ -20,6 +22,8 @@ describe("chart settings store", () => {
       ayanamsa: "raman",
       zodiacMode: "tropical",
       customAyanamsaDegrees: 23.5,
+      houseSystem: "carter",
+      carterZodiac: "nirayanaB",
       language: "hi",
       viewPreferences: { ...state.viewPreferences, showHouseLabels: true },
     });
@@ -28,6 +32,8 @@ describe("chart settings store", () => {
       ayanamsa: "raman",
       zodiacMode: "tropical",
       customAyanamsaDegrees: 23.5,
+      houseSystem: "carter",
+      carterZodiac: "nirayanaB",
       language: "hi",
       viewPreferences: { showHouseLabels: true },
     });

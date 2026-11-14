@@ -51,7 +51,7 @@ const BODIES = [
 
 type EclipticResult = { longitude: number; latitude: number; longitudeSpeed: number; error?: string };
 type EquatorialResult = { declination: number; error?: string };
-type HousesResult = { house: number[]; ascendant: number; ascendantSpeed?: number; error?: string };
+type HousesResult = { house: number[]; ascendant: number; mc: number; ascendantSpeed?: number; error?: string };
 
 function normalizeDegrees(degree: number) {
   return ((degree % 360) + 360) % 360;
@@ -235,6 +235,15 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
     id: "ascendant", name: "Ascendant", symbol: "As", longitude: ascendantLongitude,
     speed: ascSpeed, declination: ascEquatorial.latitude, ascendantLongitude,
   });
+  const mcLongitude = normalizeDegrees(bhavaResult.mc + longitudeOffset);
+  const mcEquatorial = swe.swe_cotrans(
+    [normalizeDegrees(mcLongitude + ayanamsaDegrees), 0, 1],
+    eclipticNutation.latitude,
+  ) as { latitude: number };
+  const mc = makePosition({
+    id: "mc", name: "MC", symbol: "MC", longitude: mcLongitude,
+    speed: 0, declination: mcEquatorial.latitude, ascendantLongitude,
+  });
 
   const planets: PlanetPosition[] = BODIES.flatMap((body) => {
     const ecliptic = swe.swe_calc_ut(julianDay, body.code, flags) as EclipticResult;
@@ -372,6 +381,7 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
     ayanamsa: { name: input.zodiacMode === "tropical" ? "Tropical" : input.ayanamsa, degrees: ayanamsaDegrees },
     zodiacMode: input.zodiacMode,
     ascendant,
+    mc,
     planets: chartPlanets,
     bhavChalitPlanets,
     points: chartPoints,
