@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { ChartSettings, ChartStyle, CelestialLanguage, NodeType, ViewPreferences, ZodiacMode } from "@/lib/kundali-types";
+import type { CarterZodiac, ChartSettings, ChartStyle, CelestialLanguage, HouseSystem, MidpointPreferences, NodeType, ViewPreferences, ZodiacMode } from "@/lib/kundali-types";
 
 export interface BirthProfile {
   id: string;
@@ -19,6 +19,9 @@ export interface BirthProfile {
 interface KundaliState {
   profile: BirthProfile;
   chartStyle: ChartStyle;
+  houseSystem: HouseSystem;
+  carterZodiac: CarterZodiac;
+  midpointPreferences: MidpointPreferences;
   varga: number;
   decimalDegrees: boolean;
   nodeType: NodeType;
@@ -33,6 +36,9 @@ interface KundaliState {
   setTime: (time: string) => void;
   setLocation: (lat: number, lng: number) => void;
   setChartStyle: (chartStyle: ChartStyle) => void;
+  setHouseSystem: (houseSystem: HouseSystem) => void;
+  setCarterZodiac: (carterZodiac: CarterZodiac) => void;
+  setMidpointPreferences: (preferences: MidpointPreferences) => void;
   setVarga: (varga: number) => void;
   setDecimalDegrees: (decimal: boolean) => void;
   setNodeType: (nodeType: NodeType) => void;
@@ -117,6 +123,20 @@ export const useKundaliStore = create<KundaliState>((set) => ({
     notes: "",
   },
   chartStyle: "diamond",
+  houseSystem: "placidus",
+  carterZodiac: "nirayanaA",
+  midpointPreferences: {
+    mode: "hard45",
+    orbConjOpp: 1.5,
+    orbSquare: 1.5,
+    orbSemi: 1,
+    cuspReceivers: "axes",
+    includeKetu: false,
+    onlyActivated: false,
+    dialSort: false,
+    planetFilter: "all",
+    showAllTrees: false,
+  },
   varga: 9,
   decimalDegrees: false,
   nodeType: "true",
@@ -143,6 +163,9 @@ export const useKundaliStore = create<KundaliState>((set) => ({
   setTime: (time) => set((state) => ({ profile: { ...state.profile, time } })),
   setLocation: (lat, lng) => set((state) => ({ profile: { ...state.profile, lat, lng } })),
   setChartStyle: (chartStyle) => set({ chartStyle }),
+  setHouseSystem: (houseSystem) => set({ houseSystem }),
+  setCarterZodiac: (carterZodiac) => set({ carterZodiac }),
+  setMidpointPreferences: (midpointPreferences) => set({ midpointPreferences }),
   setVarga: (varga) => set({ varga }),
   setDecimalDegrees: (decimalDegrees) => set({ decimalDegrees }),
   setNodeType: (nodeType) => set({ nodeType }),
