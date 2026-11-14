@@ -15,7 +15,7 @@ const PLANET_NAMES: Record<string, { hi: string; mr: string; initials: string }>
   Pluto: { hi: "यम", mr: "यम", initials: "Pl" },
   Chiron: { hi: "कीरोन", mr: "कीरोन", initials: "Ch" },
   Lilith: { hi: "लिलिथ", mr: "लिलिथ", initials: "Li" },
-  Ascendant: { hi: "लग्न", mr: "लग्न", initials: "As" },
+  Ascendant: { hi: "लग्‍न", mr: "लग्न", initials: "As" },
   "Part of Fortune": { hi: "भाग्य बिंदु", mr: "भाग्य बिंदू", initials: "PoF" },
   Mandi: { hi: "मांदि", mr: "मांदी", initials: "Ma" },
   Gulika: { hi: "गुलिक", mr: "गुलिक", initials: "Gu" },
@@ -44,7 +44,17 @@ export function planetName(name: string, language: CelestialLanguage, fallback?:
   return translation[language];
 }
 
+export function planetChartName(name: string, language: CelestialLanguage, fallback?: string): string {
+  return planetName(name, language === "en" ? "initials" : language, fallback);
+}
+
 export function signName(name: string, language: CelestialLanguage): string {
   if (language === "en" || language === "initials") return name;
   return SIGN_NAMES[name]?.[language] ?? name;
+}
+
+export function formatPlanetDegree(degree: number): string {
+  if (!Number.isFinite(degree)) return "—";
+  const totalMinutes = Math.round(degree * 60);
+  return `${Math.floor(totalMinutes / 60)}°${String(totalMinutes % 60).padStart(2, "0")}'`;
 }

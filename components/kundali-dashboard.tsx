@@ -20,14 +20,13 @@ import {
   Orbit,
   Search,
   Settings,
-  Save,
   X,
 } from "lucide-react";
-import type { ChartStyle, CelestialLanguage, EphemerisResponse, PlanetPosition, ViewPreferences, ZodiacMode } from "@/lib/kundali-types";
+import type { ChartSettings, ChartStyle, CelestialLanguage, EphemerisResponse, PlanetPosition, ViewPreferences } from "@/lib/kundali-types";
 import PlacidusWheel from "@/components/PlacidusWheel";
 import { getBirthDateTimeDefaults, useKundaliStore, type BirthProfile } from "@/lib/kundali-store";
 import { limitCoordinatePrecision, parseCoordinateDraft } from "@/lib/coordinate-input";
-import { planetName, signName } from "@/lib/astrology/localization";
+import { formatPlanetDegree, planetChartName, planetName, signName } from "@/lib/astrology/localization";
 import { dagdhaRashis } from "@/lib/astrology/dagdha-rashi";
 import { readSavedAstrologyConfig } from "@/lib/astrology/config-storage";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -99,15 +98,6 @@ const AUXILIARY_CHARTS: ChartOption[] = [
   { id: "D60", label: "D60 · Shashtiamsha", description: "Past Life Karma", group: "Divisional" },
 ];
 const SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
-const BODY_COLORS: Record<string, string> = {
-  Ascendant: "text-gold-foreground",
-  Uranus: "text-cyan-700 dark:text-cyan-400",
-  Neptune: "text-cyan-700 dark:text-cyan-400",
-  Pluto: "text-cyan-700 dark:text-cyan-400",
-  Chiron: "text-violet-700 dark:text-violet-300",
-  Lilith: "text-violet-700 dark:text-violet-300",
-};
-
 function degreeToDms(value: number) {
   const totalSeconds = Math.round(value * 3600);
   const degrees = Math.floor(totalSeconds / 3600);
@@ -147,9 +137,22 @@ function SignMark({ sign, label, enabled }: { sign: number; label: string; enabl
   return <svg aria-label={label} role="img" viewBox="0 0 24 24" className="inline-block size-4 align-[-3px]"><text x="12" y="18" textAnchor="middle" fontSize="18" fill="currentColor">{SIGN_GLYPHS[sign]}</text></svg>;
 }
 
+function ChartStyleIcon({ style }: { style: ChartStyle }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="size-5 fill-none stroke-current" strokeWidth="1.5">
+      {style === "diamond" && <path d="M12 2 22 12 12 22 2 12 12 2Zm0 0v20M2 12h20" />}
+      {style === "south" && <path d="M3 3h18v18H3zM9 3v18M15 3v18M3 9h18M3 15h18" />}
+      {style === "east" && <path d="M3 3h18v18H3zM12 3v18M3 12h18M3 3l18 18M21 3 3 21" />}
+      {style === "placidus" && <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM2 12h20M12 2v20M5 5l14 14M19 5 5 19" />}
+    </svg>
+  );
+}
+
 function chartPlanetDisplay(planet: PlanetPosition, language: CelestialLanguage, useIcons: boolean) {
-  const fullName = planetName(planet.name, "en", planet.name);
-  return useIcons ? `${PLANET_GLYPHS[planet.name] ?? ""} ${fullName}`.trim() : fullName;
+  const name = useIcons
+    ? PLANET_GLYPHS[planet.name] ?? planet.symbol
+    : planetChartName(planet.name, language, planet.name);
+  return `${name} - ${formatPlanetDegree(planet.degree)}`;
 }
 
 function signDisplay(sign: number, language: CelestialLanguage, useIcons: boolean) {
@@ -159,10 +162,6 @@ function signDisplay(sign: number, language: CelestialLanguage, useIcons: boolea
 function chartSignDisplay(sign: number, language: CelestialLanguage, preferences: ViewPreferences) {
   if (!preferences.showSignNumbers) return signDisplay(sign, language, preferences.useSignIcons);
   return preferences.useSignIcons ? `${SIGN_GLYPHS[sign]} ${sign + 1}` : String(sign + 1);
-}
-
-function signColor(sign: number) {
-  return ["#dc2626", "#65a30d", "#0284c7", "#0891b2", "#ea580c", "#16a34a", "#1d4ed8", "#0f766e", "#c026d3", "#78716c", "#4f46e5", "#0d9488"][sign];
 }
 
 function signFillClass(sign: number) {
@@ -266,11 +265,11 @@ function BirthTimeAdjuster({ onAdjust }: { onAdjust: (seconds: number) => void }
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span className="mr-0.5 text-[11px] font-medium text-muted-foreground" title="Birth time rectification">BTR</span>
-      <div role="group" aria-label="Adjust birth time" className="flex gap-1">
+    <div role="group" aria-label="Birth time rectification" className="inline-flex h-[58px] shrink-0 items-center gap-1 rounded-lg border border-border bg-card p-1.5">
+      <span className="px-1 text-[10px] font-semibold text-muted-foreground" title="Birth time rectification">BTR</span>
+      <div className="flex h-full items-center gap-1">
         {adjustments.map(({ seconds, label, description }) => (
-          <button key={seconds} type="button" onClick={() => onAdjust(seconds)} className="h-7 rounded-md border border-border bg-background px-1.5 text-[10px] font-semibold tabular-nums text-foreground transition hover:border-primary/40 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40" aria-label={description} title={description}>
+          <button key={seconds} type="button" onClick={() => onAdjust(seconds)} className="h-10 rounded-md px-2 text-[10px] font-semibold tabular-nums text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40" aria-label={description} title={description}>
             {label}
           </button>
         ))}
@@ -279,52 +278,60 @@ function BirthTimeAdjuster({ onAdjust }: { onAdjust: (seconds: number) => void }
   );
 }
 
-const VIEW_PREFERENCE_OPTIONS: Array<{ key: keyof ViewPreferences; label: string; description?: string }> = [
+const CHART_STYLE_LABELS: Record<ChartStyle, string> = {
+  diamond: "North",
+  south: "South",
+  east: "East",
+  placidus: "Placidus",
+};
+
+type PreferenceOption = {
+  key: keyof ViewPreferences;
+  label: string;
+  description?: string;
+  disabledFor?: ChartStyle[];
+};
+
+const CHART_ELEMENT_OPTIONS: PreferenceOption[] = [
   { key: "showHouseLabels", label: "House labels", description: "Show house numbers around the chart." },
   { key: "showSignNumbers", label: "Sign numbers", description: "Use Aries = 1 through Pisces = 12." },
-  { key: "showBhavaCusps", label: "Bhava cusp labels", description: "Show cusp degrees on North charts." },
+  { key: "showBhavaCusps", label: "Bhava cusp labels", description: "Show calculated cusp degrees.", disabledFor: ["south", "east"] },
+];
+
+const CELESTIAL_BODY_OPTIONS: PreferenceOption[] = [
   { key: "showOuterPlanets", label: "Outer planets", description: "Include Uranus, Neptune, and Pluto." },
-  { key: "showUpagrahas", label: "Upagrahas", description: "Include Mandi and Gulika points." },
+  { key: "showUpagrahas", label: "Upagrahas", description: "Include Mandi and Gulika; Mandi marks Saturn’s segment midpoint, while Gulika marks its start." },
   { key: "showAsteroids", label: "Asteroids & points", description: "Include Chiron and Lilith." },
   { key: "showFortune", label: "Part of Fortune", description: "Include the calculated Fortuna point." },
+];
+
+const VISUAL_STYLE_OPTIONS: PreferenceOption[] = [
   { key: "usePlanetIcons", label: "Planet glyphs", description: "Use astrological symbols instead of names." },
   { key: "useSignIcons", label: "Sign glyphs", description: "Use zodiac symbols instead of sign names." },
-  { key: "showEqualHouses", label: "Equal-house guides", description: "Overlay 30° house divisions." },
-  { key: "showSignDivisions", label: "Sign divisions", description: "Overlay 30° sign boundaries." },
+  { key: "showEqualHouses", label: "Equal-house guides", description: "Overlay 30° house divisions.", disabledFor: ["diamond", "south", "east"] },
+  { key: "showSignDivisions", label: "Sign divisions", description: "Overlay 30° sign boundaries.", disabledFor: ["diamond", "south", "east"] },
 ];
 
 function ChartSettingsDrawer({
   open,
   onClose,
-  zodiacMode,
-  ayanamsa,
-  customAyanamsaDegrees,
-  language,
-  preferences,
-  onZodiacModeChange,
-  onAyanamsaChange,
-  onCustomAyanamsaChange,
-  onLanguageChange,
-  onPreferenceChange,
+  settings,
+  chartStyle,
+  onApply,
 }: {
   open: boolean;
   onClose: () => void;
-  zodiacMode: ZodiacMode;
-  ayanamsa: string;
-  customAyanamsaDegrees: number;
-  language: CelestialLanguage;
-  preferences: ViewPreferences;
-  onZodiacModeChange: (mode: ZodiacMode) => void;
-  onAyanamsaChange: (value: string) => void;
-  onCustomAyanamsaChange: (value: number) => void;
-  onLanguageChange: (value: CelestialLanguage) => void;
-  onPreferenceChange: <K extends keyof ViewPreferences>(key: K, value: ViewPreferences[K]) => void;
+  settings: ChartSettings;
+  chartStyle: ChartStyle;
+  onApply: (settings: ChartSettings) => void;
 }) {
   const drawerRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const [draft, setDraft] = useState(settings);
 
   useEffect(() => {
     if (!open) return;
+    setDraft(settings);
     const activeElement = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -355,9 +362,41 @@ function ChartSettingsDrawer({
       document.body.style.overflow = previousOverflow;
       if (activeElement instanceof HTMLElement) activeElement.focus();
     };
-  }, [onClose, open]);
+  }, [onClose, open, settings]);
 
   if (!open || typeof document === "undefined") return null;
+
+  const setPreference = <K extends keyof ViewPreferences>(key: K, value: ViewPreferences[K]) => {
+    setDraft((current) => ({
+      ...current,
+      viewPreferences: { ...current.viewPreferences, [key]: value },
+    }));
+  };
+  const renderPreferenceOptions = (options: PreferenceOption[]) => (
+    <div className="grid gap-2 sm:grid-cols-2">
+      {options.map(({ key, label, description, disabledFor }) => {
+        const unavailable = disabledFor?.includes(chartStyle) ?? false;
+        const helperText = unavailable
+          ? `Not available for ${CHART_STYLE_LABELS[chartStyle]} charts.`
+          : description;
+        return (
+          <div key={key} className={`flex min-h-[72px] items-start justify-between gap-3 rounded-xl border border-border bg-card p-3 transition ${unavailable ? "" : "hover:border-indigo-300 dark:hover:border-indigo-800"}`}>
+            <span className="min-w-0">
+              <span className="block text-xs font-medium">{label}</span>
+              {helperText && <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{helperText}</span>}
+            </span>
+            <Switch
+              aria-label={label}
+              checked={draft.viewPreferences[key]}
+              disabled={unavailable}
+              onCheckedChange={(checked) => setPreference(key, checked)}
+              className="mt-0.5 data-[state=checked]:bg-indigo-500 dark:data-[state=checked]:bg-indigo-400 focus-visible:ring-indigo-500"
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
 
   return createPortal(
     <div
@@ -389,109 +428,114 @@ function ChartSettingsDrawer({
           </button>
         </header>
         <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-6 py-6">
-          <section aria-labelledby="core-calculations-title">
-            <div className="mb-4">
-              <h3 id="core-calculations-title" className="text-sm font-semibold">Core calculations</h3>
-              <p className="mt-1 text-xs text-muted-foreground">Changing these preferences recalculates the chart.</p>
-            </div>
-            <fieldset>
-              <legend className="mb-2 text-xs font-medium text-foreground">Zodiac system</legend>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {([
-                  ["sidereal", "Sidereal · Nirayana", "Uses an ayanamsa offset."],
-                  ["tropical", "Tropical · Sayana", "Uses the seasonal zodiac."],
-                ] as const).map(([mode, label, description]) => (
-                  <label key={mode} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${zodiacMode === mode ? "border-indigo-500/60 bg-indigo-50/70 dark:bg-indigo-950/30" : "border-border bg-card hover:border-indigo-300 dark:hover:border-indigo-800"}`}>
-                    <input
-                      type="radio"
-                      name="chart-zodiac-mode"
-                      value={mode}
-                      checked={zodiacMode === mode}
-                      onChange={() => onZodiacModeChange(mode)}
-                      className="mt-0.5 size-4 accent-indigo-600"
-                    />
-                    <span>
-                      <span className="block text-xs font-semibold">{label}</span>
-                      <span className="mt-1 block text-xs text-muted-foreground">{description}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-            <div className="mt-4 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
-              <div className="block text-xs font-medium text-foreground">
-                <span>Ayanamsa</span>
-                <Select value={ayanamsa} onValueChange={onAyanamsaChange} disabled={zodiacMode === "tropical"}>
-                  <SelectTrigger aria-label="Ayanamsa" className="mt-1.5 h-10 w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="z-[110] bg-card text-card-foreground">
-                    <SelectItem value="lahiri">Lahiri</SelectItem>
-                    <SelectItem value="raman">B.V. Raman</SelectItem>
-                    <SelectItem value="krishnamurti">Krishnamurti</SelectItem>
-                    <SelectItem value="fagan-bradley">Fagan–Bradley</SelectItem>
-                    <SelectItem value="yukteshwar">Yukteshwar</SelectItem>
-                    <SelectItem value="custom">Custom Ayanamsa</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {zodiacMode === "sidereal" && ayanamsa === "custom" && (
+          <section aria-labelledby="general-settings-title">
+            <h3 id="general-settings-title" className="border-b border-border pb-2 text-sm font-semibold">General</h3>
+            <div className="mt-4 space-y-5">
+              <fieldset>
+                <legend className="mb-2 text-xs font-medium text-foreground">Zodiac system</legend>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {([
+                    ["sidereal", "Sidereal · Nirayana", "Uses an ayanamsa offset."],
+                    ["tropical", "Tropical · Sayana", "Uses the seasonal zodiac."],
+                  ] as const).map(([mode, label, description]) => (
+                    <label key={mode} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${draft.zodiacMode === mode ? "border-indigo-500/60 bg-indigo-50/70 dark:bg-indigo-950/30" : "border-border bg-card hover:border-indigo-300 dark:hover:border-indigo-800"}`}>
+                      <input
+                        type="radio"
+                        name="chart-zodiac-mode"
+                        value={mode}
+                        checked={draft.zodiacMode === mode}
+                        onChange={() => setDraft((current) => ({ ...current, zodiacMode: mode }))}
+                        className="mt-0.5 size-4 accent-indigo-600"
+                      />
+                      <span>
+                        <span className="block text-xs font-semibold">{label}</span>
+                        <span className="mt-1 block text-xs text-muted-foreground">{description}</span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block text-xs font-medium text-foreground">
-                  Degrees
+                  Ayanamsa
+                  <Select
+                    value={draft.ayanamsa}
+                    onValueChange={(value) => setDraft((current) => ({ ...current, ayanamsa: value }))}
+                    disabled={draft.zodiacMode === "tropical"}
+                  >
+                    <SelectTrigger aria-label="Ayanamsa" className="mt-1.5 h-10 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="z-[110] !bg-white !text-slate-900 shadow-md dark:!bg-slate-950 dark:!text-slate-100">
+                      <SelectItem value="lahiri">Lahiri</SelectItem>
+                      <SelectItem value="raman">B.V. Raman</SelectItem>
+                      <SelectItem value="krishnamurti">Krishnamurti</SelectItem>
+                      <SelectItem value="fagan-bradley">Fagan–Bradley</SelectItem>
+                      <SelectItem value="yukteshwar">Yukteshwar</SelectItem>
+                      <SelectItem value="custom">Custom Ayanamsa</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </label>
+                <label className="block text-xs font-medium text-foreground">
+                  Language &amp; initials
+                  <Select
+                    value={draft.language}
+                    onValueChange={(value) => setDraft((current) => ({ ...current, language: value as CelestialLanguage }))}
+                    disabled={draft.viewPreferences.usePlanetIcons}
+                  >
+                    <SelectTrigger aria-label="Chart language" className="mt-1.5 h-10 w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="z-[110] !bg-white !text-slate-900 shadow-md dark:!bg-slate-950 dark:!text-slate-100">
+                      <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="hi">Hindi</SelectItem>
+                      <SelectItem value="mr">Marathi</SelectItem>
+                      <SelectItem value="initials">English · initials</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {draft.viewPreferences.usePlanetIcons && <span className="mt-1.5 block text-xs text-muted-foreground">Unavailable while planet glyphs are enabled.</span>}
+                </label>
+              </div>
+              {draft.zodiacMode === "sidereal" && draft.ayanamsa === "custom" && (
+                <label className="block max-w-sm text-xs font-medium text-foreground">
+                  Custom ayanamsa degrees
                   <input
                     aria-label="Custom ayanamsa degrees"
                     type="number"
                     step="0.0001"
                     min="-360"
                     max="360"
-                    value={customAyanamsaDegrees}
-                    onChange={(event) => onCustomAyanamsaChange(Number(event.target.value))}
+                    value={draft.customAyanamsaDegrees}
+                    onChange={(event) => setDraft((current) => ({ ...current, customAyanamsaDegrees: Number(event.target.value) }))}
                     className={`${CONTROL_CLASS} mt-1.5 h-10 w-full text-sm`}
                   />
                 </label>
               )}
             </div>
           </section>
-          <section aria-labelledby="display-preferences-title">
-            <div className="mb-4">
-              <h3 id="display-preferences-title" className="text-sm font-semibold">Display preferences</h3>
-              <p className="mt-1 text-xs text-muted-foreground">Choose the labels and bodies shown on chart views.</p>
-            </div>
-            <div className="block max-w-sm text-xs font-medium text-foreground">
-              <span>Language & initials</span>
-              <Select value={language} onValueChange={(value) => onLanguageChange(value as CelestialLanguage)}>
-                <SelectTrigger aria-label="Planet and sign language" className="mt-1.5 h-10 w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="z-[110] bg-card text-card-foreground">
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="hi">Hindi</SelectItem>
-                  <SelectItem value="mr">Marathi</SelectItem>
-                  <SelectItem value="initials">English · initials</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="mt-5 grid gap-2 sm:grid-cols-2">
-              {VIEW_PREFERENCE_OPTIONS.map(({ key, label, description }) => (
-                <div key={key} className="flex min-h-[72px] items-start justify-between gap-3 rounded-xl border border-border bg-card p-3 transition hover:border-indigo-300 dark:hover:border-indigo-800">
-                  <span className="min-w-0">
-                    <span className="block text-xs font-medium">{label}</span>
-                    {description && <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{description}</span>}
-                  </span>
-                  <Switch
-                    aria-label={label}
-                    checked={preferences[key]}
-                    onCheckedChange={(checked) => onPreferenceChange(key, checked)}
-                    className="mt-0.5 data-[state=checked]:bg-indigo-500 dark:data-[state=checked]:bg-indigo-400 focus-visible:ring-indigo-500"
-                  />
-                </div>
-              ))}
-            </div>
-            <p className="mt-3 rounded-lg bg-muted/70 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
-              Gulika uses the start and Mandi the midpoint of Saturn’s one-eighth day-or-night segment.
-            </p>
+          <section aria-labelledby="chart-elements-title">
+            <h3 id="chart-elements-title" className="border-b border-border pb-2 text-sm font-semibold">Chart elements</h3>
+            <p className="mt-2 text-xs text-muted-foreground">Control house and sign annotations on the chart.</p>
+            <div className="mt-3">{renderPreferenceOptions(CHART_ELEMENT_OPTIONS)}</div>
+          </section>
+          <section aria-labelledby="celestial-bodies-title">
+            <h3 id="celestial-bodies-title" className="border-b border-border pb-2 text-sm font-semibold">Celestial bodies</h3>
+            <p className="mt-2 text-xs text-muted-foreground">Choose which additional bodies and calculated points appear.</p>
+            <div className="mt-3">{renderPreferenceOptions(CELESTIAL_BODY_OPTIONS)}</div>
+          </section>
+          <section aria-labelledby="visual-style-title">
+            <h3 id="visual-style-title" className="border-b border-border pb-2 text-sm font-semibold">Visual style</h3>
+            <p className="mt-2 text-xs text-muted-foreground">Adjust chart labels and structural guides.</p>
+            <div className="mt-3">{renderPreferenceOptions(VISUAL_STYLE_OPTIONS)}</div>
           </section>
         </div>
+        <footer className="flex items-center justify-between gap-3 border-t border-border px-6 py-4">
+          <p className="text-xs text-muted-foreground">Your changes stay pending until applied.</p>
+          <div className="flex shrink-0 gap-2">
+            <button type="button" onClick={onClose} className="h-9 rounded-lg border border-border px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Cancel</button>
+            <button type="button" onClick={() => { onApply(draft); onClose(); }} className="h-9 rounded-lg bg-indigo-600 px-3.5 text-xs font-semibold text-white transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:bg-indigo-500 dark:hover:bg-indigo-400">Apply Changes</button>
+          </div>
+        </footer>
       </aside>
     </div>,
     document.body,
@@ -557,8 +601,12 @@ function getSignHouse(sign: number, ascendantSign: number) {
   return normalizeSign(sign - ascendantSign) + 1;
 }
 
-function getReferenceHouse(reference: string) {
-  return reference === "Ascendant" ? 1 : Number(reference.slice("house:".length));
+function getReferenceHouse(reference: string, planets: PlanetPosition[] = []) {
+  if (reference === "Ascendant") return 1;
+  const referencePlanet = planets.find((planet) => planet.name === reference);
+  if (referencePlanet) return referencePlanet.house;
+  const houseNumber = reference.startsWith("house:") ? Number(reference.slice("house:".length)) : Number.NaN;
+  return Number.isInteger(houseNumber) && houseNumber >= 1 && houseNumber <= 12 ? houseNumber : 1;
 }
 
 function chartPlanetVisible(planet: PlanetPosition, preferences: ViewPreferences) {
@@ -585,6 +633,7 @@ function SvgChart({
   points = [],
   houseCusps = [],
   language = "en",
+  showTransitLabels = false,
   preferences = { showHouseLabels: true, showOuterPlanets: true, showAsteroids: false, showUpagrahas: false, showFortune: false, usePlanetIcons: false, useSignIcons: false, showEqualHouses: false, showSignDivisions: true, showSignNumbers: true, showBhavaCusps: false },
 }: {
   style: ChartStyle;
@@ -597,6 +646,7 @@ function SvgChart({
   points?: PlanetPosition[];
   houseCusps?: EphemerisResponse["houseCusps"];
   language?: CelestialLanguage;
+  showTransitLabels?: boolean;
   preferences?: ViewPreferences;
 }) {
   const hoveredPlanet = useKundaliStore((state) => state.hoveredPlanet);
@@ -611,7 +661,7 @@ function SvgChart({
     ...planet,
     chartSign: getVargaSign(planet, varga),
     chartHouse: chartHouseForPlanet(planet),
-    isTransit: false,
+    isTransit: showTransitLabels && planet.name !== "Ascendant",
   }));
   const transitBodies = (overlay ?? []).filter((planet) => chartPlanetVisible(planet, preferences)).map((planet) => ({
     ...planet,
@@ -645,7 +695,7 @@ function SvgChart({
           signName: SIGNS[sign],
         };
       });
-    return <PlacidusWheel ascendant={ascendant} planets={planets} points={points} cusps={cusps} referenceHouse={referenceHouse} overlay={overlay} language={language} preferences={preferences} />;
+    return <PlacidusWheel ascendant={ascendant} planets={planets} points={points} cusps={cusps} referenceHouse={referenceHouse} overlay={overlay} labelPlanetsAsTransit={showTransitLabels} language={language} preferences={preferences} />;
   }
 
   if (style === "east") {
@@ -672,16 +722,16 @@ function SvgChart({
           return (
             <g key={house.house}>
               <polygon points={polygon} fill={house.house === 1 ? "hsl(var(--champagne-gold) / 0.12)" : "hsl(var(--card))"} stroke="hsl(var(--chart-grid))" strokeWidth="1" />
-              <text x={x} y={y - 10} fill={house.house === 1 ? "hsl(var(--champagne-gold))" : signColor(house.sign)} fontSize="8" fontWeight="600" textAnchor="middle">{preferences.showHouseLabels ? `H${house.house} · ` : ""}{chartSignDisplay(house.sign, language, preferences)}</text>
+              <text x={x} y={y - 10} fill="hsl(var(--foreground))" fontSize="8" fontWeight="600" textAnchor="middle">{preferences.showHouseLabels ? `H${house.house} · ` : ""}{chartSignDisplay(house.sign, language, preferences)}</text>
               {contents.slice(0, 5).map((body, bodyIndex) => {
                 const name = chartPlanetDisplay(body, language, preferences.usePlanetIcons);
                 const vargottama = body.name !== "Ascendant" && body.sign === getVargaSign(body, 9);
                 return (
-                  <g key={body.id} opacity={isHighlighted(body, vargottama) ? 1 : 0.4} filter={isHighlighted(body, vargottama) && hoveredPlanet !== null ? "drop-shadow(0 0 6px hsl(var(--champagne-gold)))" : undefined} onMouseEnter={() => onBodyEnter(body)} onMouseLeave={() => setHoveredPlanet(null)}>
+                  <g key={body.id} opacity={isHighlighted(body, vargottama) ? 1 : 0.4} filter={isHighlighted(body, vargottama) && hoveredPlanet !== null ? "drop-shadow(0 0 6px hsl(var(--foreground)))" : undefined} onMouseEnter={() => onBodyEnter(body)} onMouseLeave={() => setHoveredPlanet(null)}>
                     {body.motion === "R" && <title>Retrograde Motion</title>}
-                    {vargottama && <ellipse cx={x} cy={y + bodyIndex * 11 - 3} rx={name.length * 3.4 + (body.motion === "R" ? 5 : 0)} ry="7" fill="none" stroke="hsl(var(--champagne-gold))" strokeWidth="1" />}
-                    <text x={x} y={y + bodyIndex * 11 + 4} fill={body.isTransit ? "hsl(var(--champagne-gold))" : body.name === "Ascendant" ? "hsl(var(--champagne-gold))" : "hsl(var(--foreground))"} fontSize="8" fontWeight="600" textAnchor="middle">
-                      {body.isTransit ? "T " : ""}{name}{body.motion === "R" && <tspan fill="hsl(var(--retrograde-crimson))" fontSize="8" fontWeight="800" dy="-3">ᴿ</tspan>}
+                    {vargottama && <ellipse cx={x} cy={y + bodyIndex * 11 - 3} rx={name.length * 3.4 + (body.motion === "R" ? 5 : 0)} ry="7" fill="none" stroke="hsl(var(--foreground))" strokeWidth="1" />}
+                    <text x={x} y={y + bodyIndex * 11 + 4} fill="hsl(var(--foreground))" fontSize="8" fontWeight="600" textAnchor="middle">
+                      {body.isTransit ? "T " : ""}{name}{body.motion === "R" && <tspan fill="hsl(var(--foreground))" fontSize="8" fontWeight="800" dy="-3">ᴿ</tspan>}
                     </text>
                   </g>
                 );
@@ -705,14 +755,14 @@ function SvgChart({
           ));
           return (
             <div key={sign} className={`flex min-w-0 flex-col items-center justify-center gap-1 border border-slate-200 p-1 text-center dark:border-slate-700 ${signHouse === 1 ? "bg-amber-100/70 dark:bg-amber-400/10" : ""}`}>
-              <span className="text-xs" style={{ color: signColor(sign) }}>{chartSignDisplay(sign, language, preferences)}{preferences.showHouseLabels ? ` · H${signHouse}` : ""}</span>
+              <span className="text-xs text-foreground">{chartSignDisplay(sign, language, preferences)}{preferences.showHouseLabels ? ` · H${signHouse}` : ""}</span>
               <span className="flex flex-wrap justify-center gap-1 text-[11px] leading-4">
                 {bodies.map((body) => {
                   const name = chartPlanetDisplay(body, language, preferences.usePlanetIcons);
                   const vargottama = body.name !== "Ascendant" && body.sign === getVargaSign(body, 9);
                   return (
-                    <span key={body.id} title={body.name} className={`inline-flex items-center gap-0.5 whitespace-nowrap font-semibold ${vargottama ? "rounded-full border border-violet-500 px-1.5" : ""} ${body.isTransit ? "text-cyan-700 dark:text-cyan-300" : body.name === "Ascendant" || ["Sun", "Moon"].includes(body.name) ? "text-gold-foreground" : BODY_COLORS[body.name] ?? "text-slate-700 dark:text-slate-200"}`}>
-                      {body.isTransit ? "T " : ""}{name}{body.motion === "R" && <span className="font-bold text-rose-600 dark:text-rose-400">R</span>}
+                    <span key={body.id} title={body.name} className={`inline-flex items-center gap-0.5 whitespace-nowrap font-semibold text-foreground ${vargottama ? "rounded-full border border-foreground px-1.5" : ""}`}>
+                      {body.isTransit ? "T " : ""}{name}{body.motion === "R" && <span className="font-bold text-foreground">R</span>}
                     </span>
                   );
                 })}
@@ -754,20 +804,20 @@ function SvgChart({
         const isAscHouse = house.house === 1;
         return (
           <g key={house.house}>
-            <text x={x} y={y - 15} fill={isAscHouse ? "hsl(var(--champagne-gold))" : signColor(house.sign)} fontSize="9" textAnchor="middle">{preferences.showHouseLabels ? isAscHouse ? "1ST HOUSE" : `H${house.house}` : ""}{preferences.showHouseLabels ? " · " : ""}{chartSignDisplay(house.sign, language, preferences).toUpperCase()}</text>
-            {preferences.showBhavaCusps && houseCusps[house.house - 1] && <text x={x} y={y - 3} fill="var(--chart-transit)" fontSize="7" textAnchor="middle">C{house.house} {degreeToDms(houseCusps[house.house - 1].longitude % 30)}</text>}
+            <text x={x} y={y - 15} fill="hsl(var(--foreground))" fontSize="9" textAnchor="middle">{preferences.showHouseLabels ? isAscHouse ? "1ST HOUSE" : `H${house.house}` : ""}{preferences.showHouseLabels ? " · " : ""}{chartSignDisplay(house.sign, language, preferences).toUpperCase()}</text>
+            {preferences.showBhavaCusps && houseCusps[house.house - 1] && <text x={x} y={y - 3} fill="hsl(var(--foreground))" fontSize="7" textAnchor="middle">C{house.house} {degreeToDms(houseCusps[house.house - 1].longitude % 30)}</text>}
             {[...house.bodies, ...transitBodies.filter((body) => body.chartHouse === house.house)].map((body, index, bodies) => {
               const row = Math.floor(index / 1);
-              const bodyColor = body.isTransit ? "hsl(var(--champagne-gold))" : ["Ascendant", "Sun", "Moon"].includes(body.name) ? "hsl(var(--champagne-gold))" : "hsl(var(--foreground))";
+              const bodyColor = "hsl(var(--foreground))";
               const name = chartPlanetDisplay(body, language, preferences.usePlanetIcons);
               const bodyY = y + 10 + row * 13 - Math.max(0, bodies.length - 4) * 4;
               const vargottama = body.name !== "Ascendant" && body.sign === getVargaSign(body, 9);
               return (
-                <g key={body.id} opacity={isHighlighted(body, vargottama) ? 1 : 0.4} filter={isHighlighted(body, vargottama) && hoveredPlanet !== null ? "drop-shadow(0 0 6px hsl(var(--champagne-gold)))" : undefined} onMouseEnter={() => onBodyEnter(body)} onMouseLeave={() => setHoveredPlanet(null)}>
+                <g key={body.id} opacity={isHighlighted(body, vargottama) ? 1 : 0.4} filter={isHighlighted(body, vargottama) && hoveredPlanet !== null ? "drop-shadow(0 0 6px hsl(var(--foreground)))" : undefined} onMouseEnter={() => onBodyEnter(body)} onMouseLeave={() => setHoveredPlanet(null)}>
                   {body.motion === "R" && <title>Retrograde Motion</title>}
-                  {vargottama && <ellipse cx={x} cy={bodyY - 3} rx={name.length * 3.4 + (body.motion === "R" ? 5 : 0)} ry="8" fill="none" stroke="hsl(var(--champagne-gold))" strokeWidth="1" />}
+                  {vargottama && <ellipse cx={x} cy={bodyY - 3} rx={name.length * 3.4 + (body.motion === "R" ? 5 : 0)} ry="8" fill="none" stroke="hsl(var(--foreground))" strokeWidth="1" />}
                   <text x={x} y={bodyY} fill={bodyColor} fontSize={bodies.length > 4 ? "9" : "10"} fontWeight={body.name === "Ascendant" ? "700" : "600"} textAnchor="middle">
-                    {body.isTransit ? "T " : ""}{name}{body.motion === "R" && <tspan fill="hsl(var(--retrograde-crimson))" fontSize="8" fontWeight="800" dy="-3">ᴿ</tspan>}
+                    {body.isTransit ? "T " : ""}{name}{body.motion === "R" && <tspan fill="hsl(var(--foreground))" fontSize="8" fontWeight="800" dy="-3">ᴿ</tspan>}
                   </text>
                 </g>
               );
@@ -842,7 +892,7 @@ function PlanetTable({
             return (
               <tr key={position.id} className={`bg-transparent text-[hsl(var(--foreground))] transition-colors hover:bg-[hsl(var(--border)/0.2)] ${isGoldPosition ? "text-[hsl(var(--champagne-gold))]" : ""}`}>
                 <td className="min-w-[108px] px-1.5 py-1.5 font-semibold">
-                  <span className="block whitespace-nowrap">{preferences.usePlanetIcons && <PlanetMark name={position.name} label={position.symbol} enabled />} {planetName(position.name, "en", position.name)}</span>
+                  <span className="block whitespace-nowrap">{preferences.usePlanetIcons && <PlanetMark name={position.name} label={position.symbol} enabled />} {planetName(position.name, language, position.name)}</span>
                   {vargottama && <span title="Rasi and Navamsha signs are the same" className="mt-0.5 inline-flex rounded bg-violet-100 px-1 py-0.5 text-[10px] font-medium leading-none text-violet-800 dark:bg-violet-400/10 dark:text-violet-300">Vargottama</span>}
                 </td>
                 <td className="whitespace-nowrap px-1.5 py-1.5 font-semibold text-[hsl(var(--champagne-gold))]">{position.jaimini ? <abbr title={JAIMINI_KARAKA_NAMES[position.jaimini] ?? position.jaimini} className="no-underline">{JAIMINI_KARAKA_NAMES[position.jaimini] ?? position.jaimini}</abbr> : "—"}</td>
@@ -946,22 +996,7 @@ interface GeocodeResult {
 const CONTROL_CLASS = "h-9 rounded-lg border border-input bg-card px-2.5 text-xs text-card-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10";
 const PANEL_CLASS = "min-w-0 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm";
 
-interface SavedChartRecord {
-  id: string;
-  chartName: string | null;
-  fullName: string;
-  dateOfBirth: string;
-  timeOfBirth: string;
-  latitude: number;
-  longitude: number;
-  timezone: string;
-  city: string | null;
-  notes: string;
-}
-
 export function KundaliDashboard() {
-  const authLoaded = true;
-  const isSignedIn = false;
   const profile = useKundaliStore((state) => state.profile);
   const chartStyle = useKundaliStore((state) => state.chartStyle);
   const varga = useKundaliStore((state) => state.varga);
@@ -978,11 +1013,7 @@ export function KundaliDashboard() {
   const setVarga = useKundaliStore((state) => state.setVarga);
   const setDecimalDegrees = useKundaliStore((state) => state.setDecimalDegrees);
   const setNodeType = useKundaliStore((state) => state.setNodeType);
-  const setAyanamsa = useKundaliStore((state) => state.setAyanamsa);
-  const setZodiacMode = useKundaliStore((state) => state.setZodiacMode);
-  const setCustomAyanamsaDegrees = useKundaliStore((state) => state.setCustomAyanamsaDegrees);
-  const setLanguage = useKundaliStore((state) => state.setLanguage);
-  const setViewPreference = useKundaliStore((state) => state.setViewPreference);
+  const setChartSettings = useKundaliStore((state) => state.setChartSettings);
   const adjustTime = useKundaliStore((state) => state.adjustTime);
   const [data, setData] = useState<EphemerisResponse | null>(null);
   const [dashboardTab, setDashboardTab] = useState<DashboardTab>("core");
@@ -995,6 +1026,7 @@ export function KundaliDashboard() {
   const [referenceName, setReferenceName] = useState("Ascendant");
   const [auxiliaryReferenceName, setAuxiliaryReferenceName] = useState("Ascendant");
   const [overlayTransits, setOverlayTransits] = useState(false);
+  const [transitRefreshKey, setTransitRefreshKey] = useState(0);
   const [chartMaximized, setChartMaximized] = useState(false);
   const [chartSettingsOpen, setChartSettingsOpen] = useState(false);
   const closeChartSettings = useCallback(() => setChartSettingsOpen(false), []);
@@ -1007,14 +1039,7 @@ export function KundaliDashboard() {
   const [dashaSystem, setDashaSystem] = useState<DashaSystem>("vimshottari");
   const [dashaSeed, setDashaSeed] = useState<DashaSeed>("moon");
   const [dashaLagnaMode, setDashaLagnaMode] = useState<DashaLagnaMode>("maha-lord");
-  const [savedProfiles, setSavedProfiles] = useState<SavedChartRecord[]>([]);
-  const [savedProfileId, setSavedProfileId] = useState("");
   const [notesFocused, setNotesFocused] = useState(false);
-  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [chartNameDraft, setChartNameDraft] = useState("");
-  const [savingChart, setSavingChart] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [authRequired, setAuthRequired] = useState(false);
   const [chartMode, setChartMode] = useState<"transit" | "birth">("transit");
   const [locationSearch, setLocationSearch] = useState(profile.city);
   const [useCoordinates, setUseCoordinates] = useState(false);
@@ -1027,6 +1052,13 @@ export function KundaliDashboard() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [coordinateTimezoneError, setCoordinateTimezoneError] = useState<string | null>(null);
   const initialProfileSubmitted = useRef(false);
+  const chartSettings = useMemo<ChartSettings>(() => ({
+    zodiacMode,
+    ayanamsa,
+    customAyanamsaDegrees,
+    language,
+    viewPreferences,
+  }), [zodiacMode, ayanamsa, customAyanamsaDegrees, language, viewPreferences]);
 
   useEffect(() => {
     const syncTab = () => setDashboardTab(dashboardTabFromLocation());
@@ -1053,32 +1085,6 @@ export function KundaliDashboard() {
     setSubmittedProfile(initialTransitProfile);
     setChartMode("transit");
   }, [profile.date, profile.time, profile.lat, profile.lng, profile.timezone, profile.name, profile.sex, setProfile]);
-
-  useEffect(() => {
-    if (!authLoaded) return;
-    let active = true;
-    void fetch("/api/profiles")
-      .then(async (response) => {
-        const result = await response.json() as { profiles?: SavedChartRecord[]; error?: string };
-        if (!active) return;
-        if (response.status === 401) {
-          setAuthRequired(true);
-          return;
-        }
-
-        if (!response.ok || !Array.isArray(result.profiles)) throw new Error(result.error ?? `Saved chart request failed (${response.status}).`);
-        setAuthRequired(false);
-        setSavedProfiles(result.profiles);
-      })
-      .catch((requestError: unknown) => {
-        if (!active) return;
-        console.error("[kundali] Unable to load saved charts", requestError);
-        setSaveError(requestError instanceof Error ? requestError.message : "Unable to load saved charts.");
-      });
-    return () => {
-      active = false;
-    };
-  }, [authLoaded, isSignedIn]);
 
   useEffect(() => {
     setLocationSearch(profile.city);
@@ -1245,13 +1251,13 @@ export function KundaliDashboard() {
       window.clearTimeout(timeout);
       abortController.abort();
     };
-  }, [profile.lat, profile.lng, ayanamsa, zodiacMode, customAyanamsaDegrees, nodeType]);
+  }, [profile.lat, profile.lng, ayanamsa, zodiacMode, customAyanamsaDegrees, nodeType, transitRefreshKey]);
 
-  const saveChart = () => {
-    setChartNameDraft(profile.name.trim());
-    setSaveError(null);
-    setSaveDialogOpen(true);
-  };
+  const handleTransitOverlayChange = useCallback((checked: boolean) => {
+    setOverlayTransits(checked);
+    if (checked) setTransitRefreshKey((key) => key + 1);
+  }, []);
+
   const submitBirthChart = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!profile.date || !profile.time || !Number.isFinite(profile.lat) || !Number.isFinite(profile.lng) || profile.lat < -90 || profile.lat > 90 || profile.lng < -180 || profile.lng > 180 || !profile.timezone) {
@@ -1261,75 +1267,6 @@ export function KundaliDashboard() {
     setSubmittedProfile({ ...profile, name: profile.name.trim() || "Birth chart" });
     setChartMode("birth");
     setError(null);
-  };
-  const submitSaveChart = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setSavingChart(true);
-    setSaveError(null);
-    try {
-      const response = await fetch("/api/profiles", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chartName: chartNameDraft,
-          fullName: profile.name,
-          date: profile.date,
-          time: profile.time,
-          lat: profile.lat,
-          lng: profile.lng,
-          timezone: profile.timezone,
-          city: profile.city,
-          notes: profile.notes,
-        }),
-      });
-      const result = await response.json() as { profile?: SavedChartRecord; error?: string };
-      if (!response.ok || !result.profile) {
-        if (response.status === 401) setAuthRequired(true);
-        throw new Error(result.error ?? `Chart save failed (${response.status}).`);
-      }
-      const saved = result.profile;
-      setSavedProfiles((current) => [saved, ...current]);
-      setSavedProfileId(saved.id);
-      setAuthRequired(false);
-      setSaveDialogOpen(false);
-    } catch (requestError) {
-      setSaveError(requestError instanceof Error ? requestError.message : "Chart could not be saved.");
-    } finally {
-      setSavingChart(false);
-    }
-  };
-  const openSavedChart = (profileId: string) => {
-    setSavedProfileId(profileId);
-    const selected = savedProfiles.find((item) => item.id === profileId);
-    if (selected) {
-      setChartMode("birth");
-      setProfile({
-        id: selected.id,
-        name: selected.fullName,
-        date: selected.dateOfBirth.slice(0, 10),
-        time: selected.timeOfBirth,
-        lat: selected.latitude,
-        lng: selected.longitude,
-        timezone: selected.timezone,
-        city: selected.city ?? "",
-        notes: selected.notes ?? "",
-      });
-      setSubmittedProfile({
-        id: selected.id,
-        name: selected.fullName,
-        sex: profile.sex,
-        date: selected.dateOfBirth.slice(0, 10),
-        time: selected.timeOfBirth,
-        lat: selected.latitude,
-        lng: selected.longitude,
-        timezone: selected.timezone,
-        city: selected.city ?? "",
-        notes: selected.notes ?? "",
-      });
-      setLatitudeDraft(selected.latitude.toFixed(2));
-      setLongitudeDraft(selected.longitude.toFixed(2));
-      setUseCoordinates(false);
-    }
   };
   const chooseLocation = (location: GeocodeResult) => {
     setProfile({
@@ -1400,7 +1337,12 @@ export function KundaliDashboard() {
   const displayLoading = chartMode === "transit" ? transitLoading : loading;
   const displayError = chartMode === "transit" ? transitError : error;
   const activeBirthProfile = submittedProfile ?? profile;
-  const referenceHouseNumber = getReferenceHouse(referenceName);
+  const referenceHouseNumber = getReferenceHouse(referenceName, displayData?.planets ?? []);
+  const referenceLabel = referenceName === "Ascendant"
+    ? "Ascendant"
+    : ["Sun", "Moon", "Jupiter"].includes(referenceName)
+      ? `${referenceName} reference`
+      : `House ${referenceHouseNumber}`;
   const auxiliaryReferenceHouseNumber = getReferenceHouse(auxiliaryReferenceName);
   const auxiliaryChart = auxiliaryType === "transit" ? transitData
     : auxiliaryType === "solar" || auxiliaryType === "tajika" ? data?.solarReturn
@@ -1423,17 +1365,10 @@ export function KundaliDashboard() {
     <div id="kundali-dashboard" className="relative min-w-0 space-y-4 bg-background text-foreground">
       <div className="mx-auto max-w-[1750px] space-y-4">
         <section aria-label="Birth chart controls" className="shrink-0 rounded-xl border border-border bg-card p-3 text-card-foreground shadow-sm">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <div id="saved-charts" className="flex items-center gap-2 scroll-mt-4">
+          <div className="mb-2 flex items-center gap-2">
+            <div id="chart-profile" className="flex items-center gap-2 scroll-mt-4">
               <span className="grid size-7 place-items-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300"><Orbit className="size-4" /></span>
               <p className="text-xs font-semibold">Chart profile</p>
-            </div>
-            <div className="flex flex-nowrap items-center gap-1.5">
-              <button type="button" onClick={saveChart} title="Save chart" aria-label="Save chart" className="inline-grid size-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-700 transition hover:border-amber-300 hover:bg-amber-50 hover:text-amber-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/40 dark:border-slate-700 dark:text-slate-200 dark:hover:border-amber-800 dark:hover:bg-amber-950/30 dark:hover:text-amber-200"><Save className="size-4" /></button>
-              <select aria-label="Saved charts; select one to load" title="Select a saved chart to load" value={savedProfileId} onChange={(event) => openSavedChart(event.target.value)} className={`${CONTROL_CLASS} h-9 max-w-48 text-xs`}>
-                <option value="">Saved charts ({savedProfiles.length})</option>
-                {savedProfiles.map((saved) => <option key={saved.id} value={saved.id}>{saved.chartName ?? saved.fullName} · {saved.dateOfBirth.slice(0, 10)}</option>)}
-              </select>
             </div>
           </div>
           <form onSubmit={submitBirthChart} className="space-y-2">
@@ -1597,14 +1532,18 @@ export function KundaliDashboard() {
                     </span>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <div className={`inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium transition ${chartMode === "transit" ? "cursor-not-allowed text-muted-foreground" : "text-foreground hover:border-indigo-300 dark:hover:border-indigo-800"}`}>
+                    <div
+                      title={chartMode === "transit"
+                        ? "This chart already shows current-sky positions; enable labels to mark them with T and degrees."
+                        : "Calculate current-sky positions and draw them over the birth chart."}
+                      className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-foreground transition hover:border-indigo-300 dark:hover:border-indigo-800"
+                    >
                       <Eye className="size-3.5 text-muted-foreground" />
-                      <span>Overlay current transits</span>
+                      <span>{chartMode === "transit" ? "Show transit labels" : "Overlay current transits"}</span>
                       <Switch
-                        aria-label="Overlay current transits"
+                        aria-label={chartMode === "transit" ? "Show transit labels with degrees" : "Overlay current transits"}
                         checked={overlayTransits}
-                        disabled={chartMode === "transit"}
-                        onCheckedChange={setOverlayTransits}
+                        onCheckedChange={handleTransitOverlayChange}
                         className="data-[state=checked]:bg-indigo-500 dark:data-[state=checked]:bg-indigo-400 focus-visible:ring-indigo-500"
                       />
                     </div>
@@ -1619,58 +1558,68 @@ export function KundaliDashboard() {
                     </button>
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <div role="group" aria-label="Chart style" className="relative isolate flex rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
-                      <span
-                        aria-hidden="true"
-                        className="absolute inset-y-1 left-1 rounded-md bg-white shadow-sm transition-transform duration-200 dark:bg-slate-700"
-                        style={{ width: "calc((100% - 0.5rem) / 4)", transform: `translateX(${(["diamond", "south", "east", "placidus"] as ChartStyle[]).indexOf(chartStyle) * 100}%)` }}
-                      />
+                <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                  <fieldset className="shrink-0">
+                    <legend className="sr-only">Chart style</legend>
+                    <div className="grid grid-cols-4 gap-1.5">
                       {([
                         ["diamond", "North"],
                         ["south", "South"],
                         ["east", "East"],
                         ["placidus", "Placidus"],
                       ] as const).map(([style, label]) => (
-                        <button
+                        <label
                           key={style}
-                          type="button"
-                          aria-label={`${label}${style === "diamond" ? " / Diamond" : ""} chart`}
-                          aria-pressed={chartStyle === style}
-                          onClick={() => setChartStyle(style)}
-                          className={`relative z-10 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 sm:px-3 ${chartStyle === style ? "text-slate-900 dark:text-slate-50" : "text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"}`}
+                          className="group min-w-[68px] cursor-pointer"
                         >
-                          {label}
-                        </button>
+                          <input
+                            type="radio"
+                            name="primary-chart-style"
+                            value={style}
+                            aria-label={`${label}${style === "diamond" ? " / Diamond" : ""} chart`}
+                            checked={chartStyle === style}
+                            onChange={() => setChartStyle(style)}
+                            className="peer sr-only"
+                          />
+                          <span className="flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-lg border border-border bg-card px-2 py-1.5 text-[10px] font-medium text-muted-foreground transition group-hover:border-indigo-300 group-hover:text-foreground peer-checked:border-indigo-500 peer-checked:bg-indigo-50 peer-checked:text-indigo-700 peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-indigo-500 dark:peer-checked:bg-indigo-950/40 dark:peer-checked:text-indigo-300">
+                            <ChartStyleIcon style={style} />
+                            {label}
+                          </span>
+                        </label>
                       ))}
                     </div>
-                    <div className="min-w-[155px] text-xs font-medium text-muted-foreground">
-                      <span className="sr-only">Reference Lagna</span>
-                      <Select value={referenceName} onValueChange={setReferenceName}>
-                        <SelectTrigger aria-label="D1 reference lagna" className="h-9 w-full bg-card">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectLabel>Reference Lagna</SelectLabel>
-                            <SelectItem value="Ascendant">Ascendant</SelectItem>
-                          </SelectGroup>
-                          <SelectGroup>
-                            <SelectLabel>House reference</SelectLabel>
-                            {Array.from({ length: 12 }, (_, index) => (
-                              <SelectItem key={index} value={`house:${index + 1}`}>House {index + 1}</SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {chartMode === "birth" && <BirthTimeAdjuster onAdjust={adjustBirthTime} />}
+                  </fieldset>
+                  <div className="w-[168px] shrink-0 text-xs font-medium text-muted-foreground">
+                    <span className="sr-only">Reference Lagna</span>
+                    <Select value={referenceName} onValueChange={setReferenceName}>
+                      <SelectTrigger aria-label="D1 reference lagna" className="h-[58px] w-full bg-card">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="z-[110] !bg-white !text-slate-900 shadow-md dark:!bg-slate-950 dark:!text-slate-100">
+                        <SelectGroup>
+                          <SelectLabel>Reference Lagna</SelectLabel>
+                          <SelectItem value="Ascendant">Ascendant</SelectItem>
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Planet reference</SelectLabel>
+                          <SelectItem value="Sun">Sun</SelectItem>
+                          <SelectItem value="Moon">Moon</SelectItem>
+                          <SelectItem value="Jupiter">Jupiter</SelectItem>
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>House reference</SelectLabel>
+                          {Array.from({ length: 12 }, (_, index) => (
+                            <SelectItem key={index} value={`house:${index + 1}`}>House {index + 1}</SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
                   </div>
+                  {chartMode === "birth" && <BirthTimeAdjuster onAdjust={adjustBirthTime} />}
                   <button
                     type="button"
                     onClick={() => setChartSettingsOpen(true)}
-                    className="inline-flex h-9 shrink-0 items-center justify-center rounded-lg bg-indigo-600 px-3.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+                    className="inline-flex h-[58px] shrink-0 items-center justify-center rounded-lg bg-indigo-600 px-3.5 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:bg-indigo-500 dark:hover:bg-indigo-400"
                   >
                     <Settings className="mr-2 size-4" />
                     Chart Settings
@@ -1679,14 +1628,20 @@ export function KundaliDashboard() {
               </div>
               <div className="relative h-[min(95vw,500px)] min-h-[360px] min-w-0 w-full overflow-hidden p-4 flex items-center justify-center bg-card">
                 <div className="relative h-full w-full max-w-[500px] max-h-[500px] aspect-square">
-                  {displayData ? <SvgChart style={chartStyle} ascendant={displayData.ascendant} planets={displayData.planets} points={displayData.points} houseCusps={displayData.houseCusps} varga={1} referenceHouse={referenceHouseNumber} overlay={chartMode === "birth" && overlayTransits ? transitData?.planets : undefined} language={language} preferences={viewPreferences} /> : <div className="grid h-full w-full place-items-center text-xs text-slate-600">{displayLoading ? <LoaderCircle className="size-5 animate-spin text-cyan-500" /> : "Chart unavailable"}</div>}
+                  {displayData ? <SvgChart style={chartStyle} ascendant={displayData.ascendant} planets={displayData.planets} points={displayData.points} houseCusps={displayData.houseCusps} varga={1} referenceHouse={referenceHouseNumber} overlay={chartMode === "birth" && overlayTransits ? transitData?.planets : undefined} showTransitLabels={chartMode === "transit" && overlayTransits} language={language} preferences={viewPreferences} /> : <div className="grid h-full w-full place-items-center text-xs text-slate-600">{displayLoading ? <LoaderCircle className="size-5 animate-spin text-cyan-500" /> : "Chart unavailable"}</div>}
                 </div>
+                {overlayTransits && transitLoading && (
+                  <div role="status" aria-live="polite" className="absolute right-5 top-5 z-10 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-card/95 px-3 py-1.5 text-xs font-medium text-indigo-700 shadow-sm dark:border-indigo-900 dark:text-indigo-300">
+                    <LoaderCircle className="size-3.5 animate-spin" />
+                    Updating transit positions
+                  </div>
+                )}
               </div>
               <div className="mt-3 flex flex-none flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400">
                 <span className="flex items-center gap-1.5"><span className={`size-2 rounded-full ${chartMode === "transit" ? "bg-cyan-600 dark:bg-cyan-400" : "bg-amber-600 dark:bg-amber-400"}`} /> {chartMode === "transit" ? "Current transit" : "Birth chart"}</span>
                 <button type="button" className="flex items-center gap-1.5 rounded px-1 transition hover:bg-[hsl(var(--input))]/50" onMouseEnter={() => setHoveredPlanet("Vargottama")} onMouseLeave={() => setHoveredPlanet(null)} onFocus={() => setHoveredPlanet("Vargottama")} onBlur={() => setHoveredPlanet(null)}><span className="inline-block size-3 rounded-full border border-violet-600" /> Vargottama</button>
                 <span title="Retrograde Motion"><span className="font-bold text-rose-600">R</span> = retrograde</span>
-                <span>{chartStyle === "placidus" ? `${referenceName === "Ascendant" ? "Ascendant" : `House ${referenceHouseNumber}`} at 9 o’clock` : `${referenceName === "Ascendant" ? "Ascendant" : `House ${referenceHouseNumber}`} reference`}</span>
+                <span>{chartStyle === "placidus" ? `${referenceLabel} at 9 o’clock` : referenceLabel}</span>
               </div>
               {chartMode === "transit" && <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">{transitLoading ? "Refreshing current sky…" : transitError ?? `Current sky · ${currentTransitLabel}`}</p>}
               {chartMode === "birth" && overlayTransits && <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">{transitLoading ? "Refreshing current sky…" : transitError ?? `Transit positions · ${currentTransitLabel}`}</p>}
@@ -1854,51 +1809,22 @@ export function KundaliDashboard() {
       <ChartSettingsDrawer
         open={chartSettingsOpen}
         onClose={closeChartSettings}
-        zodiacMode={zodiacMode}
-        ayanamsa={ayanamsa}
-        customAyanamsaDegrees={customAyanamsaDegrees}
-        language={language}
-        preferences={viewPreferences}
-        onZodiacModeChange={setZodiacMode}
-        onAyanamsaChange={setAyanamsa}
-        onCustomAyanamsaChange={setCustomAyanamsaDegrees}
-        onLanguageChange={setLanguage}
-        onPreferenceChange={setViewPreference}
+        settings={chartSettings}
+        chartStyle={chartStyle}
+        onApply={setChartSettings}
       />
-      {saveDialogOpen && (
-        <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm" onMouseDown={(event) => {
-          if (event.target === event.currentTarget && !savingChart) setSaveDialogOpen(false);
-        }}>
-          <section role="dialog" aria-modal="true" aria-labelledby="save-chart-title" className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-            <div className="mb-4 flex items-start justify-between gap-3">
-              <div><h2 id="save-chart-title" className="text-sm font-semibold">Save birth chart</h2><p className="mt-1 text-xs text-slate-600">Choose a name to find this chart later.</p></div>
-              <button type="button" aria-label="Close dialog" disabled={savingChart} onClick={() => setSaveDialogOpen(false)} className="rounded-md p-1 text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:hover:bg-slate-800"><X className="size-4" /></button>
-            </div>
-            <form onSubmit={submitSaveChart} className="space-y-3">
-              <label htmlFor="saved-chart-name" className="block text-xs font-medium text-slate-600 dark:text-slate-300">Chart Name</label>
-              <input id="saved-chart-name" autoFocus maxLength={100} value={chartNameDraft} onChange={(event) => setChartNameDraft(event.target.value)} className={`${CONTROL_CLASS} w-full`} placeholder="Optional chart name" />
-              {authRequired && <p className="text-xs text-amber-700 dark:text-amber-300">Sign in before saving a chart.</p>}
-              {saveError && <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">{saveError}</p>}
-              <div className="flex justify-end gap-2 pt-1">
-                <button type="button" disabled={savingChart} onClick={() => setSaveDialogOpen(false)} className="h-9 rounded-lg border border-slate-200 px-3 text-xs hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:hover:bg-slate-800">Cancel</button>
-                <button type="submit" disabled={savingChart || authRequired} className="inline-flex h-9 items-center gap-2 rounded-lg bg-amber-600 px-3 text-xs font-semibold text-white hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50">{savingChart && <LoaderCircle className="size-3.5 animate-spin" />}Save chart</button>
-              </div>
-            </form>
-          </section>
-        </div>
-      )}
       {chartMaximized && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/85 p-3 backdrop-blur-md sm:p-6" onMouseDown={(event) => {
           if (event.target === event.currentTarget) setChartMaximized(false);
         }}>
           <section role="dialog" aria-modal="true" aria-labelledby="maximized-chart-title" className="flex max-h-full w-full max-w-[min(96vw,1100px)] flex-col rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900 sm:p-5">
             <header className="mb-2 flex items-center justify-between gap-3">
-              <div><h2 id="maximized-chart-title" className="text-sm font-semibold">D1 {chartMode === "transit" ? "Transit" : "Birth"} · {referenceName === "Ascendant" ? "Ascendant" : `House ${referenceHouseNumber}`} reference</h2><p className="text-xs text-slate-600">{chartMode === "transit" ? `${transitData ? new Date(transitData.calculatedAt).toLocaleString() : "Current sky"} · ${profile.city}` : `${activeBirthProfile.name} · ${formatBirthDate(activeBirthProfile.date)} · ${activeBirthProfile.city}`}</p></div>
+              <div><h2 id="maximized-chart-title" className="text-sm font-semibold">D1 {chartMode === "transit" ? "Transit" : "Birth"} · {referenceLabel}</h2><p className="text-xs text-slate-600">{chartMode === "transit" ? `${transitData ? new Date(transitData.calculatedAt).toLocaleString() : "Current sky"} · ${profile.city}` : `${activeBirthProfile.name} · ${formatBirthDate(activeBirthProfile.date)} · ${activeBirthProfile.city}`}</p></div>
               <button type="button" onClick={() => setChartMaximized(false)} aria-label="Close maximized chart" className="grid size-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"><Minimize2 className="size-4" /></button>
             </header>
             <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-slate-200 bg-slate-50 p-2 dark:border-slate-800 dark:bg-slate-950">
               {displayData
-                ? <div className="relative mx-auto aspect-square w-full max-w-[min(88vh,1000px)] [&>div]:!max-w-none [&>svg]:!max-w-none"><SvgChart style={chartStyle} ascendant={displayData.ascendant} planets={displayData.planets} points={displayData.points} houseCusps={displayData.houseCusps} varga={1} referenceHouse={referenceHouseNumber} overlay={chartMode === "birth" && overlayTransits ? transitData?.planets : undefined} language={language} preferences={viewPreferences} /></div>
+                ? <div className="relative mx-auto aspect-square w-full max-w-[min(88vh,1000px)] [&>div]:!max-w-none [&>svg]:!max-w-none"><SvgChart style={chartStyle} ascendant={displayData.ascendant} planets={displayData.planets} points={displayData.points} houseCusps={displayData.houseCusps} varga={1} referenceHouse={referenceHouseNumber} overlay={chartMode === "birth" && overlayTransits ? transitData?.planets : undefined} showTransitLabels={chartMode === "transit" && overlayTransits} language={language} preferences={viewPreferences} /></div>
                 : <div className="grid min-h-[50vh] place-items-center text-sm text-slate-600">{displayLoading ? "Calculating chart…" : "Chart is unavailable."}</div>}
             </div>
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600"><span>{chartStyle === "placidus" ? "Placidus · Ascendant at 9 o’clock · MC above IC" : `${chartStyle} · D1 Rasi`}</span><span>{chartMode === "transit" ? "Current transit placements" : overlayTransits ? "Cyan placements are current transits" : "Birth chart placements"}</span></div>

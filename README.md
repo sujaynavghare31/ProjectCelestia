@@ -8,7 +8,7 @@ The application is built with Next.js and React, uses Swiss Ephemeris for astron
 
 - Current-transit chart initialization using the current date and load time
 - Birth-chart and transit-chart workflows with Mumbai as the default city
-- Saved chart profiles with persistent life-event notes
+- Guest-only mode; account sign-in and saved-profile persistence are temporarily disabled
 - D1 Rashi, Bhava Chalit, and grouped divisional-chart selection from D2 through D60
 - Hybrid Kundali dashboard with D1 and auxiliary charts plus planetary positions in the core view
 - Virtualized Vimshottari Dasha period list
@@ -19,8 +19,7 @@ The application is built with Next.js and React, uses Swiss Ephemeris for astron
 - SVG and PNG chart-image export
 - Interactive D1 chart controls, including birth-time adjustment and planetary highlighting
 - Royal Cosmos semantic theme tokens and light/dark mode
-- Optional Clerk authentication for saved profiles and feedback
-- Prisma/PostgreSQL persistence for users, chart profiles, and feedback
+- Prisma/PostgreSQL schema retained for future account and profile persistence
 
 ## Technology
 
@@ -31,16 +30,13 @@ The application is built with Next.js and React, uses Swiss Ephemeris for astron
 - Recharts for data visualizations
 - Radix UI Select primitives
 - Swiss Ephemeris for planetary calculations
-- Prisma 7 with PostgreSQL
-- Clerk for authentication
+- Prisma 7 schema for future PostgreSQL persistence
 - Vitest for tests
 
 ## Requirements
 
 - Node.js 20 or newer
 - npm
-- PostgreSQL database
-- Clerk application credentials for authenticated features
 - Swiss Ephemeris data files available to the runtime when required
 
 ## Getting started
@@ -53,15 +49,7 @@ cd ProjectCelestia
 npm install
 ```
 
-Create a local `.env.local` file:
-
-```env
-DATABASE_URL="postgresql://postgres:<URL_ENCODED_PASSWORD>@localhost:5432/postgres?schema=public"
-```
-
-Add the Clerk variables supplied by your Clerk project when authentication is enabled. Do not commit `.env.local` or any credentials.
-
-Generate the Prisma client and apply the schema, including saved-chart notes:
+Account authentication and saved-chart persistence are currently disabled, so a database is not required for local development. The existing Prisma schema is retained for future account support. To inspect or prepare that schema, set `DATABASE_URL` and run:
 
 ```bash
 npm run db:generate
@@ -91,7 +79,7 @@ For a local production check:
 
 ```bash
 npm run build
-DATABASE_URL="postgresql://postgres:<URL_ENCODED_PASSWORD>@localhost:5432/postgres?schema=public" npm start
+npm start
 ```
 
 ## Project structure
@@ -101,7 +89,6 @@ app/
   api/
     ephemeris/       Planetary and astrology calculation endpoint
     geocode/         City and coordinate lookup endpoint
-    profiles/        Saved chart profile endpoint
   page.tsx           Application shell and dashboard entry point
   globals.css        Theme tokens and shared chart colors
 components/
@@ -141,13 +128,13 @@ npm test -- --run
 Before opening a pull request, also run:
 
 ```bash
-DATABASE_URL="postgresql://postgres:<URL_ENCODED_PASSWORD>@localhost:5432/postgres?schema=public" npm run build
+npm run build
 git diff --check
 ```
 
 ## Deployment
 
-Build the application in the target environment, provide the production PostgreSQL `DATABASE_URL`, configure Clerk credentials, and start the compiled app with:
+Build and start the application with:
 
 ```bash
 npm run build

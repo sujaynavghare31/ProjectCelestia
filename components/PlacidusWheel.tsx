@@ -2,7 +2,7 @@
 
 import type { CelestialLanguage, EphemerisResponse, PlanetPosition, ViewPreferences } from "@/lib/kundali-types";
 import { useKundaliStore } from "@/lib/kundali-store";
-import { planetName, signName } from "@/lib/astrology/localization";
+import { formatPlanetDegree, planetChartName, signName } from "@/lib/astrology/localization";
 
 const SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
 const SIGN_GLYPHS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"];
@@ -11,7 +11,6 @@ const PLANET_GLYPHS: Record<string, string> = {
   Saturn: "♄", Rahu: "☊", Ketu: "☋", Uranus: "♅", Neptune: "♆", Pluto: "♇",
   Ascendant: "ASC", Chiron: "⚷", Lilith: "⚸", "Part of Fortune": "⊗", Mandi: "Ma", Gulika: "Gu",
 };
-const SIGN_COLORS = ["#dc6b5b", "#6d9a69", "#bd9849", "#5b8cad"];
 const ASPECTS = [
   { angle: 0, orb: 8, color: "hsl(var(--chart-3))" },
   { angle: 60, orb: 5, color: "hsl(var(--chart-2))" },
@@ -45,8 +44,8 @@ function getNavamsaSign(position: PlanetPosition) {
 function getBodyText(body: WheelBody, language: CelestialLanguage, usePlanetIcons: boolean) {
   const name = usePlanetIcons
     ? PLANET_GLYPHS[body.name] ?? body.symbol
-    : planetName(body.name, language, body.name);
-  return `${body.transit ? "T " : ""}${name}${body.motion === "R" ? "R" : ""}`;
+    : planetChartName(body.name, language, body.name);
+  return `${body.transit ? "T " : ""}${name} - ${formatPlanetDegree(body.degree)}`;
 }
 
 function ringSegmentPath(start: Point, end: Point, innerEnd: Point, innerStart: Point, outerRadius: number, innerRadius: number, sweep: 0 | 1) {
@@ -60,6 +59,7 @@ function PlacidusWheel({
   cusps,
   referenceHouse,
   overlay,
+  labelPlanetsAsTransit = false,
   language,
   preferences,
 }: {
@@ -69,6 +69,7 @@ function PlacidusWheel({
   cusps: EphemerisResponse["houseCusps"];
   referenceHouse: number;
   overlay?: PlanetPosition[];
+  labelPlanetsAsTransit?: boolean;
   language: CelestialLanguage;
   preferences: ViewPreferences;
 }) {
@@ -90,8 +91,8 @@ function PlacidusWheel({
     return true;
   });
   const chartBodies: WheelBody[] = [
-    ...visiblePlanets.map((planet) => ({ ...planet, transit: false })),
-    ...visiblePoints.map((planet) => ({ ...planet, transit: false })),
+    ...visiblePlanets.map((planet) => ({ ...planet, transit: labelPlanetsAsTransit && planet.name !== "Ascendant" })),
+    ...visiblePoints.map((planet) => ({ ...planet, transit: labelPlanetsAsTransit })),
     ...(overlay ?? [])
       .filter((planet) => (
         (preferences.showOuterPlanets || !["Uranus", "Neptune", "Pluto"].includes(planet.name))
@@ -102,6 +103,9 @@ function PlacidusWheel({
   const sortedCusps = Array.from({ length: 12 }, (_, index) => (
     cusps.find((cusp) => cusp.house === index + 1)
   )).filter((cusp): cusp is EphemerisResponse["houseCusps"][number] => cusp !== undefined);
+  const ascendantName = preferences.usePlanetIcons
+    ? PLANET_GLYPHS.Ascendant
+    : planetChartName("Ascendant", language, "Ascendant");
   const aspectLines: Array<{ key: string; from: Point; to: Point; color: string }> = [];
   for (let first = 0; first < visiblePlanets.length; first += 1) {
     for (let second = first + 1; second < visiblePlanets.length; second += 1) {
@@ -150,9 +154,10 @@ function PlacidusWheel({
               stroke="hsl(var(--chart-grid))"
               strokeWidth="1.25"
             />
-            <text x={label.x} y={label.y + 7} fill={SIGN_COLORS[sign % 4]} fontFamily="serif" fontSize="28" fontWeight="600" textAnchor="middle">
-              {`${SIGN_GLYPHS[sign]}\uFE0E`}
+            <text x={label.x} y={label.y + (preferences.showSignNumbers ? 2 : 5)} fill="hsl(var(--foreground))" fontFamily={preferences.useSignIcons ? "serif" : undefined} fontSize={preferences.useSignIcons ? "26" : "11"} fontWeight="600" textAnchor="middle">
+              {preferences.useSignIcons ? `${SIGN_GLYPHS[sign]}\uFE0E` : signName(SIGNS[sign], language)}
             </text>
+            {preferences.showSignNumbers && <text x={label.x} y={label.y + 17} fill="hsl(var(--foreground))" fontSize="9" fontWeight="500" textAnchor="middle">{sign + 1}</text>}
           </g>
         );
       })}
@@ -186,6 +191,7 @@ function PlacidusWheel({
         const innerStart = pointAt(cusp.longitude, 244);
         const label = pointAt(midpoint, 276);
         const segmentLabel = pointAt(midpoint, 258);
+        const cuspLabel = pointAt(cusp.longitude, 236);
         const relativeHouse = ((cusp.house - referenceHouse + 12) % 12) + 1;
         const majorCusp = [1, 4, 7, 10].includes(cusp.house);
         const largeArc = span > 180 ? 1 : 0;
@@ -211,17 +217,28 @@ function PlacidusWheel({
               strokeWidth={majorCusp ? 2.4 : 1}
             />
             {preferences.showHouseLabels && (
-              <text x={label.x} y={label.y + 4} fill={relativeHouse === 1 ? "hsl(var(--champagne-gold))" : "hsl(var(--muted-foreground))"} fontSize="16" fontWeight="600" textAnchor="middle">
+              <text x={label.x} y={label.y + 4} fill="hsl(var(--foreground))" fontSize="16" fontWeight="600" textAnchor="middle">
                 H{relativeHouse}
               </text>
             )}
+            {preferences.showBhavaCusps && (
+              <text x={cuspLabel.x} y={cuspLabel.y + 3} fill="hsl(var(--foreground))" fontSize="9" fontWeight="500" textAnchor="middle">
+                C{relativeHouse} {formatPlanetDegree(normalizeDegrees(cusp.longitude) % 30)}
+              </text>
+            )}
             {majorCusp && (
-              <text x={segmentLabel.x} y={segmentLabel.y + 4} fill="hsl(var(--champagne-gold))" fontSize="14" fontWeight="700" textAnchor="middle">
+              <text x={segmentLabel.x} y={segmentLabel.y + 4} fill="hsl(var(--foreground))" fontSize="14" fontWeight="700" textAnchor="middle">
                 {cusp.house === 1 ? "ASC" : cusp.house === 4 ? "IC" : cusp.house === 7 ? "DSC" : "MC"}
               </text>
             )}
           </g>
         );
+      })}
+      {preferences.showSignDivisions && Array.from({ length: 12 }, (_, sign) => {
+        const longitude = sign * 30;
+        const start = pointAt(longitude, 310);
+        const end = pointAt(longitude, 244);
+        return <line key={`sign-division-${sign}`} x1={start.x} y1={start.y} x2={end.x} y2={end.y} stroke="hsl(var(--muted-foreground))" strokeDasharray="2 3" strokeOpacity="0.75" strokeWidth="1" />;
       })}
       <circle cx="400" cy="400" r="244" fill="none" stroke="hsl(var(--chart-grid))" strokeWidth="1.5" />
       {preferences.showEqualHouses && Array.from({ length: 12 }, (_, index) => {
@@ -255,40 +272,33 @@ function PlacidusWheel({
         const angle = (180 + normalizeDegrees(body.longitude - referenceLongitude)) * Math.PI / 180;
         const base = pointAt(body.longitude, 218);
         const label = { x: base.x - Math.sin(angle) * offset, y: base.y - Math.cos(angle) * offset };
-        const name = body.transit ? `T ${planetName(body.name, language, body.name)}` : planetName(body.name, language, body.name);
         const glyph = PLANET_GLYPHS[body.name] ?? body.symbol;
-        const display = preferences.usePlanetIcons ? glyph : name;
+        const labelName = preferences.usePlanetIcons ? glyph : planetChartName(body.name, language, body.name);
+        const display = `${body.transit ? "T " : ""}${labelName} - ${formatPlanetDegree(body.degree)}`;
         const retrograde = body.motion === "R";
         const vargottama = body.name !== "Ascendant" && body.sign === getNavamsaSign(body);
         const highlighted = hoveredPlanet === null
           || body.name === hoveredPlanet
           || (hoveredPlanet === "Vargottama" && vargottama);
-        const color = body.transit
-          ? "hsl(var(--champagne-gold))"
-          : ["Sun", "Moon", "Ascendant"].includes(body.name)
-            ? "hsl(var(--champagne-gold))"
-            : ["Uranus", "Neptune", "Pluto", "Chiron", "Lilith"].includes(body.name)
-              ? "hsl(var(--muted-foreground))"
-              : "hsl(var(--foreground))";
         return (
           <g
             key={`${body.id}-${body.transit ? "transit" : "natal"}`}
             opacity={highlighted ? 1 : 0.35}
-            filter={highlighted && hoveredPlanet !== null ? "drop-shadow(0 0 6px hsl(var(--champagne-gold)))" : undefined}
+            filter={highlighted && hoveredPlanet !== null ? "drop-shadow(0 0 6px hsl(var(--foreground)))" : undefined}
             onMouseEnter={() => setHoveredPlanet(body.name)}
             onMouseLeave={() => setHoveredPlanet(null)}
           >
             {retrograde && <title>Retrograde motion</title>}
-            {vargottama && <ellipse cx={label.x} cy={label.y - 4} rx={Math.max(14, display.length * 4.5)} ry="12" fill="none" stroke="hsl(var(--champagne-gold))" strokeWidth="1.5" />}
-            <text x={label.x} y={label.y} fill={color} stroke="hsl(var(--card))" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke" fontSize={preferences.usePlanetIcons ? "18" : "16"} fontWeight="600" textAnchor="middle">
-              {display}{retrograde && <tspan fill="hsl(var(--retrograde-crimson))" fontSize="9" fontWeight="800" dy="-4">R</tspan>}
+            {vargottama && <ellipse cx={label.x} cy={label.y - 4} rx={Math.max(14, display.length * 4.5)} ry="12" fill="none" stroke="hsl(var(--foreground))" strokeWidth="1.5" />}
+            <text x={label.x} y={label.y} fill="hsl(var(--foreground))" stroke="hsl(var(--card))" strokeWidth="3" strokeLinejoin="round" paintOrder="stroke" fontSize={preferences.usePlanetIcons ? "15" : "12"} fontWeight="600" textAnchor="middle">
+              {display}{retrograde && <tspan fill="hsl(var(--foreground))" fontSize="9" fontWeight="800" dy="-4">R</tspan>}
             </text>
           </g>
         );
       })}
-      <circle cx="400" cy="400" r="3" fill="hsl(var(--champagne-gold))" />
-      <text x="400" y="390" fill="hsl(var(--muted-foreground))" fontSize="12" textAnchor="middle">{signName(ascendant.signName, language)}</text>
-      <text x="400" y="410" fill="hsl(var(--muted-foreground))" fontSize="11" textAnchor="middle">{`${Math.floor(ascendant.longitude % 30)}° ASC`}</text>
+      <circle cx="400" cy="400" r="3" fill="hsl(var(--foreground))" />
+      <text x="400" y="390" fill="hsl(var(--foreground))" fontSize="12" textAnchor="middle">{signName(ascendant.signName, language)}</text>
+      <text x="400" y="410" fill="hsl(var(--foreground))" fontSize="11" textAnchor="middle">{`${ascendantName} - ${formatPlanetDegree(ascendant.degree)}`}</text>
     </svg>
   );
 }

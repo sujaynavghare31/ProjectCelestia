@@ -1,6 +1,37 @@
 import { describe, expect, it } from "vitest";
 import { getBirthDateTimeDefaults, getCurrentBirthDateTime, useKundaliStore } from "./kundali-store";
 
+describe("chart settings store", () => {
+  it("commits calculation, language, and view settings in one shared state update", () => {
+    const state = useKundaliStore.getState();
+    const previousSettings = {
+      ayanamsa: state.ayanamsa,
+      zodiacMode: state.zodiacMode,
+      customAyanamsaDegrees: state.customAyanamsaDegrees,
+      language: state.language,
+      viewPreferences: state.viewPreferences,
+    };
+
+    state.setChartSettings({
+      ayanamsa: "raman",
+      zodiacMode: "tropical",
+      customAyanamsaDegrees: 23.5,
+      language: "hi",
+      viewPreferences: { ...state.viewPreferences, showHouseLabels: true },
+    });
+
+    expect(useKundaliStore.getState()).toMatchObject({
+      ayanamsa: "raman",
+      zodiacMode: "tropical",
+      customAyanamsaDegrees: 23.5,
+      language: "hi",
+      viewPreferences: { showHouseLabels: true },
+    });
+
+    useKundaliStore.getState().setChartSettings(previousSettings);
+  });
+});
+
 describe("getCurrentBirthDateTime", () => {
   it("does not prefill a sample birth date or time", () => {
     expect(useKundaliStore.getState().profile).toMatchObject({

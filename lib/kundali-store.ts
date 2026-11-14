@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from "zustand";
-import type { ChartStyle, CelestialLanguage, NodeType, ViewPreferences, ZodiacMode } from "@/lib/kundali-types";
+import type { ChartSettings, ChartStyle, CelestialLanguage, NodeType, ViewPreferences, ZodiacMode } from "@/lib/kundali-types";
 
 export interface BirthProfile {
   id: string;
@@ -41,6 +41,7 @@ interface KundaliState {
   setCustomAyanamsaDegrees: (degrees: number) => void;
   setLanguage: (language: CelestialLanguage) => void;
   setViewPreference: <K extends keyof ViewPreferences>(key: K, value: ViewPreferences[K]) => void;
+  setChartSettings: (settings: ChartSettings) => void;
   adjustTime: (seconds: number) => void;
 }
 
@@ -152,6 +153,7 @@ export const useKundaliStore = create<KundaliState>((set) => ({
   setViewPreference: (key, value) => set((state) => ({
     viewPreferences: { ...state.viewPreferences, [key]: value },
   })),
+  setChartSettings: (settings) => set(settings),
   adjustTime: (seconds) => set((state) => {
     const shifted = shiftTime(state.profile.date, state.profile.time, seconds);
     return { profile: { ...state.profile, ...shifted } };

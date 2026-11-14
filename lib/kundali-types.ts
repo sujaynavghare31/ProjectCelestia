@@ -17,6 +17,14 @@ export interface ViewPreferences {
   showBhavaCusps: boolean;
 }
 
+export interface ChartSettings {
+  zodiacMode: ZodiacMode;
+  ayanamsa: string;
+  customAyanamsaDegrees: number;
+  language: CelestialLanguage;
+  viewPreferences: ViewPreferences;
+}
+
 export interface EphemerisRequest {
   date: string;
   time: string;
