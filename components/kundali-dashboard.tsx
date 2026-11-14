@@ -26,7 +26,7 @@ import type { ChartSettings, ChartStyle, CelestialLanguage, EphemerisResponse, P
 import PlacidusWheel from "@/components/PlacidusWheel";
 import { getBirthDateTimeDefaults, useKundaliStore, type BirthProfile } from "@/lib/kundali-store";
 import { limitCoordinatePrecision, parseCoordinateDraft } from "@/lib/coordinate-input";
-import { formatPlanetDegree, planetChartName, planetName, signName } from "@/lib/astrology/localization";
+import { formatPlanetDegree, planetChartDisplayName, planetName, signName } from "@/lib/astrology/localization";
 import { dagdhaRashis } from "@/lib/astrology/dagdha-rashi";
 import { readSavedAstrologyConfig } from "@/lib/astrology/config-storage";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -149,9 +149,7 @@ function ChartStyleIcon({ style }: { style: ChartStyle }) {
 }
 
 function chartPlanetDisplay(planet: PlanetPosition, language: CelestialLanguage, useIcons: boolean) {
-  const name = useIcons
-    ? PLANET_GLYPHS[planet.name] ?? planet.symbol
-    : planetChartName(planet.name, language, planet.name);
+  const name = planetChartDisplayName(planet.name, language, useIcons, PLANET_GLYPHS[planet.name] ?? planet.symbol, planet.name);
   return `${name} - ${formatPlanetDegree(planet.degree)}`;
 }
 
@@ -634,7 +632,7 @@ function SvgChart({
   houseCusps = [],
   language = "en",
   showTransitLabels = false,
-  preferences = { showHouseLabels: true, showOuterPlanets: true, showAsteroids: false, showUpagrahas: false, showFortune: false, usePlanetIcons: false, useSignIcons: false, showEqualHouses: false, showSignDivisions: true, showSignNumbers: true, showBhavaCusps: false },
+  preferences = { showHouseLabels: true, showOuterPlanets: true, showAsteroids: false, showUpagrahas: false, showFortune: true, usePlanetIcons: false, useSignIcons: false, showEqualHouses: false, showSignDivisions: true, showSignNumbers: true, showBhavaCusps: false },
 }: {
   style: ChartStyle;
   ascendant: PlanetPosition;
@@ -893,7 +891,12 @@ function PlanetTable({
               <tr key={position.id} className={`bg-transparent text-[hsl(var(--foreground))] transition-colors hover:bg-[hsl(var(--border)/0.2)] ${isGoldPosition ? "text-[hsl(var(--champagne-gold))]" : ""}`}>
                 <td className="min-w-[108px] px-1.5 py-1.5 font-semibold">
                   <span className="block whitespace-nowrap">{preferences.usePlanetIcons && <PlanetMark name={position.name} label={position.symbol} enabled />} {planetName(position.name, language, position.name)}</span>
-                  {vargottama && <span title="Rasi and Navamsha signs are the same" className="mt-0.5 inline-flex rounded bg-violet-100 px-1 py-0.5 text-[10px] font-medium leading-none text-violet-800 dark:bg-violet-400/10 dark:text-violet-300">Vargottama</span>}
+                  {(detailedAvastha?.isCombust || vargottama) && (
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                      {detailedAvastha?.isCombust && <span title="Within its configured combustion orb from the Sun." className="inline-flex rounded bg-amber-100 px-1 py-0.5 text-[10px] font-medium leading-none text-amber-800 dark:bg-amber-400/10 dark:text-amber-300">Combusted</span>}
+                      {vargottama && <span title="Rasi and Navamsha signs are the same" className="inline-flex rounded bg-violet-100 px-1 py-0.5 text-[10px] font-medium leading-none text-violet-800 dark:bg-violet-400/10 dark:text-violet-300">Vargottama</span>}
+                    </div>
+                  )}
                 </td>
                 <td className="whitespace-nowrap px-1.5 py-1.5 font-semibold text-[hsl(var(--champagne-gold))]">{position.jaimini ? <abbr title={JAIMINI_KARAKA_NAMES[position.jaimini] ?? position.jaimini} className="no-underline">{JAIMINI_KARAKA_NAMES[position.jaimini] ?? position.jaimini}</abbr> : "—"}</td>
                 <td className="px-1.5 py-1.5">
@@ -1443,7 +1446,7 @@ export function KundaliDashboard() {
                   </div>
                 )}
               </div>
-              <button type="submit" className="inline-flex h-9 w-full min-w-0 items-center justify-center gap-1.5 rounded-lg bg-amber-700 px-1 text-xs font-semibold text-white transition hover:bg-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600/40">
+              <button type="submit" className="inline-flex h-9 w-full min-w-0 self-end items-center justify-center gap-1.5 rounded-lg bg-amber-700 px-1 text-xs font-semibold text-white transition hover:bg-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600/40">
                 Load birth chart
               </button>
               <div className="-mx-3 -mb-3 mt-1 flex min-w-0 items-start gap-2 rounded-b-xl border-t border-border bg-slate-50/80 px-3 py-2 dark:bg-slate-800/50 sm:col-span-2 md:col-span-3 lg:col-span-6">

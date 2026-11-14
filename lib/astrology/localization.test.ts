@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPlanetDegree, planetChartName, planetName, signName } from "./localization";
+import { formatPlanetDegree, planetChartDisplayName, planetChartName, planetName, signName } from "./localization";
 
 describe("chart localization", () => {
   it("translates Swiss Ephemeris names without changing their canonical keys", () => {
@@ -19,5 +19,12 @@ describe("chart localization", () => {
     expect(planetChartName("Sun", "en")).toBe("Su");
     expect(planetChartName("Sun", "initials")).toBe("Su");
     expect(planetChartName("Ascendant", "hi")).toBe("लग्‍न");
+  });
+
+  it("uses distinct full names for upagrahas and the default Fortuna glyph", () => {
+    expect(planetChartDisplayName("Mars", "en", false, "♂", "Mars")).toBe("Ma");
+    expect(planetChartDisplayName("Mandi", "en", false, "Ma", "Mandi")).toBe("Mandi");
+    expect(planetChartDisplayName("Gulika", "en", false, "Gu", "Gulika")).toBe("Kulika");
+    expect(planetChartDisplayName("Part of Fortune", "en", false, "⊗", "Part of Fortune")).toBe("⊗");
   });
 });

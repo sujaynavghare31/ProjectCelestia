@@ -2,7 +2,7 @@
 
 import type { CelestialLanguage, EphemerisResponse, PlanetPosition, ViewPreferences } from "@/lib/kundali-types";
 import { useKundaliStore } from "@/lib/kundali-store";
-import { formatPlanetDegree, planetChartName, signName } from "@/lib/astrology/localization";
+import { formatPlanetDegree, planetChartDisplayName, planetChartName, signName } from "@/lib/astrology/localization";
 
 const SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
 const SIGN_GLYPHS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "♐", "♑", "♒", "♓"];
@@ -21,6 +21,10 @@ const ASPECTS = [
 
 type WheelBody = PlanetPosition & { transit: boolean };
 type Point = { x: number; y: number };
+
+function getBodyName(body: WheelBody, language: CelestialLanguage, usePlanetIcons: boolean) {
+  return planetChartDisplayName(body.name, language, usePlanetIcons, PLANET_GLYPHS[body.name] ?? body.symbol, body.name);
+}
 
 function normalizeDegrees(degrees: number) {
   return ((degrees % 360) + 360) % 360;
@@ -42,10 +46,7 @@ function getNavamsaSign(position: PlanetPosition) {
 }
 
 function getBodyText(body: WheelBody, language: CelestialLanguage, usePlanetIcons: boolean) {
-  const name = usePlanetIcons
-    ? PLANET_GLYPHS[body.name] ?? body.symbol
-    : planetChartName(body.name, language, body.name);
-  return `${body.transit ? "T " : ""}${name} - ${formatPlanetDegree(body.degree)}`;
+  return `${body.transit ? "T " : ""}${getBodyName(body, language, usePlanetIcons)} - ${formatPlanetDegree(body.degree)}`;
 }
 
 function ringSegmentPath(start: Point, end: Point, innerEnd: Point, innerStart: Point, outerRadius: number, innerRadius: number, sweep: 0 | 1) {
@@ -273,7 +274,7 @@ function PlacidusWheel({
         const base = pointAt(body.longitude, 218);
         const label = { x: base.x - Math.sin(angle) * offset, y: base.y - Math.cos(angle) * offset };
         const glyph = PLANET_GLYPHS[body.name] ?? body.symbol;
-        const labelName = preferences.usePlanetIcons ? glyph : planetChartName(body.name, language, body.name);
+        const labelName = getBodyName(body, language, preferences.usePlanetIcons);
         const display = `${body.transit ? "T " : ""}${labelName} - ${formatPlanetDegree(body.degree)}`;
         const retrograde = body.motion === "R";
         const vargottama = body.name !== "Ascendant" && body.sign === getNavamsaSign(body);

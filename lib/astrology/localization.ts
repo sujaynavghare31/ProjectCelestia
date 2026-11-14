@@ -48,6 +48,19 @@ export function planetChartName(name: string, language: CelestialLanguage, fallb
   return planetName(name, language === "en" ? "initials" : language, fallback);
 }
 
+export function planetChartDisplayName(
+  name: string,
+  language: CelestialLanguage,
+  useIcons: boolean,
+  glyph?: string,
+  fallback?: string,
+): string {
+  if (name === "Mandi") return "Mandi";
+  if (name === "Gulika") return "Kulika";
+  if (name === "Part of Fortune") return glyph ?? "⊗";
+  return useIcons ? glyph ?? fallback ?? name : planetChartName(name, language, fallback);
+}
+
 export function signName(name: string, language: CelestialLanguage): string {
   if (language === "en" || language === "initials") return name;
   return SIGN_NAMES[name]?.[language] ?? name;
