@@ -49,12 +49,14 @@ cd ProjectCelestia
 npm install
 ```
 
-Account authentication and saved-chart persistence are currently disabled, so a database is not required for local development. The existing Prisma schema is retained for future account support. To inspect or prepare that schema, set `DATABASE_URL` and run:
+Account sign-in, registration, and saved chart profiles use the PostgreSQL database configured by `DATABASE_URL`. Set that variable before running the schema commands:
 
 ```bash
 npm run db:generate
 npm run db:push
 ```
+
+The chart workspace saves and loads a signed-in user's birth details and notes from the profile record.
 
 Start the development server:
 

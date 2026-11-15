@@ -21,10 +21,12 @@ describe("chart localization", () => {
     expect(planetChartName("Ascendant", "hi")).toBe("लग्‍न");
   });
 
-  it("uses distinct full names for upagrahas and the default Fortuna glyph", () => {
+  it("uses clear upagraha names and matching glyphs when icons are enabled", () => {
     expect(planetChartDisplayName("Mars", "en", false, "♂", "Mars")).toBe("Ma");
     expect(planetChartDisplayName("Mandi", "en", false, "Ma", "Mandi")).toBe("Mandi");
-    expect(planetChartDisplayName("Gulika", "en", false, "Gu", "Gulika")).toBe("Kulika");
+    expect(planetChartDisplayName("Gulika", "en", false, "Gu", "Gulika")).toBe("Gulika");
+    expect(planetChartDisplayName("Mandi", "en", true, "Ma", "Mandi")).toBe("Ma");
+    expect(planetChartDisplayName("Gulika", "en", true, "Gu", "Gulika")).toBe("Gu");
     expect(planetChartDisplayName("Part of Fortune", "en", false, "⊗", "Part of Fortune")).toBe("⊗");
   });
 });

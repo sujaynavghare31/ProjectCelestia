@@ -43,11 +43,12 @@ describe("chart settings store", () => {
 });
 
 describe("getCurrentBirthDateTime", () => {
-  it("does not prefill a sample birth date or time", () => {
+  it("starts with a blank chart name, Male selected, and no sample birth date or time", () => {
     expect(useKundaliStore.getState().profile).toMatchObject({
+      name: "",
       date: "",
       time: "",
-      sex: "not-applicable",
+      sex: "male",
       city: "Mumbai",
       lat: 19.076,
       lng: 72.8777,
