@@ -397,7 +397,7 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
           : moon.longitude,
       utcDate,
       new Date(),
-      3,
+      4,
     ),
     calculatedAt: new Date().toISOString(),
     engine: `Swiss Ephemeris ${swe.swe_version()} · Moshier`,

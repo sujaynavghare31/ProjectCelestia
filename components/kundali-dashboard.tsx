@@ -1147,47 +1147,49 @@ export function KundaliDashboard() {
       return;
     }
 
-    const abortController = new AbortController();
+    let isMounted = true;
     const timeout = window.setTimeout(async () => {
       setLocationLoading(true);
       setLocationError(null);
       try {
-        const response = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`, { signal: abortController.signal });
+        const response = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`);
         const result = await response.json() as { results?: GeocodeResult[]; error?: string };
+        if (!isMounted) return;
         if (!response.ok || result.error) throw new Error(result.error ?? `Place search failed (${response.status}).`);
         if (!Array.isArray(result.results)) throw new Error("Place search returned an invalid result.");
         setLocationResults(result.results);
       } catch (requestError) {
-        if (requestError instanceof Error && requestError.name === "AbortError") return;
+        if (!isMounted) return;
         setLocationError(requestError instanceof Error ? requestError.message : "Unable to search for this location.");
       } finally {
-        if (!abortController.signal.aborted) setLocationLoading(false);
+        if (isMounted) setLocationLoading(false);
       }
     }, 850);
     return () => {
+      isMounted = false;
       window.clearTimeout(timeout);
-      abortController.abort();
     };
   }, [locationSearch, profile.city]);
 
   useEffect(() => {
     if (!Number.isFinite(profile.lat) || !Number.isFinite(profile.lng)) return;
-    const abortController = new AbortController();
+    let isMounted = true;
     const timeout = window.setTimeout(async () => {
       try {
-        const response = await fetch(`/api/geocode?lat=${encodeURIComponent(profile.lat)}&lng=${encodeURIComponent(profile.lng)}`, { signal: abortController.signal });
+        const response = await fetch(`/api/geocode?lat=${encodeURIComponent(profile.lat)}&lng=${encodeURIComponent(profile.lng)}`);
         const result = await response.json() as { timezone?: string; error?: string };
+        if (!isMounted) return;
         if (!response.ok || !result.timezone) throw new Error(result.error ?? `Time zone lookup failed (${response.status}).`);
         setCoordinateTimezoneError(null);
         if (result.timezone !== profile.timezone) setProfile({ timezone: result.timezone });
       } catch (requestError) {
-        if (requestError instanceof Error && requestError.name === "AbortError") return;
+        if (!isMounted) return;
         setCoordinateTimezoneError(requestError instanceof Error ? requestError.message : "Could not update the birth place time zone.");
       }
     }, 350);
     return () => {
+      isMounted = false;
       window.clearTimeout(timeout);
-      abortController.abort();
     };
   }, [profile.lat, profile.lng]);
 
@@ -1199,7 +1201,7 @@ export function KundaliDashboard() {
       return;
     }
 
-    const abortController = new AbortController();
+    let isMounted = true;
     const timeout = window.setTimeout(async () => {
       setLoading(true);
       setError(null);
@@ -1207,7 +1209,6 @@ export function KundaliDashboard() {
         const response = await fetch("/api/ephemeris", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          signal: abortController.signal,
           body: JSON.stringify({
             date: submittedProfile.date,
             time: submittedProfile.time,
@@ -1226,6 +1227,7 @@ export function KundaliDashboard() {
           }),
         });
         const responseText = await response.text();
+        if (!isMounted) return;
         let result: EphemerisResponse | { error: string };
         try {
           result = JSON.parse(responseText) as EphemerisResponse | { error: string };
@@ -1235,20 +1237,20 @@ export function KundaliDashboard() {
         if (!response.ok || "error" in result) throw new Error("error" in result ? result.error : `Ephemeris request failed (${response.status}).`);
         setData(result);
       } catch (requestError) {
-        if (requestError instanceof Error && requestError.name === "AbortError") return;
+        if (!isMounted) return;
         setError(requestError instanceof Error ? requestError.message : "Unable to calculate this chart.");
       } finally {
-        if (!abortController.signal.aborted) setLoading(false);
+        if (isMounted) setLoading(false);
       }
     }, 100);
     return () => {
+      isMounted = false;
       window.clearTimeout(timeout);
-      abortController.abort();
     };
   }, [submittedProfile, ayanamsa, zodiacMode, customAyanamsaDegrees, nodeType, auxiliaryType, targetAge, ageMode]);
 
   useEffect(() => {
-    const abortController = new AbortController();
+    let isMounted = true;
     const timeout = window.setTimeout(async () => {
       setTransitLoading(true);
       setTransitError(null);
@@ -1257,7 +1259,6 @@ export function KundaliDashboard() {
         const response = await fetch("/api/ephemeris", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          signal: abortController.signal,
           body: JSON.stringify({
             date: now.toISOString().slice(0, 10),
             time: now.toISOString().slice(11, 19),
@@ -1273,6 +1274,7 @@ export function KundaliDashboard() {
           }),
         });
         const responseText = await response.text();
+        if (!isMounted) return;
         let result: EphemerisResponse | { error: string };
         try {
           result = JSON.parse(responseText) as EphemerisResponse | { error: string };
@@ -1282,15 +1284,15 @@ export function KundaliDashboard() {
         if (!response.ok || "error" in result) throw new Error("error" in result ? result.error : `Transit request failed (${response.status}).`);
         setTransitData(result);
       } catch (requestError) {
-        if (requestError instanceof Error && requestError.name === "AbortError") return;
+        if (!isMounted) return;
         setTransitError(requestError instanceof Error ? requestError.message : "Unable to calculate current transits.");
       } finally {
-        if (!abortController.signal.aborted) setTransitLoading(false);
+        if (isMounted) setTransitLoading(false);
       }
     }, 160);
     return () => {
+      isMounted = false;
       window.clearTimeout(timeout);
-      abortController.abort();
     };
   }, [profile.lat, profile.lng, ayanamsa, zodiacMode, customAyanamsaDegrees, nodeType, transitRefreshKey]);
 
