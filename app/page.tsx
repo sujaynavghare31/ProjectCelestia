@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
+import { signOut, useSession } from "next-auth/react";
 import {
   ArrowDownRight,
   ArrowRight,
@@ -162,6 +163,7 @@ function MetricCard({
 }
 
 export default function Home() {
+  const { status } = useSession();
   const { resolvedTheme, setTheme } = useTheme();
   const birthProfile = useKundaliStore((state) => state.profile);
   const setBirthProfile = useKundaliStore((state) => state.setProfile);
@@ -343,7 +345,23 @@ export default function Home() {
                 <SelectItem value="initials">English · initials</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">Guest mode</p>
+            <a href="/saved-charts" className="hidden rounded-lg px-2 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground sm:inline-flex">
+              Saved charts
+            </a>
+            {status === "authenticated" ? (
+              <button type="button" onClick={() => void signOut({ redirectTo: "/" })} className="rounded-lg px-2 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                Sign out
+              </button>
+            ) : (
+              <>
+                <a href="/login" className="rounded-lg px-2 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground">
+                  Sign in
+                </a>
+                <a href="/login?mode=signup" className="inline-flex h-9 items-center rounded-lg bg-amber-700 px-3 text-xs font-semibold text-white transition hover:bg-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600/50">
+                  Sign up
+                </a>
+              </>
+            )}
             <button
               type="button"
               onClick={() => setTheme(isDark ? "light" : "dark")}

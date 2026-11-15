@@ -112,8 +112,8 @@ export function getBirthDateTimeDefaults(
 export const useKundaliStore = create<KundaliState>((set) => ({
   profile: {
     id: "sujay-navghare",
-    name: "Current transit",
-    sex: "not-applicable",
+    name: "",
+    sex: "male",
     date: "",
     time: "",
     lat: 19.076,

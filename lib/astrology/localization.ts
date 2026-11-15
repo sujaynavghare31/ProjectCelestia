@@ -55,8 +55,7 @@ export function planetChartDisplayName(
   glyph?: string,
   fallback?: string,
 ): string {
-  if (name === "Mandi") return "Mandi";
-  if (name === "Gulika") return "Kulika";
+  if (name === "Mandi" || name === "Gulika") return useIcons ? glyph ?? name : name;
   if (name === "Part of Fortune") return glyph ?? "⊗";
   return useIcons ? glyph ?? fallback ?? name : planetChartName(name, language, fallback);
 }

@@ -20,14 +20,52 @@ enum FeedbackStatus {
   CLOSED
 }
 
+enum UserRole {
+  USER
+  ADMIN
+}
+
 model User {
-  id        String     @id @default(cuid())
-  clerkId   String     @unique
-  email     String     @unique
-  profiles  Profile[]
-  feedback  Feedback[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id           String        @id @default(cuid())
+  clerkId      String?       @unique
+  username     String?       @unique
+  passwordHash String?
+  role         UserRole      @default(USER)
+  email        String        @unique
+  profiles     Profile[]
+  feedback     Feedback[]
+  settings     UserSettings?
+  charts       Chart[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model UserSettings {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  defaultChartStyle String   @default("diamond")
+  defaultAyanamsa   String   @default("lahiri")
+  defaultZodiacMode String   @default("sidereal")
+  defaultLanguage   String   @default("en")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model Chart {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String?
+  dob       DateTime @db.Date
+  location  String
+  lat       Float
+  lon       Float
+  notes     String   @default("") @db.Text
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
 }
 
 model Profile {
@@ -37,6 +75,7 @@ model Profile {
   fullName    String
   dateOfBirth DateTime @db.Date
   timeOfBirth String
+  sex         String   @default("male")
   latitude    Float
   longitude   Float
   timezone    String
@@ -46,8 +85,8 @@ model Profile {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@index([userId])
   @@unique([userId, chartName])
+  @@index([userId])
 }
 
 model Feedback {
