@@ -42,7 +42,11 @@ export async function POST(request: Request) {
     if (typeof error === "object" && error !== null && "code" in error && error.code === "P2002") {
       return NextResponse.json({ error: "That username or email is already in use. Try signing in instead." }, { status: 409 });
     }
-    throw error;
+    console.error("[auth/register] Account creation failed", error);
+    return NextResponse.json(
+      { error: "Account creation is temporarily unavailable. Please try again later." },
+      { status: 503 },
+    );
   }
 
   return NextResponse.json({ ok: true }, { status: 201 });

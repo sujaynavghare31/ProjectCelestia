@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
 import { signOut, useSession } from "next-auth/react";
@@ -33,9 +34,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KundaliDashboard } from "@/components/kundali-dashboard";
 import PanchangDashboard from "@/components/panchang/PanchangDashboard";
 import About from "@/components/About";
+import NumerologyPrimer from "@/components/numerology/NumerologyPrimer";
 import type { CelestialLanguage } from "@/lib/kundali-types";
 import { useKundaliStore } from "@/lib/kundali-store";
-import NumerologyWorkbench from "@/components/numerology/NumerologyWorkbench";
 import { TABLES, chaldeanSum, computeProfile, digitSum, kuaOf, masterReduce, pythSum, reduce, relationLabel } from "@/lib/numerology";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -82,6 +83,29 @@ const navigationItems = [
   { id: "numerology", label: "Numerology", icon: Sparkles },
   { id: "about", label: "About", icon: Info },
 ] as const;
+
+function NumerologyTabLoading() {
+  return (
+    <div aria-label="Loading analysis" className="animate-pulse space-y-4 py-4">
+      <div className="h-5 w-48 rounded bg-stone-200 dark:bg-zinc-800" />
+      <div className="h-4 w-3/4 rounded bg-stone-100 dark:bg-zinc-900" />
+      <div className="h-24 rounded-xl bg-stone-100 dark:bg-zinc-900" />
+    </div>
+  );
+}
+
+const CoreEssenceTab = dynamic(() => import("@/components/numerology/CoreEssenceTab"), { loading: NumerologyTabLoading });
+const EnterpriseCommerceTab = dynamic(() => import("@/components/numerology/EnterpriseCommerceTab"), { loading: NumerologyTabLoading });
+const SynergyBondsTab = dynamic(() => import("@/components/numerology/SynergyBondsTab"), { loading: NumerologyTabLoading });
+const NumerologyWorkbench = dynamic(() => import("@/components/numerology/NumerologyWorkbench"), {
+  loading: () => (
+    <div aria-label="Loading vibrational analysis suite" className="mt-8 animate-pulse space-y-4">
+      <div className="h-7 w-64 rounded bg-stone-200 dark:bg-zinc-800" />
+      <div className="h-16 rounded-xl bg-stone-100 dark:bg-zinc-900" />
+      <div className="h-40 rounded-xl bg-stone-100 dark:bg-zinc-900" />
+    </div>
+  ),
+});
 
 function parseBirthDate(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -140,7 +164,7 @@ function MetricCard({
   breakdown: string;
   subtitle: string;
   icon: LucideIcon;
-  accent?: "gold" | "cyan";
+  accent?: "gold" | "sage";
 }) {
   const isGold = accent === "gold";
   return (
@@ -148,10 +172,10 @@ function MetricCard({
       <CardHeader><CardHeading icon={Icon} title={label} detail="CORE NUMBER" /></CardHeader>
       <CardContent>
         <div className="flex items-end justify-between gap-3">
-          <div className={`font-serif text-[72px] font-medium leading-[0.9] tracking-[-0.08em] ${isGold ? "text-amber-600 dark:text-yellow-400" : "text-cyan-700 dark:text-cyan-300"}`}>
+          <div className={`font-serif text-[72px] font-medium leading-[0.9] tracking-[-0.08em] ${isGold ? "text-amber-600 dark:text-amber-300" : "text-emerald-800 dark:text-emerald-300"}`}>
             {number ?? "—"}
           </div>
-          <div className={`mb-1 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${isGold ? "bg-amber-50 text-amber-800 dark:bg-yellow-400/10 dark:text-yellow-300" : "bg-cyan-50 text-cyan-800 dark:bg-cyan-400/10 dark:text-cyan-300"}`}>
+          <div className={`mb-1 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${isGold ? "bg-amber-50 text-amber-800 dark:bg-amber-400/10 dark:text-amber-300" : "bg-emerald-50 text-emerald-900 dark:bg-emerald-400/10 dark:text-emerald-300"}`}>
             <Orbit className="size-3.5" /> {planet}
           </div>
         </div>
@@ -383,10 +407,10 @@ export default function Home() {
             {activeTab === "numerology" && (
               <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
                 <div>
-                  <h1 className="text-2xl font-semibold tracking-tight sm:text-[30px]">A little more aligned.</h1>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Explore the patterns and possibilities written in your numbers.</p>
+                  <h1 className="font-serif text-2xl font-semibold tracking-wide sm:text-[30px]">Vibrational Analysis Suite</h1>
+                  <p className="mt-1 text-sm text-stone-600 dark:text-stone-400">Explore the traditions, rhythms, and patterns of your personal numbers.</p>
                 </div>
-                <div className="hidden items-center gap-2 text-xs text-slate-600 sm:flex dark:text-slate-400"><CalendarDays className="size-3.5" /> Personal profile <span className="text-slate-400 dark:text-slate-700">/</span> Vedic numerology</div>
+                <NumerologyPrimer />
               </div>
             )}
 
@@ -398,21 +422,30 @@ export default function Home() {
                 <TabsTrigger value="about"><Info className="size-3.5" /> About</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="numerology" className="mt-6 focus-visible:outline-none">
-                <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+              <TabsContent value="numerology" className="mt-6 rounded-2xl bg-[#FDFBF7] p-4 shadow-sm shadow-stone-200/50 focus-visible:outline-none sm:p-6 dark:bg-zinc-950 dark:shadow-none">
+                <Tabs defaultValue="core-essence" className="min-w-0">
+                  <TabsList aria-label="Vibrational analysis sections" className="sticky top-0 z-30 mb-5 h-auto w-full justify-start gap-1 overflow-x-auto rounded-t-xl border border-stone-200 bg-[#FDFBF7]/95 px-2 pt-2 shadow-sm shadow-stone-200/50 backdrop-blur dark:border-amber-900/30 dark:bg-zinc-950/95 dark:shadow-none">
+                    <TabsTrigger value="core-essence" className="h-10 rounded-t-lg px-3 text-sm text-stone-500 hover:text-stone-900 data-[state=active]:text-amber-800 after:inset-x-2 after:bg-transparent data-[state=active]:after:bg-amber-700 dark:text-stone-400 dark:hover:text-stone-100 dark:data-[state=active]:text-amber-200 dark:data-[state=active]:after:bg-amber-500">Core Essence</TabsTrigger>
+                    <TabsTrigger value="enterprise" className="h-10 rounded-t-lg px-3 text-sm text-stone-500 hover:text-stone-900 data-[state=active]:text-amber-800 after:inset-x-2 after:bg-transparent data-[state=active]:after:bg-amber-700 dark:text-stone-400 dark:hover:text-stone-100 dark:data-[state=active]:text-amber-200 dark:data-[state=active]:after:bg-amber-500">Enterprise &amp; Commerce</TabsTrigger>
+                    <TabsTrigger value="synergy" className="h-10 rounded-t-lg px-3 text-sm text-stone-500 hover:text-stone-900 data-[state=active]:text-amber-800 after:inset-x-2 after:bg-transparent data-[state=active]:after:bg-amber-700 dark:text-stone-400 dark:hover:text-stone-100 dark:data-[state=active]:text-amber-200 dark:data-[state=active]:after:bg-amber-500">Synergy &amp; Bonds</TabsTrigger>
+                    <TabsTrigger value="additional" className="h-10 rounded-t-lg px-3 text-sm text-stone-500 hover:text-stone-900 data-[state=active]:text-amber-800 after:inset-x-2 after:bg-transparent data-[state=active]:after:bg-amber-700 dark:text-stone-400 dark:hover:text-stone-100 dark:data-[state=active]:text-amber-200 dark:data-[state=active]:after:bg-amber-500">Additional Analysis</TabsTrigger>
+                    <TabsTrigger value="in-depth" className="h-10 rounded-t-lg px-3 text-sm text-stone-500 hover:text-stone-900 data-[state=active]:text-amber-800 after:inset-x-2 after:bg-transparent data-[state=active]:after:bg-amber-700 dark:text-stone-400 dark:hover:text-stone-100 dark:data-[state=active]:text-amber-200 dark:data-[state=active]:after:bg-amber-500">In-Depth Reading</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="core-essence" className="mt-0 focus-visible:outline-none">
+                <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <section className="flex flex-col gap-4" aria-label="Inputs and core numbers">
                     <Card>
-                      <CardHeader><CardHeading icon={UserRound} title="Your details" detail="PROFILE INPUTS" /></CardHeader>
+                      <CardHeader><CardHeading icon={UserRound} title="Core Essence" detail="PROFILE INPUTS" /></CardHeader>
                       <CardContent>
                         <div className="space-y-3.5">
                           <label className="block">
                             <span className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">Full name</span>
-                            <input value={fullName} onChange={(event) => setBirthProfile({ name: event.target.value })} placeholder="Enter your full name" className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/10 dark:border-slate-700 dark:bg-slate-950 dark:focus:border-cyan-400" />
+                            <input value={fullName} onChange={(event) => setBirthProfile({ name: event.target.value })} placeholder="Enter your full name" className="h-10 w-full rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-800 outline-none transition placeholder:text-stone-400 focus:border-amber-700 focus:ring-2 focus:ring-amber-700/10 dark:border-amber-900/30 dark:bg-zinc-900 dark:text-stone-100 dark:focus:border-amber-500" />
                           </label>
                           <label className="block">
                             <span className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">Date of birth</span>
                             <span className="relative block">
-                              <input type="date" value={dateOfBirth} onChange={(event) => setBirthProfile({ date: event.target.value })} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 pr-10 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/10 dark:border-slate-700 dark:bg-slate-950 dark:focus:border-cyan-400" />
+                              <input type="date" value={dateOfBirth} onChange={(event) => setBirthProfile({ date: event.target.value })} className="h-10 w-full rounded-lg border border-stone-200 bg-white px-3 pr-10 text-sm text-stone-800 outline-none transition focus:border-amber-700 focus:ring-2 focus:ring-amber-700/10 dark:border-amber-900/30 dark:bg-zinc-900 dark:text-stone-100 dark:focus:border-amber-500" />
                               <CalendarDays className="pointer-events-none absolute right-3 top-3 size-4 text-slate-600" />
                             </span>
                           </label>
@@ -443,20 +476,45 @@ export default function Home() {
                       breakdown={numerology.bhagyankBreakdown}
                       subtitle={destinyInfo?.traits ?? "Your Destiny Number uses every digit in your birth date."}
                       icon={WandSparkles}
-                      accent="cyan"
+                      accent="sage"
                     />
+                    <Card>
+                      <CardHeader><CardHeading icon={WandSparkles} title="Name number" detail={system ? "PYTHAGOREAN" : "CHALDEAN"} /></CardHeader>
+                      <CardContent>
+                        <div className="flex items-end justify-between gap-3">
+                          <div>
+                            <span className="font-serif text-[64px] leading-none tracking-[-0.08em] text-amber-600 dark:text-amber-300">{numerology.nameNumber ?? "—"}</span>
+                            <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">Name vibration {numerology.nameTrace && `· ${numerology.nameTrace}`}</p>
+                          </div>
+                          <div className="mb-1 text-right">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-400/10 dark:text-amber-300"><Orbit className="size-3.5" /> {nameInfo?.planet ?? "—"}</span>
+                            <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">{system ? "Pythagorean total" : "Compound value"} <strong className="text-slate-900 dark:text-slate-200">{numerology.nameCompound ?? "—"}</strong></p>
+                          </div>
+                        </div>
+                        <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800">
+                          <div className="mb-2 flex items-center justify-between"><SectionLabel>Letter values · {fullName.trim() || "enter a name"}</SectionLabel><span className="text-xs text-slate-600">{system ? "A–Z" : "CHALDEAN"}</span></div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {numerology.letters.length ? numerology.letters.map(({ character, value, index }) => (
+                              <div key={`${character}-${index}`} className="min-w-8 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-1 text-center dark:border-slate-800 dark:bg-slate-950/60">
+                                <span className="block text-xs font-medium text-slate-800 dark:text-slate-200">{character}</span><span className="block text-xs text-slate-600">{value}</span>
+                              </div>
+                            )) : <p className="text-xs text-slate-600">Enter letters to calculate your name number.</p>}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </section>
 
                   <section className="flex flex-col gap-4" aria-label="Lo Shu grid and planes">
-                    <Card>
+                    <Card className="order-1">
                       <CardHeader><CardHeading icon={PanelTop} title="Lo Shu grid" detail="DOB + CORE NUMBERS" /></CardHeader>
                       <CardContent>
                         <div className="relative mx-auto aspect-square w-full max-w-[330px]">
                           <svg className="pointer-events-none absolute inset-0 z-10 size-full p-2" viewBox="0 0 300 300" fill="none" aria-hidden="true">
                             {[
-                              { numbers: [2, 5, 8], color: "#06b6d4" },
-                              { numbers: [4, 5, 6], color: "#eab308" },
-                              { numbers: [1, 5, 9], color: "#8b5cf6" },
+                              { numbers: [2, 5, 8], color: "#789b7a" },
+                              { numbers: [4, 5, 6], color: "#c6a575" },
+                              { numbers: [1, 5, 9], color: "#bf8c90" },
                             ].map(({ numbers, color }) => {
                               const [startX, startY] = arrowCoordinates[numbers[0]];
                               const [middleX, middleY] = arrowCoordinates[numbers[1]];
@@ -474,19 +532,19 @@ export default function Home() {
                                   type="button"
                                   disabled={!numerology.birth}
                                   onClick={() => setSelectedNumber(selectedNumber === number ? null : number)}
-                                  className={`relative z-0 flex flex-col items-center justify-center rounded-xl border transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 ${count > 0 ? "border-cyan-200 bg-cyan-50/90 dark:border-cyan-900 dark:bg-cyan-950/70" : "border-slate-200 bg-white/80 opacity-30 dark:border-slate-800 dark:bg-slate-900/70"} ${selectedNumber === number ? "ring-2 ring-cyan-500 ring-offset-2 ring-offset-white dark:ring-cyan-400 dark:ring-offset-slate-900" : ""}`}
+                                  className={`relative z-0 flex flex-col items-center justify-center rounded-xl border border-white/80 bg-white/70 shadow-sm shadow-stone-200/50 backdrop-blur-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 dark:border-amber-900/30 dark:bg-zinc-900/70 dark:shadow-none dark:focus-visible:ring-amber-400 ${count > 0 ? "bg-[radial-gradient(circle_at_50%_40%,rgba(167,243,208,0.65),rgba(253,251,247,0.9)_72%)] dark:bg-[radial-gradient(circle_at_50%_40%,rgba(20,83,45,0.4),rgba(24,24,27,0.92)_72%)]" : "opacity-50"} ${selectedNumber === number ? "ring-2 ring-amber-600 ring-offset-2 ring-offset-white dark:ring-amber-400 dark:ring-offset-zinc-950" : ""}`}
                                   aria-label={`Number ${number}, ${count === 0 ? "missing" : `present ${count} times`}`}
                                 >
-                                  <span className={`font-serif text-3xl ${count > 0 ? "text-cyan-800 dark:text-cyan-200" : "text-slate-600 dark:text-slate-400"}`}>{count ? String(number).repeat(count) : number}</span>
-                                  {count > 0 && <span className="mt-1 text-xs text-cyan-800 dark:text-cyan-300">{count}×</span>}
+                                  <span className={`font-serif text-3xl ${count > 0 ? "text-emerald-900 dark:text-emerald-200" : "text-stone-600 dark:text-stone-400"}`}>{count ? String(number).repeat(count) : number}</span>
+                                  {count > 0 && <span className="mt-1 text-xs text-emerald-900 dark:text-emerald-300">{count}×</span>}
                                 </button>
                               );
                             })}
                           </div>
                           <div className="absolute -bottom-5 left-0 right-0 flex justify-center gap-4 text-xs text-slate-600 dark:text-slate-400">
-                            <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-cyan-500" /> Spirituality</span>
-                            <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-yellow-500" /> Willpower</span>
-                            <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-violet-500" /> Intuition</span>
+                            <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-emerald-600" /> Spirituality</span>
+                            <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-amber-600" /> Willpower</span>
+                            <span className="flex items-center gap-1"><span className="size-1.5 rounded-full bg-rose-500" /> Intuition</span>
                           </div>
                         </div>
                         <p className="mt-9 text-center text-xs text-slate-600 dark:text-slate-400">
@@ -495,7 +553,7 @@ export default function Home() {
                       </CardContent>
                     </Card>
 
-                    <Card>
+                    <Card className="order-3">
                       <CardHeader><CardHeading icon={ArrowDownRight} title="Arrows of strength" detail={`${arrows.filter((arrow) => arrow.complete).length} COMPLETE`} /></CardHeader>
                       <CardContent>
                         <div className="space-y-2.5">
@@ -505,7 +563,7 @@ export default function Home() {
                                 <p className="text-xs font-medium">{arrow.numbers.join(" – ")} <span className="font-normal text-slate-600 dark:text-slate-400">{arrow.label}</span></p>
                                 <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">{arrow.explanation}</p>
                               </div>
-                              <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${arrow.complete ? "bg-cyan-100 text-cyan-900 dark:bg-cyan-400/10 dark:text-cyan-300" : "bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-400"}`}>
+                              <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${arrow.complete ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-400/10 dark:text-emerald-300" : "bg-stone-200 text-stone-700 dark:bg-zinc-800 dark:text-zinc-300"}`}>
                                 {arrow.complete && <Check className="size-3" />}{arrow.complete ? "Complete" : `${arrow.count}/3`}
                               </span>
                             </div>
@@ -514,14 +572,14 @@ export default function Home() {
                       </CardContent>
                     </Card>
 
-                    <Card>
+                    <Card className="order-2">
                       <CardHeader><CardHeading icon={Orbit} title="Planes & missing numbers" /></CardHeader>
                       <CardContent>
                         <div className="grid grid-cols-3 gap-2">
                           {planes.map((plane) => (
-                            <div key={plane.name} className={`rounded-lg border p-2.5 ${plane.complete ? "border-cyan-200 bg-cyan-50 dark:border-cyan-900 dark:bg-cyan-950/40" : "border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950/40"}`}>
+                            <div key={plane.name} className={`rounded-lg border p-2.5 ${plane.complete ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/40" : "border-stone-200 bg-white dark:border-zinc-800 dark:bg-zinc-950/40"}`}>
                               <p className="text-xs text-slate-600 dark:text-slate-400">{plane.name}</p>
-                              <p className={`mt-1 text-base font-semibold ${plane.complete ? "text-cyan-800 dark:text-cyan-300" : ""}`}>{plane.count}/3</p>
+                              <p className={`mt-1 text-base font-semibold ${plane.complete ? "text-emerald-900 dark:text-emerald-300" : ""}`}>{plane.count}/3</p>
                             </div>
                           ))}
                         </div>
@@ -533,33 +591,7 @@ export default function Home() {
                     </Card>
                   </section>
 
-                  <section className="flex flex-col gap-4" aria-label="Auspicious metrics and compatibility">
-                    <Card>
-                      <CardHeader><CardHeading icon={WandSparkles} title="Name number" detail={system ? "PYTHAGOREAN" : "CHALDEAN"} /></CardHeader>
-                      <CardContent>
-                        <div className="flex items-end justify-between gap-3">
-                          <div>
-                            <span className="font-serif text-[64px] leading-none tracking-[-0.08em] text-amber-600 dark:text-yellow-400">{numerology.nameNumber ?? "—"}</span>
-                            <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">Name vibration {numerology.nameTrace && `· ${numerology.nameTrace}`}</p>
-                          </div>
-                          <div className="mb-1 text-right">
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-yellow-400/10 dark:text-yellow-300"><Orbit className="size-3.5" /> {nameInfo?.planet ?? "—"}</span>
-                            <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">{system ? "Pythagorean total" : "Compound value"} <strong className="text-slate-900 dark:text-slate-200">{numerology.nameCompound ?? "—"}</strong></p>
-                          </div>
-                        </div>
-                        <div className="mt-4 border-t border-slate-100 pt-3 dark:border-slate-800">
-                          <div className="mb-2 flex items-center justify-between"><SectionLabel>Letter values · {fullName.trim() || "enter a name"}</SectionLabel><span className="text-xs text-slate-600">{system ? "A–Z" : "CHALDEAN"}</span></div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {numerology.letters.length ? numerology.letters.map(({ character, value, index }) => (
-                              <div key={`${character}-${index}`} className="min-w-8 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-1 text-center dark:border-slate-800 dark:bg-slate-950/60">
-                                <span className="block text-xs font-medium text-slate-800 dark:text-slate-200">{character}</span><span className="block text-xs text-slate-600">{value}</span>
-                              </div>
-                            )) : <p className="text-xs text-slate-600">Enter letters to calculate your name number.</p>}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
+                  <section className="flex flex-col gap-4 sm:col-span-2 sm:grid sm:grid-cols-2 lg:col-span-1 lg:flex lg:grid-cols-1" aria-label="Auspicious metrics and compatibility">
                     <Card>
                       <CardHeader><CardHeading icon={Sparkles} title="Auspicious metrics" detail="PERSONAL GUIDE" /></CardHeader>
                       <CardContent>
@@ -570,7 +602,7 @@ export default function Home() {
                             { icon: CarFront, label: "Vehicle", number: luckyNumbers[2] ?? luckyNumbers[0] },
                           ].map(({ icon: Icon, label, number }) => (
                             <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-800 dark:bg-slate-950/50">
-                              <Icon className="size-4 text-cyan-700 dark:text-cyan-300" />
+                              <Icon className="size-4 text-amber-700 dark:text-amber-300" />
                               <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">{label}</p>
                               <p className="mt-0.5 text-xs font-semibold">{number ? `Ends in ${number}` : "—"}</p>
                             </div>
@@ -584,9 +616,9 @@ export default function Home() {
                             </select>
                           </div>
                           <div className="border-t border-slate-100 pt-3 dark:border-slate-800">
-                            <div className="flex items-center justify-between"><div><p className="text-xs text-slate-600 dark:text-slate-400">Personal year · {currentYear}</p><p className="mt-0.5 text-xs text-slate-600">{numerology.personalYearTrace || "Enter a valid date of birth"}</p></div><span className="grid size-8 shrink-0 place-items-center rounded-lg bg-cyan-50 text-sm font-semibold text-cyan-800 dark:bg-cyan-400/10 dark:text-cyan-300">{numerology.personalYear ?? "—"}</span></div>
+                            <div className="flex items-center justify-between"><div><p className="text-xs text-slate-600 dark:text-slate-400">Personal year · {currentYear}</p><p className="mt-0.5 text-xs text-slate-600">{numerology.personalYearTrace || "Enter a valid date of birth"}</p></div><span className="grid size-8 shrink-0 place-items-center rounded-lg bg-emerald-50 text-sm font-semibold text-emerald-900 dark:bg-emerald-400/10 dark:text-emerald-300">{numerology.personalYear ?? "—"}</span></div>
                             <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800" role="progressbar" aria-label="Personal year progress" aria-valuenow={mounted ? Math.round(numerology.personalYearProgress) : 0} aria-valuemin={0} aria-valuemax={100}>
-                              <div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-teal-400 transition-[width]" style={{ width: `${mounted ? Math.round(numerology.personalYearProgress) : 0}%` }} />
+                              <div className="h-full rounded-full bg-gradient-to-r from-emerald-700 to-emerald-500 transition-[width]" style={{ width: `${mounted ? Math.round(numerology.personalYearProgress) : 0}%` }} />
                             </div>
                             <p className="mt-1 text-right text-xs text-slate-600">{mounted ? Math.round(numerology.personalYearProgress) : 0}% through birthday year</p>
                           </div>
@@ -596,7 +628,7 @@ export default function Home() {
                     </Card>
 
                     <Card>
-                      <CardHeader><CardHeading icon={Gem} title="Lucky colors & gemstones" detail={mulankInfo?.planet ?? "MULANK RULER"} /></CardHeader>
+                      <CardHeader><CardHeading icon={Gem} title="Supportive Resonance & Gems" detail={mulankInfo?.planet ?? "MULANK RULER"} /></CardHeader>
                       <CardContent>
                         <div className="space-y-3">
                           <div>
@@ -614,7 +646,7 @@ export default function Home() {
                     </Card>
 
                     <Card>
-                      <CardHeader><CardHeading icon={CircleHelp} title="Avoid / cautions" detail="GENTLE GUIDANCE" /></CardHeader>
+                      <CardHeader><CardHeading icon={CircleHelp} title="Frequencies to Temper" detail="GENTLE GUIDANCE" /></CardHeader>
                       <CardContent>
                         <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 dark:border-amber-900/60 dark:bg-amber-950/20">
                           <div className="flex items-start gap-2.5">
@@ -630,7 +662,7 @@ export default function Home() {
                     </Card>
 
                     <Card>
-                      <CardHeader><CardHeading icon={Heart} title="Compatibility" detail="RELATIONSHIPS" /></CardHeader>
+                      <CardHeader><CardHeading icon={Heart} title="Synergy & Bonds" detail="RELATIONSHIPS" /></CardHeader>
                       <CardContent>
                         <div className="space-y-3">
                           <div className="flex items-center justify-between gap-3">
@@ -650,8 +682,21 @@ export default function Home() {
                     </Card>
                   </section>
                 </div>
-                <NumerologyWorkbench profile={numerology.profile} />
                 <div className="mt-5 flex items-center justify-center gap-1.5 text-xs text-slate-600 dark:text-slate-400"><CircleHelp className="size-3" /> Calculations update as you type. Interpretations are traditional and for personal reflection.</div>
+                  </TabsContent>
+                  <TabsContent value="enterprise" className="mt-0 focus-visible:outline-none">
+                    <EnterpriseCommerceTab profile={numerology.profile} />
+                  </TabsContent>
+                  <TabsContent value="synergy" className="mt-0 focus-visible:outline-none">
+                    <SynergyBondsTab profile={numerology.profile} />
+                  </TabsContent>
+                  <TabsContent value="additional" className="mt-0 focus-visible:outline-none">
+                    <NumerologyWorkbench profile={numerology.profile} />
+                  </TabsContent>
+                  <TabsContent value="in-depth" className="mt-0 focus-visible:outline-none">
+                    <CoreEssenceTab profile={numerology.profile} />
+                  </TabsContent>
+                </Tabs>
               </TabsContent>
 
               <TabsContent value="kundali" className="mt-3 focus-visible:outline-none"><KundaliDashboard /></TabsContent>

@@ -28,7 +28,14 @@ export default function LoginForm({
             password: formData.get("password"),
           }),
         });
-        const result = await response.json() as { error?: string };
+        let result: { error?: string };
+        try {
+          result = await response.json() as { error?: string };
+        } catch {
+          throw new Error(response.ok
+            ? "Account creation returned an invalid response. Please try again."
+            : "Account creation is temporarily unavailable. Please try again later.");
+        }
         if (!response.ok) throw new Error(result.error ?? "Account creation failed. Please try again.");
       }
 
@@ -38,7 +45,10 @@ export default function LoginForm({
         redirectTo: callbackUrl,
         redirect: false,
       });
-      if (result?.error) throw new Error("Username or password is incorrect. Check your details and try again.");
+      if (result?.error === "CredentialsSignin") {
+        throw new Error("Username or password is incorrect. Check your details and try again.");
+      }
+      if (result?.error) throw new Error("Sign-in is temporarily unavailable. Please try again later.");
       if (!result?.url) throw new Error("We couldn't start your session. Please try again.");
       window.location.assign(result.url);
     } catch (reason) {
