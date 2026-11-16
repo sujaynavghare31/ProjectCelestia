@@ -5,12 +5,6 @@ import { prisma } from "@/lib/prisma";
 
 const authSecret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
 
-if (!authSecret) {
-  const error = new Error("AUTH_SECRET or NEXTAUTH_SECRET must be configured.");
-  console.error("[auth] Missing authentication secret", error);
-  throw error;
-}
-
 declare module "next-auth" {
   interface Session {
     user: {
