@@ -69,7 +69,7 @@ export default function LoginForm({
           minLength={3}
           maxLength={32}
           pattern="[A-Za-z0-9._-]+"
-          className="mt-2 h-11 w-full rounded-xl border border-border bg-background/80 px-3 text-sm text-foreground outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+          className="mt-2 h-11 w-full rounded-xl border border-border bg-background/80 px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/40"
         />
       </label>
       {isSignUp && (
@@ -81,7 +81,7 @@ export default function LoginForm({
             autoComplete="email"
             required
             maxLength={254}
-            className="mt-2 h-11 w-full rounded-xl border border-border bg-background/80 px-3 text-sm text-foreground outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+            className="mt-2 h-11 w-full rounded-xl border border-border bg-background/80 px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/40"
           />
         </label>
       )}
@@ -94,14 +94,14 @@ export default function LoginForm({
           required
           minLength={8}
           maxLength={128}
-          className="mt-2 h-11 w-full rounded-xl border border-border bg-background/80 px-3 text-sm text-foreground outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15"
+          className="mt-2 h-11 w-full rounded-xl border border-border bg-background/80 px-3 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/40"
         />
       </label>
       {error && <p role="alert" className="rounded-lg border border-rose-300/70 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200">{error}</p>}
       <button
         type="submit"
         disabled={pending}
-        className="h-11 w-full rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-70 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+        className="h-11 w-full rounded-xl bg-[#C64F30] px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-70"
       >
         {pending ? (isSignUp ? "Creating account…" : "Signing in…") : (isSignUp ? "Create account" : "Sign in")}
       </button>

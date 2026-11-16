@@ -37,7 +37,7 @@ export default function SynergyBondsTab({ profile }: { profile: Profile | null }
                 type="button"
                 aria-pressed={mode === item}
                 onClick={() => setMode(item)}
-                className={`border-b-2 px-1 py-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-700/40 ${mode === item ? "border-amber-700 text-stone-900 dark:border-amber-500 dark:text-amber-100" : "border-transparent text-stone-500 hover:text-stone-800 dark:text-stone-400 dark:hover:text-stone-100"}`}
+                className={`border-b-2 px-1 py-3 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${mode === item ? "border-primary text-accent-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
               >
                 {item === "partner" ? "Partner comparison" : "Child-name ideas"}
               </button>

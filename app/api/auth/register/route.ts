@@ -32,8 +32,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Password must be between 8 and 128 characters." }, { status: 400 });
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
   try {
+    const passwordHash = await bcrypt.hash(password, 12);
     await prisma.user.create({
       data: { username, email, passwordHash },
       select: { id: true },

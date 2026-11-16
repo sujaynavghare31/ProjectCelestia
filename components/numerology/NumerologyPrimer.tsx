@@ -45,7 +45,7 @@ export default function NumerologyPrimer() {
         aria-expanded={isOpen}
         aria-controls="numerology-primer"
         onClick={openPrimer}
-        className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-stone-300 bg-white/80 px-4 text-sm font-medium text-stone-700 shadow-sm shadow-stone-200/50 transition hover:border-amber-500 hover:text-amber-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 focus-visible:ring-offset-2 dark:border-amber-900/40 dark:bg-zinc-900/80 dark:text-stone-200 dark:hover:border-amber-700 dark:hover:text-amber-200 dark:focus-visible:ring-amber-400 dark:focus-visible:ring-offset-zinc-950"
+        className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-border bg-card/80 px-4 text-sm font-medium text-foreground shadow-sm shadow-stone-200/50 transition hover:border-primary/40 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2"
       >
         <CircleHelp className="size-4 text-amber-700 dark:text-amber-300" aria-hidden="true" />
         The Primer
@@ -61,34 +61,34 @@ export default function NumerologyPrimer() {
         onClick={(event) => {
           if (event.target === event.currentTarget) closePrimer();
         }}
-        className="fixed inset-y-0 right-0 m-0 ml-auto h-dvh max-h-dvh w-full max-w-[min(100%,30rem)] border-0 bg-transparent p-0 text-stone-800 shadow-2xl [&::backdrop]:bg-stone-950/40 [&::backdrop]:backdrop-blur-sm dark:text-stone-100 dark:[&::backdrop]:bg-black/55"
+        className="fixed inset-y-0 right-0 m-0 ml-auto h-dvh max-h-dvh w-full max-w-[min(100%,30rem)] border-0 bg-transparent p-0 text-foreground shadow-2xl [&::backdrop]:bg-[#46332B]/40 [&::backdrop]:backdrop-blur-sm"
       >
-        <aside className="flex h-full flex-col border-l border-stone-200 bg-[#FDFBF7]/95 shadow-xl backdrop-blur-xl dark:border-amber-900/30 dark:bg-zinc-950/95">
-          <header className="flex items-start justify-between gap-5 border-b border-stone-200 px-6 py-6 dark:border-amber-900/30">
+        <aside className="flex h-full flex-col border-l border-border bg-background/95 shadow-xl backdrop-blur-xl">
+          <header className="flex items-start justify-between gap-5 border-b border-border px-6 py-6">
             <div>
-              <h2 id="numerology-primer-title" className="font-serif text-2xl tracking-wide text-stone-900 dark:text-stone-100">The Primer</h2>
-              <p id="numerology-primer-intro" className="mt-2 max-w-sm text-sm leading-6 text-stone-600 dark:text-stone-300">A brief guide to the patterns in your Vibrational Analysis Suite.</p>
+              <h2 id="numerology-primer-title" className="font-serif text-2xl tracking-wide text-foreground">The Primer</h2>
+              <p id="numerology-primer-intro" className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">A brief guide to the patterns in your Vibrational Analysis Suite.</p>
             </div>
             <button
               type="button"
               onClick={closePrimer}
               aria-label="Close the Primer"
-              className="grid size-9 shrink-0 place-items-center rounded-full text-stone-600 transition hover:bg-stone-200/70 hover:text-stone-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 dark:text-stone-300 dark:hover:bg-zinc-800 dark:hover:text-white dark:focus-visible:ring-amber-400"
+              className="grid size-9 shrink-0 place-items-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             >
               <X className="size-4" aria-hidden="true" />
             </button>
           </header>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-6 py-2">
-            <dl className="divide-y divide-stone-200 dark:divide-amber-900/30">
+            <dl className="divide-y divide-border">
               {concepts.map(({ title, description }) => (
                 <div key={title} className="py-5">
-                  <dt className="font-serif text-lg tracking-wide text-amber-900 dark:text-amber-200">{title}</dt>
-                  <dd className="mt-2 text-sm leading-7 text-stone-700 dark:text-stone-300">{description}</dd>
+                  <dt className="font-serif text-lg tracking-wide text-primary">{title}</dt>
+                  <dd className="mt-2 text-sm leading-7 text-foreground">{description}</dd>
                 </div>
               ))}
             </dl>
-            <p className="border-t border-stone-200 py-5 text-xs leading-6 text-stone-500 dark:border-amber-900/30 dark:text-stone-400">
+            <p className="border-t border-border py-5 text-xs leading-6 text-muted-foreground">
               Numerology traditions vary. Use these interpretations as prompts for reflection.
             </p>
           </div>

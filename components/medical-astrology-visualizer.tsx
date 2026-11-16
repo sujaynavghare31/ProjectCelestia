@@ -116,8 +116,8 @@ export function MedicalAstrologyVisualizer({
           </p>
         )}
         <p className="mt-1 text-[11px]">
-          <span className="font-medium text-cyan-500">Transit · </span>
-          {renderPlanetList(getPlanetsInHouse(zone.house, "transit"), "text-cyan-500", transitLoading ? "Updating…" : transitError ? "Unavailable" : "—")}
+          <span className="font-medium text-primary">Transit · </span>
+          {renderPlanetList(getPlanetsInHouse(zone.house, "transit"), "text-primary", transitLoading ? "Updating…" : transitError ? "Unavailable" : "—")}
         </p>
       </button>
     );
@@ -150,8 +150,8 @@ export function MedicalAstrologyVisualizer({
           </p>
         )}
         <p className="mt-1 text-[11px]">
-          <span className="font-medium text-cyan-500">Transit · </span>
-          {renderPlanetList(getPlanetsInSign(zone.sign, "transit"), "text-cyan-500", transitLoading ? "Updating…" : transitError ? "Unavailable" : "—")}
+          <span className="font-medium text-primary">Transit · </span>
+          {renderPlanetList(getPlanetsInSign(zone.sign, "transit"), "text-primary", transitLoading ? "Updating…" : transitError ? "Unavailable" : "—")}
         </p>
       </button>
     );

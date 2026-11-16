@@ -20,6 +20,12 @@ enum FeedbackStatus {
   CLOSED
 }
 
+enum ChartSex {
+  MALE
+  FEMALE
+  NOT_APPLICABLE
+}
+
 enum UserRole {
   USER
   ADMIN
@@ -75,7 +81,7 @@ model Profile {
   fullName    String
   dateOfBirth DateTime @db.Date
   timeOfBirth String
-  sex         String   @default("male")
+  sex         ChartSex @default(NOT_APPLICABLE)
   latitude    Float
   longitude   Float
   timezone    String

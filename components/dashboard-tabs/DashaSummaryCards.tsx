@@ -3,15 +3,15 @@
 import type { DashaPeriodNode, DashaSystem } from "@/lib/astrology/timing/DashaEngine";
 
 const CARD_STYLE: Record<string, string> = {
-  Sun: "bg-orange-50 text-orange-950 dark:bg-orange-950/30 dark:text-orange-100",
-  Moon: "bg-sky-50 text-sky-950 dark:bg-sky-950/30 dark:text-sky-100",
-  Mars: "bg-red-50 text-red-950 dark:bg-red-950/30 dark:text-red-100",
-  Mercury: "bg-emerald-50 text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100",
-  Jupiter: "bg-amber-50 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100",
-  Venus: "bg-pink-50 text-pink-950 dark:bg-pink-950/30 dark:text-pink-100",
-  Saturn: "bg-blue-50 text-blue-950 dark:bg-blue-950/30 dark:text-blue-100",
-  Rahu: "bg-purple-50 text-purple-950 dark:bg-purple-950/30 dark:text-purple-100",
-  Ketu: "bg-indigo-50 text-indigo-950 dark:bg-indigo-950/30 dark:text-indigo-100",
+  Sun: "bg-accent text-accent-foreground",
+  Moon: "bg-muted text-foreground",
+  Mars: "bg-rose-100 text-rose-950 dark:bg-rose-950/40 dark:text-rose-100",
+  Mercury: "bg-emerald-100 text-emerald-950 dark:bg-emerald-950/40 dark:text-emerald-100",
+  Jupiter: "bg-accent text-accent-foreground",
+  Venus: "bg-rose-50 text-rose-950 dark:bg-rose-950/30 dark:text-rose-100",
+  Saturn: "bg-muted text-foreground",
+  Rahu: "bg-muted text-foreground",
+  Ketu: "bg-emerald-50 text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100",
 };
 
 const LEVEL_LABELS: Record<DashaSystem, string[]> = {
@@ -38,13 +38,13 @@ export default function DashaSummaryCards({
     <section aria-label="Active Dasha periods" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
       {labels.map((label, index) => {
         const period = activePath[index];
-        const style = CARD_STYLE[period?.lord ?? ""] ?? "bg-stone-100 text-stone-900 dark:bg-stone-800 dark:text-stone-100";
+        const style = CARD_STYLE[period?.lord ?? ""] ?? "bg-muted text-foreground";
         const role = typeof period?.details?.role === "string" ? `${period.details.role} · ` : "";
         return (
           <article key={label} className={`min-w-0 rounded-lg px-3 py-2.5 ${style}`}>
             <div className="flex items-center justify-between gap-2">
               <p className="text-[10px] font-semibold uppercase tracking-wide opacity-75">{label}</p>
-              {period && <span className="rounded-full bg-amber-300 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-950">Now</span>}
+              {period && <span className="rounded-full bg-accent px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-accent-foreground">Now</span>}
             </div>
             {period ? (
               <>

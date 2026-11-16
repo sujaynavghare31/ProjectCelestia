@@ -151,7 +151,7 @@ export default function AstrologyConfigForm() {
         <fieldset className="rounded-lg border border-border p-3"><legend className="px-1 text-xs text-muted-foreground">Nadi modules</legend><div className="flex flex-wrap gap-x-4 gap-y-2">{(["BCP", "BNN_TRANSIT", "BHRIGU_BINDU"] as const).map((module) => <label key={module} className="flex items-center gap-1.5 text-xs"><input type="checkbox" checked={config.timing.nadiModules.includes(module)} onChange={(event) => updateTiming("nadiModules", event.target.checked ? [...config.timing.nadiModules, module] : config.timing.nadiModules.filter((item) => item !== module))} className="size-3.5 accent-cyan-700" />{module}</label>)}</div></fieldset>
       </section>
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={save} className="h-9 rounded-lg bg-cyan-700 px-4 text-sm font-semibold text-white hover:bg-cyan-800">Save settings in this browser</button>
+        <button type="button" onClick={save} className="h-9 rounded-lg bg-[#C64F30] px-4 text-sm font-semibold text-white transition hover:bg-[#A94025]">Save settings in this browser</button>
         <button type="button" onClick={reset} className="h-9 rounded-lg border border-border px-4 text-sm hover:bg-muted">Restore defaults</button>
         {notice && <p role="status" className="text-xs text-muted-foreground">{notice}</p>}
       </div>

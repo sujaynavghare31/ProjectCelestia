@@ -6,8 +6,8 @@ import { planetName, signName } from "@/lib/astrology/localization";
 const ELEMENT_ROWS = [
   { name: "Fire", translation: "अग्नि", signs: [0, 4, 8], className: "text-[hsl(var(--retrograde-crimson))]" },
   { name: "Earth", translation: "पृथ्वी", signs: [1, 5, 9], className: "text-emerald-600 dark:text-emerald-400" },
-  { name: "Air", translation: "वायु", signs: [2, 6, 10], className: "text-blue-600 dark:text-blue-400" },
-  { name: "Water", translation: "जल", signs: [3, 7, 11], className: "text-cyan-600 dark:text-cyan-400" },
+  { name: "Air", translation: "वायु", signs: [2, 6, 10], className: "text-stone-600 dark:text-stone-300" },
+  { name: "Water", translation: "जल", signs: [3, 7, 11], className: "text-amber-700 dark:text-amber-300" },
 ] as const;
 
 const MODALITY_COLUMNS = [

@@ -56,8 +56,8 @@ export default function ChartControls({
             <p className="text-sm font-semibold">Primary chart · D1</p>
             <p className="mt-0.5 text-xs text-muted-foreground">{chartMode === "transit" ? "Current transit chart" : "Birth chart"}</p>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-900 dark:border-amber-800/70 dark:bg-amber-400/10 dark:text-amber-200">
-            <span aria-hidden="true" className="size-1.5 rounded-full bg-amber-500" />
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-accent px-2.5 py-1 text-xs font-medium text-accent-foreground">
+            <span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />
             {ascendantLabel}
           </span>
         </div>
@@ -66,14 +66,14 @@ export default function ChartControls({
             title={chartMode === "transit"
               ? "This chart already shows current-sky positions; enable labels to mark them with T and degrees."
               : "Calculate current-sky positions and draw them over the birth chart."}
-            className="inline-flex min-h-10 items-center gap-2 rounded-full border border-border bg-card px-3 text-xs font-medium text-foreground transition hover:border-indigo-300 dark:hover:border-indigo-800"
+            className="inline-flex min-h-10 items-center gap-2 rounded-full border border-border bg-card px-3 text-xs font-medium text-foreground transition hover:border-stone-300"
           >
             <span>{transitLabel}</span>
             <Switch
               aria-label={transitLabel}
               checked={overlayTransits}
               onCheckedChange={onOverlayTransitsChange}
-              className="data-[state=checked]:bg-indigo-500 dark:data-[state=checked]:bg-indigo-400 focus-visible:ring-indigo-500"
+              className="data-[state=checked]:bg-blue-500 focus-visible:ring-blue-400"
             />
           </label>
           <button
@@ -81,7 +81,7 @@ export default function ChartControls({
             onClick={onMaximize}
             aria-label="Expand chart to fullscreen"
             title="Expand chart to fullscreen"
-            className="grid size-10 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition hover:border-indigo-300 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:hover:border-indigo-800 dark:hover:text-indigo-300"
+            className="grid size-10 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
           >
             <Maximize2 className="size-4" />
           </button>
@@ -100,7 +100,7 @@ export default function ChartControls({
                 aria-checked={chartStyle === value}
                 aria-label={`${label}${value === "diamond" ? " / Diamond" : ""} chart`}
                 onClick={() => onChartStyleChange(value)}
-                className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${chartStyle === value ? "bg-indigo-600 text-white shadow-sm dark:bg-indigo-500" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${chartStyle === value ? "border border-blue-300 bg-blue-100 text-blue-900 shadow-sm" : "text-muted-foreground hover:bg-blue-50 hover:text-blue-900"}`}
               >
                 <ChartStyleIcon style={value} />
                 {label}
@@ -114,7 +114,7 @@ export default function ChartControls({
             <SelectTrigger aria-label="D1 reference lagna" className="h-10 w-full bg-card text-sm">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="z-[110] !bg-white !text-slate-900 shadow-md dark:!bg-slate-950 dark:!text-slate-100">
+            <SelectContent className="z-[110] !bg-card !text-foreground shadow-md">
               <SelectGroup>
                 <SelectLabel>Reference Lagna</SelectLabel>
                 <SelectItem value="Ascendant">Ascendant</SelectItem>
@@ -138,7 +138,7 @@ export default function ChartControls({
         <button
           type="button"
           onClick={onOpenSettings}
-          className="ml-auto inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+          className="ml-auto inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
         >
           <Settings className="mr-2 size-4" />
           Chart Settings

@@ -7,15 +7,15 @@ import { motion, useReducedMotion } from "framer-motion";
 import type { PanchangDay, PanchangSegment } from "@/lib/astrology/panchang/PanchangEngine";
 
 const TRACK_COLORS = [
-  "border-orange-200 bg-orange-100 text-orange-950 dark:border-orange-800/60 dark:bg-orange-900/35 dark:text-orange-100",
-  "border-sky-200 bg-sky-100 text-sky-950 dark:border-sky-800/60 dark:bg-sky-900/35 dark:text-sky-100",
+  "border-border bg-muted text-foreground",
+  "border-primary/30 bg-accent text-accent-foreground",
   "border-rose-200 bg-rose-100 text-rose-950 dark:border-rose-800/60 dark:bg-rose-900/35 dark:text-rose-100",
-  "border-amber-200 bg-amber-100 text-amber-950 dark:border-amber-800/60 dark:bg-amber-900/35 dark:text-amber-100",
+  "border-primary/30 bg-accent text-accent-foreground",
 ];
 const MUHURTA_COLORS = {
   auspicious: "border-emerald-200 bg-emerald-100 text-emerald-950 dark:border-emerald-800/60 dark:bg-emerald-900/35 dark:text-emerald-100",
   inauspicious: "border-rose-200 bg-rose-100 text-rose-950 dark:border-rose-800/60 dark:bg-rose-900/35 dark:text-rose-100",
-  neutral: "border-slate-200 bg-slate-100 text-slate-800 dark:border-slate-700/60 dark:bg-slate-800/60 dark:text-slate-200",
+  neutral: "border-border bg-muted text-foreground",
 };
 
 function localDateKey(date: Date, timezone: string) {
@@ -65,7 +65,7 @@ export function PanchangTimeline({ data }: { data: PanchangDay }) {
     : daylightPercent > 88 ? "translateX(-100%)" : "translateX(-50%)";
 
   return (
-    <section aria-label="Panchang timeline" className="rounded-2xl border border-white/60 bg-white/70 p-4 text-card-foreground shadow-[0_12px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/45 dark:shadow-[0_12px_42px_rgba(2,6,23,0.28)] sm:p-5">
+    <section aria-label="Panchang timeline" className="rounded-2xl border border-border bg-card p-4 text-card-foreground shadow-sm sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold">Sunrise-to-sunrise timeline</h2>
@@ -76,7 +76,7 @@ export function PanchangTimeline({ data }: { data: PanchangDay }) {
           </p>
         </div>
         {isNowInSelectedDay
-          ? <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-900 dark:bg-amber-300/15 dark:text-amber-200">Now in this Vedic day</span>
+          ? <span className="rounded-full bg-accent px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-accent-foreground">Now in this Vedic day</span>
           : <span className="text-xs text-muted-foreground">Times shown in {data.timezone}</span>}
       </div>
 
@@ -91,10 +91,10 @@ export function PanchangTimeline({ data }: { data: PanchangDay }) {
         <div className="relative min-w-0 flex-1">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 flex overflow-hidden rounded-lg">
             <div
-              className="bg-gradient-to-r from-amber-50 to-sky-50 dark:from-amber-900/20 dark:to-sky-900/20"
+              className="bg-gradient-to-r from-accent/70 to-muted dark:from-accent/20 dark:to-muted/70"
               style={{ width: `${daylightPercent}%` }}
             />
-            <div className="min-w-0 flex-1 bg-gradient-to-r from-slate-100 to-indigo-50 dark:from-slate-900/50 dark:to-indigo-900/30" />
+            <div className="min-w-0 flex-1 bg-gradient-to-r from-muted to-background dark:from-muted/70 dark:to-background" />
           </div>
 
           <div className="relative z-[1] space-y-3">
@@ -103,7 +103,7 @@ export function PanchangTimeline({ data }: { data: PanchangDay }) {
                 key={track.key}
                 role="group"
                 aria-label={`${track.label} periods`}
-                className="flex h-10 min-w-0 overflow-hidden rounded-md bg-slate-950/[0.025] ring-1 ring-inset ring-border/70 dark:bg-white/[0.025]"
+                className="flex h-10 min-w-0 overflow-hidden rounded-md bg-muted/40 ring-1 ring-inset ring-border/70"
               >
                 {track.segments.map((segment) => {
                   const segmentDuration = differenceInMilliseconds(new Date(segment.end), new Date(segment.start));
@@ -133,7 +133,7 @@ export function PanchangTimeline({ data }: { data: PanchangDay }) {
 
           <div
             aria-label={`Sunset at ${formatTime(new Date(sunset), data.timezone)}`}
-            className="pointer-events-none absolute bottom-0 top-0 z-[2] border-l border-dashed border-slate-500/60 dark:border-slate-300/50"
+            className="pointer-events-none absolute bottom-0 top-0 z-[2] border-l border-dashed border-muted-foreground/60"
             style={{ left: `${daylightPercent}%` }}
           >
             <span
@@ -150,11 +150,11 @@ export function PanchangTimeline({ data }: { data: PanchangDay }) {
               initial={false}
               animate={reduceMotion ? { opacity: 1 } : { opacity: [0.8, 1, 0.8] }}
               transition={reduceMotion ? undefined : { duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-              className="pointer-events-none absolute bottom-0 top-0 z-[3] border-l-2 border-dashed border-amber-500 shadow-[0_0_10px_rgba(251,191,36,0.8)]"
+              className="pointer-events-none absolute bottom-0 top-0 z-[3] border-l-2 border-dashed border-primary shadow-[0_0_10px_hsl(var(--primary)/0.55)]"
               style={{ left: `${nowPercent}%` }}
             >
               <span
-                className="absolute -top-5 whitespace-nowrap rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-950 shadow-sm"
+                className="absolute -top-5 whitespace-nowrap rounded bg-primary px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary-foreground shadow-sm"
                 style={{ transform: markerTransform }}
               >
                 Now · {now ? formatTime(now, data.timezone) : ""}

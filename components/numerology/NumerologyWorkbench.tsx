@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   TABLES,
@@ -15,6 +15,14 @@ import {
   nameCheckModule,
   vehicleModule,
 } from "@/lib/numerology";
+import {
+  calculateLocalSunrise,
+  createHoraryLocation,
+  getLocalQuestionMoment,
+  parseCitySearchResults,
+  PRESET_HORARY_LOCATIONS,
+} from "@/lib/numerology/horary-location";
+import type { HoraryLocation } from "@/lib/numerology/horary-location";
 import type { Profile } from "@/lib/numerology";
 import { DataTable, Field, PanelHeading, RootSuggestions, SelectField, splitList, TextAreaField, todayISO, Verdict, isValidISODate } from "@/components/numerology/workbench-shared";
 
@@ -248,20 +256,178 @@ function CalendarPanel({ profile }: { profile: Profile }) {
 }
 
 function HoraryPanel({ profile }: { profile: Profile }) {
-  const [date, setDate] = useState(todayISO);
-  const [time, setTime] = useState("10:30");
-  const [sunrise, setSunrise] = useState("06:15");
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [questionTimeZone, setQuestionTimeZone] = useState("");
+  const [location, setLocation] = useState<HoraryLocation | null>(null);
+  const [deviceLocation, setDeviceLocation] = useState<HoraryLocation | null>(null);
+  const [locationStatus, setLocationStatus] = useState("Checking device location…");
+  const [cityQuery, setCityQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<HoraryLocation[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [manualSunrise, setManualSunrise] = useState<{ date: string; locationId: string; time: string } | null>(null);
   const [category, setCategory] = useState(TABLES.horaryCategories[0]?.question ?? "");
   const [number, setNumber] = useState("23");
   const [text, setText] = useState("");
+  const initializedRef = useRef(false);
+  const mountedRef = useRef(false);
+  const locationSelectionRef = useRef(false);
+  const searchControllerRef = useRef<AbortController | null>(null);
+  const searchInProgressRef = useRef(false);
+  const lastSearchAtRef = useRef(0);
+
+  const requestDeviceLocation = () => {
+    if (!navigator.geolocation) {
+      setLocationStatus("Device location is unavailable. Search for a city or choose a common location.");
+      return;
+    }
+
+    setLocationStatus("Waiting for location permission…");
+    try {
+      navigator.geolocation.getCurrentPosition(
+        ({ coords }) => {
+          if (!mountedRef.current) return;
+          try {
+            const detected = createHoraryLocation("Current location", "", coords.latitude, coords.longitude);
+            setDeviceLocation(detected);
+            if (!locationSelectionRef.current) setLocation(detected);
+            setLocationStatus("Device location detected. Your coordinates stay in this browser.");
+          } catch (error) {
+            if (!(error instanceof RangeError)) throw error;
+            setLocationStatus("The device returned invalid coordinates. Search for a city or choose a common location.");
+          }
+        },
+        (error) => {
+          if (!mountedRef.current || locationSelectionRef.current) return;
+          const message = error.code === error.PERMISSION_DENIED
+            ? "Location permission was denied. Search for a city or choose a common location."
+            : error.code === error.TIMEOUT
+              ? "Device location timed out. Search for a city or choose a common location."
+              : "Device location could not be detected. Search for a city or choose a common location.";
+          setLocationStatus(message);
+        },
+        { enableHighAccuracy: false, maximumAge: 600_000, timeout: 8_000 },
+      );
+    } catch {
+      setLocationStatus("Device location could not be started. Search for a city or choose a common location.");
+    }
+  };
+
+  useEffect(() => {
+    mountedRef.current = true;
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      const moment = getLocalQuestionMoment();
+      setDate(moment.date);
+      setTime(moment.time);
+      setQuestionTimeZone(moment.timeZone);
+      requestDeviceLocation();
+    }
+
+    return () => {
+      mountedRef.current = false;
+      const controller = searchControllerRef.current;
+      searchControllerRef.current = null;
+      controller?.abort();
+    };
+  }, []);
+
+  const locationOptions = useMemo(() => {
+    const options = [...(deviceLocation ? [deviceLocation] : []), ...PRESET_HORARY_LOCATIONS, ...searchResults];
+    return options.filter((option, index) => options.findIndex(({ id }) => id === option.id) === index);
+  }, [deviceLocation, searchResults]);
+
+  const selectLocation = (id: string) => {
+    locationSelectionRef.current = true;
+    setLocation(locationOptions.find((option) => option.id === id) ?? null);
+  };
+
+  const searchCities = async () => {
+    const query = cityQuery.trim();
+    if (query.length < 2) {
+      setSearchError("Enter at least two characters to search for a city.");
+      return;
+    }
+    if (searchInProgressRef.current) return;
+    if (Date.now() - lastSearchAtRef.current < 1_000) {
+      setSearchError("Please wait a moment before searching again.");
+      return;
+    }
+
+    const controller = new AbortController();
+    searchControllerRef.current?.abort();
+    searchControllerRef.current = controller;
+    searchInProgressRef.current = true;
+    lastSearchAtRef.current = Date.now();
+    setSearching(true);
+    setSearchError("");
+
+    try {
+      const params = new URLSearchParams({ name: query, count: "5", language: "en", format: "json" });
+      const response = await fetch(`https://geocoding-api.open-meteo.com/v1/search?${params}`, {
+        signal: controller.signal,
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) throw new Error(`City search returned HTTP ${response.status}.`);
+      const payload: unknown = await response.json();
+      const results = parseCitySearchResults(payload);
+      setSearchResults(results);
+      if (results.length === 0) setSearchError("No matching places found. Try a nearby city or choose a common location.");
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") return;
+      setSearchError("City search is unavailable. Check your connection or choose a common location.");
+    } finally {
+      if (searchControllerRef.current === controller) {
+        searchControllerRef.current = null;
+        searchInProgressRef.current = false;
+        setSearching(false);
+      }
+    }
+  };
+
+  const startNewQuestion = () => {
+    const moment = getLocalQuestionMoment();
+    setDate(moment.date);
+    setTime(moment.time);
+    setQuestionTimeZone(moment.timeZone);
+    setCategory(TABLES.horaryCategories[0]?.question ?? "");
+    setNumber("23");
+    setText("");
+    setManualSunrise(null);
+  };
+
   const context = useMemo(() => contextFromProfile(profile), [profile]);
   const selectedCategory = TABLES.horaryCategories.find((item) => item.question === category);
   const numericNumber = Number(number);
   const validTime = (value: string) => /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+  const sunriseCalculation = useMemo(
+    () => location ? calculateLocalSunrise(date, location) : null,
+    [date, location],
+  );
+  const currentSunriseOverride = manualSunrise?.date === date && manualSunrise.locationId === location?.id
+    ? manualSunrise.time
+    : null;
+  const sunrise = currentSunriseOverride ?? sunriseCalculation?.time ?? "";
   const result = useMemo(() => {
-    if (!isValidISODate(date) || !validTime(time) || !validTime(sunrise) || !Number.isInteger(numericNumber) || numericNumber < 1 || numericNumber > 249 || !category) return null;
+    if (!location || !isValidISODate(date) || !validTime(time) || !validTime(sunrise) || !Number.isInteger(numericNumber) || numericNumber < 1 || numericNumber > 249 || !category) return null;
     return judgeHorary({ date, time, category, number: numericNumber, text, querentDob: profile.input.dob }, sunrise);
-  }, [category, date, numericNumber, profile.input.dob, sunrise, text, time]);
+  }, [category, date, location, numericNumber, profile.input.dob, sunrise, text, time]);
+  const calculationMessage = !date || !time
+    ? "Capturing your local question date and time…"
+    : !isValidISODate(date)
+      ? "Enter a valid question date."
+      : !validTime(time)
+        ? "Enter the question time in 24-hour HH:MM format."
+        : !location
+          ? "Select a location to calculate its sunrise before running this reading."
+          : !validTime(sunrise)
+            ? sunriseCalculation?.reason ?? "Enter a valid sunrise time in 24-hour HH:MM format."
+            : !Number.isInteger(numericNumber) || numericNumber < 1 || numericNumber > 249
+              ? "Enter a whole spontaneous number from 1 to 249."
+              : !category
+                ? "Choose a question category."
+                : "The reading could not be calculated. Check the question details.";
   const sensitive = selectedCategory && ["Health", "Legal", "Missing", "Finance"].includes(selectedCategory.group);
   const categoriesByGroup = useMemo(() => TABLES.horaryCategories.reduce<Record<string, typeof TABLES.horaryCategories>>((groups, item) => {
     (groups[item.group] ??= []).push(item);
@@ -269,11 +435,96 @@ function HoraryPanel({ profile }: { profile: Profile }) {
   }, {}), []);
   return (
     <div className="space-y-4">
-      <PanelHeading title="Horary Oracle" description="Explore the supplied horary numerology rules using the time of the question and a number given spontaneously." />
+      <PanelHeading title="Horary Oracle" description="Use your captured local question time, a location-specific sunrise, and a number given spontaneously. Sunrise is calculated on this device." />
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <Field label="Question date" type="date" value={date} onChange={setDate} />
-        <Field label="Local question time" type="time" value={time} onChange={setTime} />
-        <Field label="Sunrise (local)" type="time" value={sunrise} onChange={setSunrise} />
+        <div className="min-w-0">
+          <Field label="Local question time (24-hour)" type="time" value={time} onChange={setTime} />
+          <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
+            <p role="status" className="text-[11px] leading-5 text-muted-foreground">
+              {questionTimeZone ? `Captured in ${questionTimeZone}; fixed for this question.` : "Capturing local time…"}
+            </p>
+            <button type="button" onClick={startNewQuestion} className="rounded px-1.5 py-1 text-[11px] font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+              New question
+            </button>
+          </div>
+        </div>
+        <div className="min-w-0 space-y-2 sm:col-span-2 xl:col-span-1">
+          <label htmlFor="horary-location-search" className="block min-w-0 text-xs font-medium text-stone-600 dark:text-stone-300">
+            Search a city or town
+          </label>
+          <div className="flex gap-2">
+            <input
+              id="horary-location-search"
+              className="h-10 min-w-0 flex-1 rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/40"
+              value={cityQuery}
+              onChange={(event) => setCityQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void searchCities();
+                }
+              }}
+              placeholder="City, town, or country"
+            />
+            <button
+              type="button"
+              onClick={() => void searchCities()}
+              disabled={searching || cityQuery.trim().length < 2}
+              className="h-10 shrink-0 rounded-lg bg-[#C64F30] px-3 text-xs font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {searching ? "Searching…" : "Search"}
+            </button>
+          </div>
+          <SelectField label="Sunrise location" value={location?.id ?? ""} onChange={selectLocation}>
+            <option value="">Select a location</option>
+            {deviceLocation && <optgroup label="Detected location"><option value={deviceLocation.id}>Current location ({deviceLocation.latitude.toFixed(2)}, {deviceLocation.longitude.toFixed(2)})</option></optgroup>}
+            <optgroup label="Common locations">
+              {PRESET_HORARY_LOCATIONS.map((option) => <option key={option.id} value={option.id}>{option.name}, {option.country}</option>)}
+            </optgroup>
+            {searchResults.some((option) => !PRESET_HORARY_LOCATIONS.some((preset) => preset.id === option.id)) && (
+              <optgroup label="Search results">
+                {searchResults.filter((option) => !PRESET_HORARY_LOCATIONS.some((preset) => preset.id === option.id)).map((option) => (
+                  <option key={option.id} value={option.id}>{option.name}{option.country ? `, ${option.country}` : ""}</option>
+                ))}
+              </optgroup>
+            )}
+          </SelectField>
+          <p role="status" className="text-[11px] leading-5 text-muted-foreground">
+            {location
+              ? `${location.country ? `${location.name}, ${location.country}` : `${location.name} · ${location.latitude.toFixed(2)}, ${location.longitude.toFixed(2)}`} · ${location.timeZone}`
+              : locationStatus}
+          </p>
+          {searching && <p role="status" className="text-[11px] text-muted-foreground">Searching Open-Meteo locations…</p>}
+          {searchError && <p role="alert" className="text-[11px] leading-5 text-rose-800 dark:text-rose-200">{searchError}</p>}
+          <p className="text-[10px] leading-4 text-muted-foreground">City search by <a href="https://open-meteo.com/" target="_blank" rel="noreferrer" className="underline underline-offset-2">Open-Meteo</a>; sunrise is calculated offline.</p>
+        </div>
+        <div className="min-w-0">
+          <Field
+            label="Sunrise (local, 24-hour)"
+            type="time"
+            value={sunrise}
+            onChange={(value) => {
+              if (location) setManualSunrise({ date, locationId: location.id, time: value });
+            }}
+          />
+          {currentSunriseOverride !== null ? (
+            <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[11px] leading-5 text-muted-foreground">
+                Manual override{sunriseCalculation?.time ? ` · calculated value ${sunriseCalculation.time}` : ""}.
+              </p>
+              <button type="button" onClick={() => setManualSunrise(null)} className="rounded px-1.5 py-1 text-[11px] font-medium text-primary underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                Use calculated sunrise
+              </button>
+            </div>
+          ) : (
+            <p role="status" className="mt-1.5 text-[11px] leading-5 text-muted-foreground">
+              {sunriseCalculation?.time && location
+                ? `Calculated for ${date} in ${location.timeZone}.`
+                : sunriseCalculation?.reason ?? "Choose a location to calculate sunrise."}
+            </p>
+          )}
+        </div>
         <SelectField label="Question category" value={category} onChange={setCategory}>
           {Object.entries(categoriesByGroup).map(([group, items]) => <optgroup key={group} label={group}>{items.map((item) => <option key={item.question} value={item.question}>{item.question}</option>)}</optgroup>)}
         </SelectField>
@@ -281,7 +532,7 @@ function HoraryPanel({ profile }: { profile: Profile }) {
         <Field label="Question text (optional)" value={text} onChange={setText} placeholder="A short description" />
       </div>
       {sensitive && <p role="note" className="rounded-lg border border-amber-300/70 bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">Traditional numerology only; this cannot assess or replace qualified medical, legal, missing-person, or financial support. Contact the appropriate professional or emergency service for urgent matters.</p>}
-      {!result ? <p role="alert" className="text-xs text-rose-700 dark:text-rose-300">Check the dates, time, and enter a whole number from 1 to 249.</p> : (
+      {!result ? <p role={!date || !time || !location ? "status" : "alert"} className="text-xs text-muted-foreground">{calculationMessage}</p> : (
         <div className="space-y-4">
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
             <div className="rounded-lg border border-border p-4">
@@ -327,10 +578,10 @@ export default function NumerologyWorkbench({ profile }: { profile: Profile | nu
       <Tabs value={activeTool} onValueChange={(value) => { if (isTool(value)) setActiveTool(value); }} className="min-w-0">
         <TabsList aria-label="Additional numerology readings" className="h-auto w-full justify-start gap-1 overflow-x-auto border-b border-stone-200 dark:border-amber-900/30">
           {TOOLS.map(({ id, label }) => (
-            <TabsTrigger key={id} value={id} className="h-10 shrink-0 px-3 text-sm text-stone-500 hover:text-stone-900 data-[state=active]:text-amber-800 after:bg-transparent data-[state=active]:after:bg-amber-700 dark:text-stone-400 dark:hover:text-stone-100 dark:data-[state=active]:text-amber-200 dark:data-[state=active]:after:bg-amber-500">{label}</TabsTrigger>
+            <TabsTrigger key={id} value={id} className="h-10 shrink-0 px-3 text-sm text-muted-foreground hover:text-foreground data-[state=active]:text-accent-foreground after:bg-transparent data-[state=active]:after:bg-primary">{label}</TabsTrigger>
           ))}
         </TabsList>
-        <div className="border-x border-b border-stone-200 bg-white px-4 py-5 shadow-sm shadow-stone-200/50 sm:px-6 sm:py-7 dark:border-amber-900/30 dark:bg-zinc-900 dark:shadow-none">
+        <div className="border-x border-b border-border bg-card px-4 py-5 shadow-sm shadow-stone-200/50 sm:px-6 sm:py-7 dark:shadow-none">
           <TabsContent value="name" className="mt-0 focus-visible:outline-none">
             {profile ? <NameAnalysis profile={profile} /> : <p className="text-sm text-stone-600 dark:text-stone-300">Add a valid name and date of birth above to unlock Nomenclature Harmony.</p>}
           </TabsContent>

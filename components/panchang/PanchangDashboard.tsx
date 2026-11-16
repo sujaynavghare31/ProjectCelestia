@@ -156,13 +156,13 @@ function ActivePanchangSummary({ data }: { data: PanchangDay }) {
   ];
 
   return (
-    <section aria-label="Active Panchang summary" className="overflow-hidden rounded-2xl border border-white/60 bg-white/70 shadow-[0_12px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/45 dark:shadow-[0_12px_42px_rgba(2,6,23,0.28)]">
+    <section aria-label="Active Panchang summary" className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       <div className="flex flex-wrap items-end justify-between gap-2 border-b border-border/70 px-4 py-3 sm:px-5">
         <div>
           <h2 className="text-sm font-semibold">Active Panchang</h2>
           <p className="mt-1 text-[11px] text-muted-foreground">Tithi, Nakshatra, Yoga, and Karana follow the selected Vedic day.</p>
         </div>
-        <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-950 dark:bg-amber-300/15 dark:text-amber-100">{activeAt}</span>
+        <span className="rounded-full bg-accent px-2.5 py-1 text-[10px] font-semibold text-accent-foreground">{activeAt}</span>
       </div>
       <dl className="grid grid-cols-2 divide-x divide-y divide-border/70 sm:grid-cols-3 lg:grid-cols-5 lg:divide-y-0">
         {summaryItems.map(({ label, value, detail }) => (
@@ -269,14 +269,14 @@ export default function PanchangDashboard() {
     Icon: LucideIcon;
     tone: string;
   }> = data ? [
-    { label: "Sunrise", value: formatTime(data.solarEvents.sunrise, data.timezone), Icon: Sunrise, tone: "text-orange-700 dark:text-orange-300" },
+    { label: "Sunrise", value: formatTime(data.solarEvents.sunrise, data.timezone), Icon: Sunrise, tone: "text-amber-700 dark:text-amber-300" },
     { label: "Solar noon", value: formatTime(data.solarEvents.solarNoon, data.timezone), Icon: Sun, tone: "text-amber-700 dark:text-amber-300" },
     { label: "Sunset", value: formatTime(data.solarEvents.sunset, data.timezone), Icon: Sunset, tone: "text-rose-700 dark:text-rose-300" },
     { label: "Civil twilight", value: data.solarEvents.civilDawn && data.solarEvents.civilDusk
       ? `${formatTime(data.solarEvents.civilDawn, data.timezone)} – ${formatTime(data.solarEvents.civilDusk, data.timezone)}`
-      : "Unavailable", Icon: Clock3, tone: "text-indigo-700 dark:text-indigo-300" },
-    { label: "Moonrise", value: formatTime(data.solarEvents.moonrise, data.timezone), Icon: Moon, tone: "text-sky-700 dark:text-sky-300" },
-    { label: "Moonset", value: formatTime(data.solarEvents.moonset, data.timezone), Icon: Moon, tone: "text-indigo-700 dark:text-indigo-300" },
+      : "Unavailable", Icon: Clock3, tone: "text-stone-700 dark:text-stone-300" },
+    { label: "Moonrise", value: formatTime(data.solarEvents.moonrise, data.timezone), Icon: Moon, tone: "text-stone-700 dark:text-stone-300" },
+    { label: "Moonset", value: formatTime(data.solarEvents.moonset, data.timezone), Icon: Moon, tone: "text-stone-700 dark:text-stone-300" },
   ] : [];
 
   return (
@@ -289,7 +289,7 @@ export default function PanchangDashboard() {
         {data && <p className="text-xs tabular-nums text-muted-foreground">{formatDate(date)}</p>}
       </header>
 
-      <section aria-label="Panchang controls" className="sticky top-0 z-20 grid gap-3 rounded-2xl border border-white/60 bg-background/85 p-4 shadow-[0_8px_28px_rgba(15,23,42,0.08)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/85 dark:shadow-[0_8px_28px_rgba(2,6,23,0.32)] md:grid-cols-[minmax(190px,0.65fr)_minmax(300px,1.35fr)]">
+      <section aria-label="Panchang controls" className="sticky top-0 z-20 grid gap-3 rounded-2xl border border-border bg-card/95 p-4 shadow-sm backdrop-blur-xl md:grid-cols-[minmax(190px,0.65fr)_minmax(300px,1.35fr)]">
         <div>
           <label htmlFor="panchang-date" className="mb-1.5 block text-xs font-medium text-foreground">Date</label>
           <span className="relative block">
@@ -327,7 +327,7 @@ export default function PanchangDashboard() {
           <p className="mt-1.5 text-[10px] text-muted-foreground">
             Selected: {location.city} · {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)} · {location.timezone}
           </p>
-          {locationSearchError && <p role="status" className="mt-1 text-xs text-destructive">{locationSearchError}</p>}
+          {locationSearchError && <p role="status" className="mt-1 text-xs text-rose-800 dark:text-rose-200">{locationSearchError}</p>}
           {locationResults.length > 0 && (
             <ul id="panchang-location-results" role="listbox" aria-label="Location search results" className="absolute left-0 right-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-lg border border-border bg-card p-1 shadow-lg">
               {locationResults.map((result) => (
@@ -369,7 +369,7 @@ export default function PanchangDashboard() {
 
           <section aria-label="Solar and lunar events" className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">
             {solarEvents.map(({ label, value, Icon, tone }) => (
-              <article key={label} className="rounded-2xl border border-white/60 bg-white/70 p-4 shadow-[0_12px_42px_rgba(15,23,42,0.04)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/45 dark:shadow-[0_12px_42px_rgba(2,6,23,0.2)]">
+              <article key={label} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
                 <div className="flex items-center justify-between gap-2">
                   <h2 className="text-xs font-medium text-muted-foreground">{label}</h2>
                   <Icon aria-hidden="true" className={`size-4 ${tone}`} />
