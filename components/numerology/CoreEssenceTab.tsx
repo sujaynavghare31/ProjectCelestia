@@ -6,7 +6,7 @@ import { PanelHeading } from "@/components/numerology/workbench-shared";
 export default function CoreEssenceTab({ profile }: { profile: Profile | null }) {
   if (!profile) {
     return (
-      <div className="rounded-xl border border-dashed border-stone-300 bg-white/70 px-6 py-10 text-center dark:border-amber-900/30 dark:bg-zinc-900/70">
+      <div className="rounded-xl border border-dashed border-border bg-card/80 px-6 py-10 text-center">
         <h3 className="font-serif text-xl tracking-wide text-stone-800 dark:text-stone-100">Your Core Essence awaits</h3>
         <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-stone-600 dark:text-stone-300">Add your name and date of birth above to reveal your personal numerology reading.</p>
       </div>

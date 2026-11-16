@@ -12,11 +12,10 @@ The application is built with Next.js and React, uses Swiss Ephemeris for astron
 - D1 Rashi, Bhava Chalit, and grouped divisional-chart selection from D2 through D60
 - Hybrid Kundali dashboard with D1 and auxiliary charts plus planetary positions in the core view
 - Virtualized Vimshottari Dasha period list
-- Lazy, URL-synchronized tabs for Vimshottari Dasha, Element & Modality, Drishti & Aspects, Ashtakavarga & Strength Analysis, Medical Astrology, and Chart Image / Export
+- Lazy, URL-synchronized tabs for Vimshottari Dasha, Element & Modality, Drishti & Aspects, Ashtakavarga & Strength Analysis, and Medical Astrology
 - Naturally sized core charts and full-height planetary positions, with no internal vertical scroll containers
 - Strength analysis for planetary and house strengths, yogas, and Upagraha details in the Ashtakavarga & Strength Analysis tab
 - Ashtakavarga calculations deferred until the tab is opened and cached for the browser session
-- SVG and PNG chart-image export
 - Interactive D1 chart controls, including birth-time adjustment and planetary highlighting
 - Royal Cosmos semantic theme tokens and light/dark mode
 - Prisma/PostgreSQL schema retained for future account and profile persistence

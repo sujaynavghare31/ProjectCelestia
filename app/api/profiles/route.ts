@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import { ChartSex } from "@/lib/generated/prisma/enums";
 import { prisma } from "@/lib/prisma";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -16,7 +17,7 @@ function serializeProfile(profile: {
   fullName: string;
   dateOfBirth: Date;
   timeOfBirth: string;
-  sex: string;
+  sex: ChartSex;
   latitude: number;
   longitude: number;
   timezone: string;
@@ -29,7 +30,7 @@ function serializeProfile(profile: {
     fullName: profile.fullName,
     dateOfBirth: profile.dateOfBirth.toISOString().slice(0, 10),
     timeOfBirth: profile.timeOfBirth,
-    sex: profile.sex,
+    sex: profile.sex === ChartSex.MALE ? "male" : profile.sex === ChartSex.FEMALE ? "female" : "not-applicable",
     latitude: profile.latitude,
     longitude: profile.longitude,
     timezone: profile.timezone,
@@ -116,7 +117,7 @@ export async function POST(request: Request) {
     fullName: name || city || "Untitled Jataka",
     dateOfBirth,
     timeOfBirth: time,
-    sex,
+    sex: sex === "male" ? ChartSex.MALE : sex === "female" ? ChartSex.FEMALE : ChartSex.NOT_APPLICABLE,
     latitude: Number(latitude),
     longitude: Number(longitude),
     timezone,

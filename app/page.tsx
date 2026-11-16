@@ -53,15 +53,15 @@ const planetDetails: Record<number, {
   friends: number[];
   luckyDay: string;
 }> = {
-  1: { planet: "Sun", traits: "Initiative, leadership, confidence", colors: ["Gold", "Orange"], swatches: ["bg-amber-500", "bg-orange-500"], gemstone: "Ruby", unfavorableColors: ["Black", "Deep blue"], enemies: [6, 8], friends: [2, 3, 9], luckyDay: "Sunday" },
+  1: { planet: "Sun", traits: "Initiative, leadership, confidence", colors: ["Gold", "Orange"], swatches: ["bg-amber-300", "bg-amber-400"], gemstone: "Ruby", unfavorableColors: ["Black", "Deep blue"], enemies: [6, 8], friends: [2, 3, 9], luckyDay: "Sunday" },
   2: { planet: "Moon", traits: "Intuition, empathy, imagination", colors: ["White", "Silver"], swatches: ["bg-slate-100", "bg-slate-400"], gemstone: "Pearl", unfavorableColors: ["Dark red", "Black"], enemies: [8], friends: [1, 3, 5], luckyDay: "Monday" },
   3: { planet: "Jupiter", traits: "Wisdom, expression, optimism", colors: ["Yellow", "Violet"], swatches: ["bg-yellow-400", "bg-violet-500"], gemstone: "Yellow sapphire", unfavorableColors: ["Black", "Dark green"], enemies: [6], friends: [1, 2, 9], luckyDay: "Thursday" },
-  4: { planet: "Rahu", traits: "Originality, discipline, persistence", colors: ["Electric blue", "Grey"], swatches: ["bg-blue-600", "bg-slate-500"], gemstone: "Hessonite", unfavorableColors: ["Red", "Orange"], enemies: [1, 8], friends: [5, 6], luckyDay: "Saturday" },
+  4: { planet: "Rahu", traits: "Originality, discipline, persistence", colors: ["Electric blue", "Grey"], swatches: ["bg-sky-300", "bg-stone-400"], gemstone: "Hessonite", unfavorableColors: ["Red", "Orange"], enemies: [1, 8], friends: [5, 6], luckyDay: "Saturday" },
   5: { planet: "Mercury", traits: "Adaptability, curiosity, communication", colors: ["Emerald", "Turquoise"], swatches: ["bg-emerald-500", "bg-teal-400"], gemstone: "Emerald", unfavorableColors: ["Red", "Black"], enemies: [], friends: [1, 3, 6], luckyDay: "Wednesday" },
   6: { planet: "Venus", traits: "Harmony, aesthetics, responsibility", colors: ["Rose", "Sky blue"], swatches: ["bg-rose-400", "bg-sky-400"], gemstone: "Diamond", unfavorableColors: ["Dark red", "Black"], enemies: [1, 3], friends: [2, 5, 8], luckyDay: "Friday" },
   7: { planet: "Ketu", traits: "Reflection, insight, independence", colors: ["Sea green", "White"], swatches: ["bg-teal-500", "bg-slate-100"], gemstone: "Cat’s eye", unfavorableColors: ["Black", "Dark red"], enemies: [8], friends: [1, 2, 5], luckyDay: "Monday" },
-  8: { planet: "Saturn", traits: "Ambition, resilience, achievement", colors: ["Navy", "Charcoal"], swatches: ["bg-indigo-900", "bg-slate-700"], gemstone: "Blue sapphire", unfavorableColors: ["Red", "Orange"], enemies: [1, 2, 4], friends: [5, 6], luckyDay: "Saturday" },
-  9: { planet: "Mars", traits: "Courage, compassion, determination", colors: ["Red", "Coral"], swatches: ["bg-red-500", "bg-orange-400"], gemstone: "Red coral", unfavorableColors: ["Black", "Navy"], enemies: [], friends: [1, 3, 5], luckyDay: "Tuesday" },
+  8: { planet: "Saturn", traits: "Ambition, resilience, achievement", colors: ["Navy", "Charcoal"], swatches: ["bg-slate-500", "bg-stone-700"], gemstone: "Blue sapphire", unfavorableColors: ["Red", "Orange"], enemies: [1, 2, 4], friends: [5, 6], luckyDay: "Saturday" },
+  9: { planet: "Mars", traits: "Courage, compassion, determination", colors: ["Red", "Coral"], swatches: ["bg-rose-300", "bg-rose-200"], gemstone: "Red coral", unfavorableColors: ["Black", "Navy"], enemies: [], friends: [1, 3, 5], luckyDay: "Tuesday" },
 };
 
 const arrowDefinitions = [
@@ -87,9 +87,9 @@ const navigationItems = [
 function NumerologyTabLoading() {
   return (
     <div aria-label="Loading analysis" className="animate-pulse space-y-4 py-4">
-      <div className="h-5 w-48 rounded bg-stone-200 dark:bg-zinc-800" />
-      <div className="h-4 w-3/4 rounded bg-stone-100 dark:bg-zinc-900" />
-      <div className="h-24 rounded-xl bg-stone-100 dark:bg-zinc-900" />
+      <div className="h-5 w-48 rounded bg-muted" />
+      <div className="h-4 w-3/4 rounded bg-muted/60" />
+      <div className="h-24 rounded-xl bg-muted/60" />
     </div>
   );
 }
@@ -100,9 +100,9 @@ const SynergyBondsTab = dynamic(() => import("@/components/numerology/SynergyBon
 const NumerologyWorkbench = dynamic(() => import("@/components/numerology/NumerologyWorkbench"), {
   loading: () => (
     <div aria-label="Loading vibrational analysis suite" className="mt-8 animate-pulse space-y-4">
-      <div className="h-7 w-64 rounded bg-stone-200 dark:bg-zinc-800" />
-      <div className="h-16 rounded-xl bg-stone-100 dark:bg-zinc-900" />
-      <div className="h-40 rounded-xl bg-stone-100 dark:bg-zinc-900" />
+      <div className="h-7 w-64 rounded bg-muted" />
+      <div className="h-16 rounded-xl bg-muted/60" />
+      <div className="h-40 rounded-xl bg-muted/60" />
     </div>
   ),
 });
@@ -179,7 +179,7 @@ function MetricCard({
             <Orbit className="size-3.5" /> {planet}
           </div>
         </div>
-        <p className="mt-4 min-h-9 rounded-lg bg-slate-50 px-3 py-2 font-mono text-xs leading-5 text-slate-600 dark:bg-slate-950/70 dark:text-slate-300">{breakdown || "Add a valid date of birth"}</p>
+        <p className="mt-4 min-h-9 rounded-lg bg-muted/60 px-3 py-2 font-mono text-xs leading-5 text-muted-foreground">{breakdown || "Add a valid date of birth"}</p>
         <p className="mt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-400">{subtitle}</p>
       </CardContent>
     </Card>
@@ -344,7 +344,7 @@ export default function Home() {
     <main className="flex min-h-screen min-w-0 flex-col overflow-x-hidden bg-background text-foreground">
         <header className="z-30 flex min-h-[60px] shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-card px-4 py-2 sm:flex-nowrap sm:gap-3 sm:px-6 sm:py-0">
           <a href="#kundali-charts" onClick={(event) => { event.preventDefault(); navigate("kundali"); }} className="flex min-w-0 items-center gap-2.5" aria-label="Project Celestia Kundali dashboard">
-            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-900 dark:bg-slate-800">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
               <svg viewBox="0 0 36 36" aria-hidden="true" className="size-5">
                 <circle cx="18" cy="18" r="6.5" fill="#f59e0b" />
                 <path d="M18 3.5v5M18 27.5v5M3.5 18h5M27.5 18h5M7.75 7.75l3.6 3.6M24.65 24.65l3.6 3.6M28.25 7.75l-3.6 3.6M11.35 24.65l-3.6 3.6" stroke="#fbbf24" strokeWidth="2.2" strokeLinecap="round" />
@@ -381,7 +381,7 @@ export default function Home() {
                 <a href="/login" className="rounded-lg px-2 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground">
                   Sign in
                 </a>
-                <a href="/login?mode=signup" className="inline-flex h-9 items-center rounded-lg bg-amber-700 px-3 text-xs font-semibold text-white transition hover:bg-amber-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600/50">
+                <a href="/login?mode=signup" className="inline-flex h-9 items-center rounded-lg bg-[#C64F30] px-3 text-xs font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40">
                   Sign up
                 </a>
               </>
@@ -422,14 +422,14 @@ export default function Home() {
                 <TabsTrigger value="about"><Info className="size-3.5" /> About</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="numerology" className="mt-6 rounded-2xl bg-[#FDFBF7] p-4 shadow-sm shadow-stone-200/50 focus-visible:outline-none sm:p-6 dark:bg-zinc-950 dark:shadow-none">
+              <TabsContent value="numerology" className="mt-6 rounded-2xl bg-background p-4 shadow-sm shadow-stone-200/50 focus-visible:outline-none sm:p-6 dark:shadow-none">
                 <Tabs defaultValue="core-essence" className="min-w-0">
-                  <TabsList aria-label="Vibrational analysis sections" className="sticky top-0 z-30 mb-5 h-auto w-full justify-start gap-1 overflow-x-auto rounded-t-xl border border-stone-200 bg-[#FDFBF7]/95 px-2 pt-2 shadow-sm shadow-stone-200/50 backdrop-blur dark:border-amber-900/30 dark:bg-zinc-950/95 dark:shadow-none">
-                    <TabsTrigger value="core-essence" className="h-10 rounded-t-lg px-3 text-sm text-stone-500 hover:text-stone-900 data-[state=active]:text-amber-800 after:inset-x-2 after:bg-transparent data-[state=active]:after:bg-amber-700 dark:text-stone-400 dark:hover:text-stone-100 dark:data-[state=active]:text-amber-200 dark:data-[state=active]:after:bg-amber-500">Core Essence</TabsTrigger>
-                    <TabsTrigger value="enterprise" className="h-10 rounded-t-lg px-3 text-sm text-stone-500 hover:text-stone-900 data-[state=active]:text-amber-800 after:inset-x-2 after:bg-transparent data-[state=active]:after:bg-amber-700 dark:text-stone-400 dark:hover:text-stone-100 dark:data-[state=active]:text-amber-200 dark:data-[state=active]:after:bg-amber-500">Enterprise &amp; Commerce</TabsTrigger>
-                    <TabsTrigger value="synergy" className="h-10 rounded-t-lg px-3 text-sm text-stone-500 hover:text-stone-900 data-[state=active]:text-amber-800 after:inset-x-2 after:bg-transparent data-[state=active]:after:bg-amber-700 dark:text-stone-400 dark:hover:text-stone-100 dark:data-[state=active]:text-amber-200 dark:data-[state=active]:after:bg-amber-500">Synergy &amp; Bonds</TabsTrigger>
-                    <TabsTrigger value="additional" className="h-10 rounded-t-lg px-3 text-sm text-stone-500 hover:text-stone-900 data-[state=active]:text-amber-800 after:inset-x-2 after:bg-transparent data-[state=active]:after:bg-amber-700 dark:text-stone-400 dark:hover:text-stone-100 dark:data-[state=active]:text-amber-200 dark:data-[state=active]:after:bg-amber-500">Additional Analysis</TabsTrigger>
-                    <TabsTrigger value="in-depth" className="h-10 rounded-t-lg px-3 text-sm text-stone-500 hover:text-stone-900 data-[state=active]:text-amber-800 after:inset-x-2 after:bg-transparent data-[state=active]:after:bg-amber-700 dark:text-stone-400 dark:hover:text-stone-100 dark:data-[state=active]:text-amber-200 dark:data-[state=active]:after:bg-amber-500">In-Depth Reading</TabsTrigger>
+                  <TabsList aria-label="Vibrational analysis sections" className="sticky top-0 z-30 mb-5 h-auto w-full justify-start gap-1 overflow-x-auto rounded-t-xl border border-border bg-background/95 px-2 pt-2 shadow-sm shadow-stone-200/50 backdrop-blur dark:shadow-none">
+                    <TabsTrigger value="core-essence" className="h-10 rounded-t-lg px-3 text-sm text-muted-foreground hover:text-foreground data-[state=active]:text-accent-foreground after:inset-x-2 after:bg-transparent data-[state=active]:after:bg-primary">Core Essence</TabsTrigger>
+                    <TabsTrigger value="enterprise" className="h-10 rounded-t-lg px-3 text-sm text-muted-foreground hover:text-foreground data-[state=active]:text-accent-foreground after:inset-x-2 after:bg-transparent data-[state=active]:after:bg-primary">Enterprise &amp; Commerce</TabsTrigger>
+                    <TabsTrigger value="synergy" className="h-10 rounded-t-lg px-3 text-sm text-muted-foreground hover:text-foreground data-[state=active]:text-accent-foreground after:inset-x-2 after:bg-transparent data-[state=active]:after:bg-primary">Synergy &amp; Bonds</TabsTrigger>
+                    <TabsTrigger value="additional" className="h-10 rounded-t-lg px-3 text-sm text-muted-foreground hover:text-foreground data-[state=active]:text-accent-foreground after:inset-x-2 after:bg-transparent data-[state=active]:after:bg-primary">Additional Analysis</TabsTrigger>
+                    <TabsTrigger value="in-depth" className="h-10 rounded-t-lg px-3 text-sm text-muted-foreground hover:text-foreground data-[state=active]:text-accent-foreground after:inset-x-2 after:bg-transparent data-[state=active]:after:bg-primary">In-Depth Reading</TabsTrigger>
                   </TabsList>
                   <TabsContent value="core-essence" className="mt-0 focus-visible:outline-none">
                 <div className="grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -440,12 +440,12 @@ export default function Home() {
                         <div className="space-y-3.5">
                           <label className="block">
                             <span className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">Full name</span>
-                            <input value={fullName} onChange={(event) => setBirthProfile({ name: event.target.value })} placeholder="Enter your full name" className="h-10 w-full rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-800 outline-none transition placeholder:text-stone-400 focus:border-amber-700 focus:ring-2 focus:ring-amber-700/10 dark:border-amber-900/30 dark:bg-zinc-900 dark:text-stone-100 dark:focus:border-amber-500" />
+                            <input value={fullName} onChange={(event) => setBirthProfile({ name: event.target.value })} placeholder="Enter your full name" className="h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/40" />
                           </label>
                           <label className="block">
                             <span className="mb-1.5 block text-xs font-medium text-slate-600 dark:text-slate-400">Date of birth</span>
                             <span className="relative block">
-                              <input type="date" value={dateOfBirth} onChange={(event) => setBirthProfile({ date: event.target.value })} className="h-10 w-full rounded-lg border border-stone-200 bg-white px-3 pr-10 text-sm text-stone-800 outline-none transition focus:border-amber-700 focus:ring-2 focus:ring-amber-700/10 dark:border-amber-900/30 dark:bg-zinc-900 dark:text-stone-100 dark:focus:border-amber-500" />
+                              <input type="date" value={dateOfBirth} onChange={(event) => setBirthProfile({ date: event.target.value })} className="h-10 w-full rounded-lg border border-border bg-card px-3 pr-10 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/40" />
                               <CalendarDays className="pointer-events-none absolute right-3 top-3 size-4 text-slate-600" />
                             </span>
                           </label>
@@ -495,7 +495,7 @@ export default function Home() {
                           <div className="mb-2 flex items-center justify-between"><SectionLabel>Letter values · {fullName.trim() || "enter a name"}</SectionLabel><span className="text-xs text-slate-600">{system ? "A–Z" : "CHALDEAN"}</span></div>
                           <div className="flex flex-wrap gap-1.5">
                             {numerology.letters.length ? numerology.letters.map(({ character, value, index }) => (
-                              <div key={`${character}-${index}`} className="min-w-8 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-1 text-center dark:border-slate-800 dark:bg-slate-950/60">
+                              <div key={`${character}-${index}`} className="min-w-8 rounded-md border border-border bg-muted/60 px-1.5 py-1 text-center">
                                 <span className="block text-xs font-medium text-slate-800 dark:text-slate-200">{character}</span><span className="block text-xs text-slate-600">{value}</span>
                               </div>
                             )) : <p className="text-xs text-slate-600">Enter letters to calculate your name number.</p>}
@@ -532,11 +532,11 @@ export default function Home() {
                                   type="button"
                                   disabled={!numerology.birth}
                                   onClick={() => setSelectedNumber(selectedNumber === number ? null : number)}
-                                  className={`relative z-0 flex flex-col items-center justify-center rounded-xl border border-white/80 bg-white/70 shadow-sm shadow-stone-200/50 backdrop-blur-md transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600 dark:border-amber-900/30 dark:bg-zinc-900/70 dark:shadow-none dark:focus-visible:ring-amber-400 ${count > 0 ? "bg-[radial-gradient(circle_at_50%_40%,rgba(167,243,208,0.65),rgba(253,251,247,0.9)_72%)] dark:bg-[radial-gradient(circle_at_50%_40%,rgba(20,83,45,0.4),rgba(24,24,27,0.92)_72%)]" : "opacity-50"} ${selectedNumber === number ? "ring-2 ring-amber-600 ring-offset-2 ring-offset-white dark:ring-amber-400 dark:ring-offset-zinc-950" : ""}`}
+                                  className={`relative z-0 flex flex-col items-center justify-center rounded-xl border border-border bg-card shadow-sm shadow-stone-200/50 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${count > 0 ? "bg-accent" : "opacity-50"} ${selectedNumber === number ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
                                   aria-label={`Number ${number}, ${count === 0 ? "missing" : `present ${count} times`}`}
                                 >
-                                  <span className={`font-serif text-3xl ${count > 0 ? "text-emerald-900 dark:text-emerald-200" : "text-stone-600 dark:text-stone-400"}`}>{count ? String(number).repeat(count) : number}</span>
-                                  {count > 0 && <span className="mt-1 text-xs text-emerald-900 dark:text-emerald-300">{count}×</span>}
+                                  <span className={`font-serif text-3xl ${count > 0 ? "text-accent-foreground" : "text-muted-foreground"}`}>{count ? String(number).repeat(count) : number}</span>
+                                  {count > 0 && <span className="mt-1 text-xs text-accent-foreground">{count}×</span>}
                                 </button>
                               );
                             })}
@@ -558,12 +558,12 @@ export default function Home() {
                       <CardContent>
                         <div className="space-y-2.5">
                           {arrows.map((arrow) => (
-                            <div key={arrow.label} className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2.5 dark:bg-slate-950/60">
+                            <div key={arrow.label} className="flex items-center justify-between gap-3 rounded-lg bg-muted/60 px-3 py-2.5">
                               <div>
                                 <p className="text-xs font-medium">{arrow.numbers.join(" – ")} <span className="font-normal text-slate-600 dark:text-slate-400">{arrow.label}</span></p>
                                 <p className="mt-0.5 text-xs text-slate-600 dark:text-slate-400">{arrow.explanation}</p>
                               </div>
-                              <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${arrow.complete ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-400/10 dark:text-emerald-300" : "bg-stone-200 text-stone-700 dark:bg-zinc-800 dark:text-zinc-300"}`}>
+                              <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${arrow.complete ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-400/10 dark:text-emerald-300" : "bg-muted text-foreground"}`}>
                                 {arrow.complete && <Check className="size-3" />}{arrow.complete ? "Complete" : `${arrow.count}/3`}
                               </span>
                             </div>
@@ -601,7 +601,7 @@ export default function Home() {
                             { icon: Smartphone, label: "Mobile number", number: luckyNumbers[1] ?? luckyNumbers[0] },
                             { icon: CarFront, label: "Vehicle", number: luckyNumbers[2] ?? luckyNumbers[0] },
                           ].map(({ icon: Icon, label, number }) => (
-                            <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 dark:border-slate-800 dark:bg-slate-950/50">
+                            <div key={label} className="rounded-xl border border-border bg-muted/60 p-2.5">
                               <Icon className="size-4 text-amber-700 dark:text-amber-300" />
                               <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">{label}</p>
                               <p className="mt-0.5 text-xs font-semibold">{number ? `Ends in ${number}` : "—"}</p>
@@ -611,13 +611,13 @@ export default function Home() {
                         <div className="space-y-3">
                           <div className="flex items-center justify-between gap-3">
                             <div><p className="text-xs text-slate-600 dark:text-slate-400">Kua number · {numerology.birth?.year ?? "—"}</p><p className="mt-0.5 text-xs text-slate-600">Feng Shui personal direction number</p></div>
-                            <select aria-label="Kua calculation gender" value={kuaGender} onChange={(event) => setKuaGender(event.target.value as "male" | "female")} className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-950">
+                            <select aria-label="Kua calculation gender" value={kuaGender} onChange={(event) => setKuaGender(event.target.value as "male" | "female")} className="rounded-md border border-input bg-card px-2 py-1 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
                               <option value="male">Male · {numerology.kuaMaleNumber ?? "—"}</option><option value="female">Female · {numerology.kuaFemaleNumber ?? "—"}</option>
                             </select>
                           </div>
                           <div className="border-t border-slate-100 pt-3 dark:border-slate-800">
                             <div className="flex items-center justify-between"><div><p className="text-xs text-slate-600 dark:text-slate-400">Personal year · {currentYear}</p><p className="mt-0.5 text-xs text-slate-600">{numerology.personalYearTrace || "Enter a valid date of birth"}</p></div><span className="grid size-8 shrink-0 place-items-center rounded-lg bg-emerald-50 text-sm font-semibold text-emerald-900 dark:bg-emerald-400/10 dark:text-emerald-300">{numerology.personalYear ?? "—"}</span></div>
-                            <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800" role="progressbar" aria-label="Personal year progress" aria-valuenow={mounted ? Math.round(numerology.personalYearProgress) : 0} aria-valuemin={0} aria-valuemax={100}>
+                            <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Personal year progress" aria-valuenow={mounted ? Math.round(numerology.personalYearProgress) : 0} aria-valuemin={0} aria-valuemax={100}>
                               <div className="h-full rounded-full bg-gradient-to-r from-emerald-700 to-emerald-500 transition-[width]" style={{ width: `${mounted ? Math.round(numerology.personalYearProgress) : 0}%` }} />
                             </div>
                             <p className="mt-1 text-right text-xs text-slate-600">{mounted ? Math.round(numerology.personalYearProgress) : 0}% through birthday year</p>
@@ -667,7 +667,7 @@ export default function Home() {
                         <div className="space-y-3">
                           <div className="flex items-center justify-between gap-3">
                             <div><p className="text-xs text-slate-600 dark:text-slate-400">Mulank ↔ Bhagyank</p><p className="mt-0.5 text-xs font-medium">{numerology.mulank ?? "—"} <span className="text-slate-600">with</span> {numerology.bhagyank ?? "—"}</p></div>
-                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${relationship === "Friendly" ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-400/10 dark:text-emerald-300" : relationship === "Enemy" ? "bg-rose-100 text-rose-800 dark:bg-rose-400/10 dark:text-rose-300" : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"}`}>{relationship}</span>
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${relationship === "Friendly" ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-400/10 dark:text-emerald-300" : relationship === "Enemy" ? "bg-rose-100 text-rose-800 dark:bg-rose-400/10 dark:text-rose-300" : "bg-muted text-foreground"}`}>{relationship}</span>
                           </div>
                           <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
                             <div><p className="text-xs text-slate-600 dark:text-slate-400">Lucky dates</p><p className="mt-1 text-xs font-medium">{luckyDates.length ? luckyDates.map((day) => `${day}${day === 1 || day === 21 || day === 31 ? "st" : day === 2 || day === 22 ? "nd" : day === 3 || day === 23 ? "rd" : "th"}`).join(" · ") : "—"}</p></div>

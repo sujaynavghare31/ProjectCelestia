@@ -13,9 +13,12 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-primary: hsl(var(--primary));
+  --color-primary-hover: hsl(var(--primary-hover));
   --color-primary-foreground: hsl(var(--primary-foreground));
   --color-accent: hsl(var(--accent));
   --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
   --color-chart-lines: hsl(var(--chart-grid));
   --color-gold-accent: hsl(var(--champagne-gold));
   --color-gold-foreground: hsl(var(--champagne-gold));
@@ -27,33 +30,36 @@
 @layer base {
   :root {
     color-scheme: light;
-    --background: 48 33% 97%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --muted: 48 20% 94%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --primary: 35 39% 64%;
-    --primary-foreground: 210 40% 98%;
-    --accent: 35 39% 64%;
-    --accent-foreground: 210 40% 98%;
-    --muted-foreground: 215 16% 47%;
-    --champagne-gold: 35 39% 64%;
-    --chart-grid: 214 32% 91%;
-    --chart-1: 211 54% 46%;
-    --chart-2: 152 39% 42%;
-    --chart-3: 271 32% 56%;
-    --chart-4: 349 47% 54%;
-    --chart-5: 42 57% 51%;
-    --chart-6: 22 42% 52%;
-    --chart-7: 215 24% 48%;
-    --chart-8: 188 38% 42%;
-    --chart-9: 326 31% 52%;
-    --chart-10: 164 30% 45%;
-    --chart-11: 29 48% 49%;
-    --chart-12: 200 35% 45%;
-    --retrograde-crimson: 0 70% 35%;
+    --background: 40 60% 98%;
+    --foreground: 22 21% 19%;
+    --card: 40 100% 99%;
+    --card-foreground: 22 21% 19%;
+    --muted: 32 30% 93%;
+    --border: 26 27% 85%;
+    --input: 26 27% 85%;
+    --primary: 14 57% 43%;
+    --primary-hover: 14 55% 41%;
+    --primary-foreground: 40 60% 98%;
+    --accent: 12 48% 94%;
+    --accent-foreground: 14 55% 41%;
+    --popover: 40 100% 99%;
+    --popover-foreground: 22 21% 19%;
+    --muted-foreground: 24 11% 42%;
+    --champagne-gold: 14 57% 45%;
+    --chart-grid: 26 27% 85%;
+    --chart-1: 14 57% 45%;
+    --chart-2: 136 24% 40%;
+    --chart-3: 24 46% 54%;
+    --chart-4: 4 41% 53%;
+    --chart-5: 38 47% 49%;
+    --chart-6: 17 42% 43%;
+    --chart-7: 24 10% 47%;
+    --chart-8: 92 25% 38%;
+    --chart-9: 330 24% 49%;
+    --chart-10: 155 23% 39%;
+    --chart-11: 22 48% 46%;
+    --chart-12: 350 28% 47%;
+    --retrograde-crimson: 4 55% 38%;
     --radius: 0.75rem;
     --chart-panel: hsl(var(--card));
     --chart-line: hsl(var(--chart-grid));
@@ -62,38 +68,41 @@
     --chart-transit: hsl(var(--champagne-gold));
     --gold: hsl(var(--champagne-gold));
     --cyan: hsl(var(--champagne-gold));
-    --body-glow: rgb(37 99 235 / 0.5);
+    --body-glow: rgb(178 79 49 / 0.2);
   }
 
   .dark {
     color-scheme: dark;
-    --background: 222 71% 4%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
-    --muted: 215 28% 17%;
-    --border: 215 28% 17%;
-    --input: 215 28% 17%;
-    --primary: 35 39% 64%;
-    --primary-foreground: 222 47% 11%;
-    --accent: 35 39% 64%;
-    --accent-foreground: 210 40% 98%;
-    --muted-foreground: 215 20% 65%;
-    --champagne-gold: 35 39% 64%;
-    --chart-grid: 215 28% 17%;
-    --chart-1: 211 62% 62%;
-    --chart-2: 152 45% 58%;
-    --chart-3: 271 46% 70%;
-    --chart-4: 349 61% 68%;
-    --chart-5: 42 70% 65%;
-    --chart-6: 22 58% 64%;
-    --chart-7: 215 30% 65%;
-    --chart-8: 188 48% 60%;
-    --chart-9: 326 43% 66%;
-    --chart-10: 164 42% 60%;
-    --chart-11: 29 64% 63%;
-    --chart-12: 200 48% 62%;
-    --retrograde-crimson: 0 70% 35%;
+    --background: 20 17% 12%;
+    --foreground: 30 33% 90%;
+    --card: 21 17% 16%;
+    --card-foreground: 30 33% 90%;
+    --muted: 22 16% 22%;
+    --border: 24 18% 28%;
+    --input: 24 18% 28%;
+    --primary: 14 57% 43%;
+    --primary-hover: 14 55% 41%;
+    --primary-foreground: 40 60% 98%;
+    --accent: 15 24% 22%;
+    --accent-foreground: 14 49% 71%;
+    --popover: 21 17% 16%;
+    --popover-foreground: 30 33% 90%;
+    --muted-foreground: 27 16% 69%;
+    --champagne-gold: 14 57% 45%;
+    --chart-grid: 24 18% 28%;
+    --chart-1: 14 63% 62%;
+    --chart-2: 136 31% 62%;
+    --chart-3: 24 55% 68%;
+    --chart-4: 4 55% 68%;
+    --chart-5: 38 59% 65%;
+    --chart-6: 17 50% 62%;
+    --chart-7: 24 15% 68%;
+    --chart-8: 92 33% 61%;
+    --chart-9: 330 34% 68%;
+    --chart-10: 155 31% 60%;
+    --chart-11: 22 57% 65%;
+    --chart-12: 350 38% 66%;
+    --retrograde-crimson: 4 58% 65%;
     --chart-panel: hsl(var(--card));
     --chart-line: hsl(var(--chart-grid));
     --chart-muted: hsl(var(--muted-foreground));
@@ -101,7 +110,7 @@
     --chart-transit: hsl(var(--champagne-gold));
     --gold: hsl(var(--champagne-gold));
     --cyan: hsl(var(--champagne-gold));
-    --body-glow: rgb(6 182 212 / 0.8);
+    --body-glow: rgb(217 128 96 / 0.24);
   }
 
   * {
@@ -115,7 +124,7 @@
   }
 
   ::selection {
-    background: hsl(var(--champagne-gold) / 0.25);
+    background: hsl(var(--primary) / 0.22);
   }
 }
 

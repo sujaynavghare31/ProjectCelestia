@@ -3,6 +3,8 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
+const authSecret = process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET;
+
 declare module "next-auth" {
   interface Session {
     user: {
@@ -24,7 +26,7 @@ declare module "next-auth/jwt" {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+  secret: authSecret,
   trustHost: true,
   session: { strategy: "jwt" },
   providers: [
@@ -41,17 +43,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const username = credentials.username.trim().toLowerCase();
         if (!username || !credentials.password) return null;
 
-        const user = await prisma.user.findUnique({ where: { username } });
-        if (!user?.passwordHash || !(await bcrypt.compare(credentials.password, user.passwordHash))) {
-          return null;
-        }
+        try {
+          const user = await prisma.user.findUnique({ where: { username } });
+          if (!user?.passwordHash || !(await bcrypt.compare(credentials.password, user.passwordHash))) {
+            return null;
+          }
 
-        return {
-          id: user.id,
-          name: user.username,
-          email: user.email,
-          role: user.role,
-        };
+          return {
+            id: user.id,
+            name: user.username,
+            email: user.email,
+            role: user.role,
+          };
+        } catch (error) {
+          console.error("[auth/credentials] User lookup or password verification failed", error);
+          throw error;
+        }
       },
     }),
   ],

@@ -4,9 +4,9 @@ import type { ReactNode } from "react";
 import { verdictClass } from "@/lib/numerology/ui";
 
 const controlClass =
-  "mt-1.5 h-10 w-full rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-800 outline-none transition placeholder:text-stone-400 focus:border-amber-700 focus:ring-2 focus:ring-amber-700/10 disabled:cursor-not-allowed disabled:opacity-60 dark:border-amber-900/30 dark:bg-zinc-900 dark:text-stone-100 dark:focus:border-amber-500";
+  "mt-1.5 h-10 w-full rounded-lg border border-border bg-card px-3 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-60";
 const textAreaClass =
-  "mt-1.5 min-h-24 w-full resize-y rounded-lg border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-800 outline-none transition placeholder:text-stone-400 focus:border-amber-700 focus:ring-2 focus:ring-amber-700/10 dark:border-amber-900/30 dark:bg-zinc-900 dark:text-stone-100 dark:focus:border-amber-500";
+  "mt-1.5 min-h-24 w-full resize-y rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-foreground outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/40";
 
 export function todayISO() {
   const today = new Date();

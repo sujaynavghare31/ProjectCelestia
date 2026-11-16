@@ -6,12 +6,12 @@ import { PLANET_ORDER } from "../../lib/astrology/engines/midpoints";
 import { MIDPOINT_MODE_LABELS, type MidpointChartReport, visibleMidpointRows, visibleMidpointTrees } from "../../lib/astrology/midpoint-chart";
 import type { MidpointPreferences } from "../../lib/kundali-types";
 
-const CONTROL_CLASS = "h-9 min-w-0 rounded-lg border border-input bg-card px-2.5 text-xs text-card-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10";
-const TOGGLE_CLASS = "min-h-9 rounded-lg border border-border px-3 text-xs font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
+const CONTROL_CLASS = "h-9 min-w-0 rounded-lg border border-input bg-card px-2.5 text-xs text-card-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/40";
+const TOGGLE_CLASS = "min-h-9 rounded-lg border border-border px-3 text-xs font-medium transition hover:bg-blue-50 hover:text-blue-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400";
 
 function ToggleButton({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" aria-pressed={pressed} onClick={onClick} className={`${TOGGLE_CLASS} ${pressed ? "bg-primary/15 text-foreground" : "bg-card text-muted-foreground"}`}>
+    <button type="button" aria-pressed={pressed} onClick={onClick} className={`${TOGGLE_CLASS} ${pressed ? "border-blue-200 bg-blue-100 text-blue-900" : "bg-card text-muted-foreground"}`}>
       {children}
     </button>
   );

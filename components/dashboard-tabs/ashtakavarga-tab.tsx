@@ -107,8 +107,8 @@ function AshtakavargaTable({ data, language, useSignIcons, ascendantSign }: { da
                 const house = getSignHouse(sign, ascendantSign);
                 const label = useSignIcons ? signName(SIGNS[sign], language) : language === "en" || language === "initials" ? SHORT_SIGNS[sign] : signName(SIGNS[sign], language);
                 return (
-                  <th key={sign} className={`bg-transparent px-2 py-3 text-xs font-medium uppercase tracking-wider ${selectedSign === sign ? "bg-cyan-50 dark:bg-cyan-950/40" : ""}`}>
-                    <button type="button" aria-pressed={selectedSign === sign} aria-label={`${label}, House ${house}`} onClick={() => { setSelectedSign(sign); setSelectedPlanet("Sarvashtakavarga"); }} className="flex min-w-9 flex-col items-center rounded-md px-1 py-1 transition hover:bg-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 dark:hover:bg-cyan-900/50">
+                  <th key={sign} className={`bg-transparent px-2 py-3 text-xs font-medium uppercase tracking-wider ${selectedSign === sign ? "bg-accent" : ""}`}>
+                    <button type="button" aria-pressed={selectedSign === sign} aria-label={`${label}, House ${house}`} onClick={() => { setSelectedSign(sign); setSelectedPlanet("Sarvashtakavarga"); }} className="flex min-w-9 flex-col items-center rounded-md px-1 py-1 transition hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
                       <span>{useSignIcons ? <SignMark sign={sign} label={label} enabled /> : label}</span>
                       <span className="mt-0.5 text-xs font-medium text-slate-600 dark:text-slate-400">House {house}</span>
                     </button>
@@ -123,8 +123,8 @@ function AshtakavargaTable({ data, language, useSignIcons, ascendantSign }: { da
               <tr key={row.planet} className="divide-x divide-border text-foreground">
                 <th className="sticky left-0 bg-card px-4 py-3 text-left font-medium">{planetName(row.planet, language)}</th>
                 {row.bindus.map((bindu, sign) => (
-                  <td key={sign} className={`bg-transparent px-2 py-3 text-right tabular-nums ${selectedSign === sign ? "bg-blue-100/70 text-blue-950 dark:bg-blue-900/35 dark:text-blue-100" : "text-foreground"}`}>
-                    <button type="button" aria-label={`${planetName(row.planet, language)} bindus in ${signName(SIGNS[sign], language)}, House ${getSignHouse(sign, ascendantSign)}: ${bindu}`} onClick={() => { setSelectedSign(sign); setSelectedPlanet(row.planet); }} className="min-w-7 rounded px-1 py-1 transition hover:bg-cyan-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 dark:hover:bg-cyan-900/60">{bindu}</button>
+                  <td key={sign} className={`bg-transparent px-2 py-3 text-right tabular-nums ${selectedSign === sign ? "bg-accent text-accent-foreground" : "text-foreground"}`}>
+                    <button type="button" aria-label={`${planetName(row.planet, language)} bindus in ${signName(SIGNS[sign], language)}, House ${getSignHouse(sign, ascendantSign)}: ${bindu}`} onClick={() => { setSelectedSign(sign); setSelectedPlanet(row.planet); }} className="min-w-7 rounded px-1 py-1 transition hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">{bindu}</button>
                   </td>
                 ))}
                 <td className="bg-transparent px-4 py-3 text-right font-semibold text-amber-700 dark:text-amber-300">{row.total}</td>
@@ -133,8 +133,8 @@ function AshtakavargaTable({ data, language, useSignIcons, ascendantSign }: { da
             <tr className="divide-x divide-border font-semibold text-foreground">
               <th className="sticky left-0 bg-card px-4 py-3 text-left">Sarvashtakavarga</th>
               {data.sarvashtakavarga.map((bindu, sign) => (
-                <td key={sign} className={`bg-transparent px-2 py-3 text-right tabular-nums ${selectedSign === sign ? "bg-cyan-100/70 dark:bg-cyan-900/50" : ""}`}>
-                  <button type="button" aria-label={`Sarvashtakavarga bindus in ${signName(SIGNS[sign], language)}, House ${getSignHouse(sign, ascendantSign)}: ${bindu}`} onClick={() => { setSelectedSign(sign); setSelectedPlanet("Sarvashtakavarga"); }} className="min-w-7 rounded px-1 py-1 transition hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/40 dark:hover:bg-amber-900/40">{bindu}</button>
+                <td key={sign} className={`bg-transparent px-2 py-3 text-right tabular-nums ${selectedSign === sign ? "bg-accent" : ""}`}>
+                  <button type="button" aria-label={`Sarvashtakavarga bindus in ${signName(SIGNS[sign], language)}, House ${getSignHouse(sign, ascendantSign)}: ${bindu}`} onClick={() => { setSelectedSign(sign); setSelectedPlanet("Sarvashtakavarga"); }} className="min-w-7 rounded px-1 py-1 transition hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">{bindu}</button>
                 </td>
               ))}
               <td className="bg-transparent px-4 py-3 text-right">{data.sarvashtakavarga.reduce((sum, value) => sum + value, 0)}</td>
@@ -222,7 +222,7 @@ export default function AshtakavargaTab({
         <p className="mt-1 text-xs text-muted-foreground">Eight contributors across the twelve signs · Sarvashtakavarga total</p>
       </header>
       {loading && <div role="status" className="grid min-h-40 place-items-center text-sm text-muted-foreground">Calculating Ashtakavarga…</div>}
-      {error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</div>}
+      {error && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200">{error}</div>}
       {result && (
         <div className="space-y-5">
         <div className="overflow-x-auto rounded-lg border border-border">

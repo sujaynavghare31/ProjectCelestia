@@ -1,16 +1,36 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/lib/generated/prisma/client";
 
-const databaseUrl = process.env.DATABASE_URL ?? "postgresql://postgres:postgres@localhost:5432/postgres?schema=public";
-
 const globalForPrisma = globalThis as typeof globalThis & {
   prisma?: PrismaClient;
 };
 
-const adapter = new PrismaPg({ connectionString: databaseUrl });
+function getPrismaClient(): PrismaClient {
+  if (globalForPrisma.prisma) return globalForPrisma.prisma;
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({ adapter });
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    const error = new Error("DATABASE_URL must be configured before connecting to PostgreSQL.");
+    console.error("[database] Missing connection URL", error);
+    throw error;
+  }
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+  const adapter = new PrismaPg(
+    { connectionString: databaseUrl, connectionTimeoutMillis: 10_000 },
+    {
+      onPoolError: (error) => console.error("[database] PostgreSQL pool error", error),
+      onConnectionError: (error) => console.error("[database] PostgreSQL connection error", error),
+    },
+  );
+  const client = new PrismaClient({ adapter });
+  if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = client;
+  return client;
 }
+
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, property) {
+    const client = getPrismaClient();
+    const value = Reflect.get(client, property, client);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+});

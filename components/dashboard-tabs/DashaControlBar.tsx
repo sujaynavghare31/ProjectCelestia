@@ -43,7 +43,7 @@ export default function DashaControlBar({
           aria-label="Dasha seed"
           value={seed}
           onChange={(event) => onSeedChange(event.target.value as DashaSeed)}
-          className="h-10 min-w-0 rounded-lg border border-input bg-card px-3 text-xs font-medium normal-case tracking-normal text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600/40"
+          className="h-10 min-w-0 rounded-lg border border-input bg-card px-3 text-xs font-medium normal-case tracking-normal text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
         >
           {SEEDS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
         </select>
@@ -55,7 +55,7 @@ export default function DashaControlBar({
           aria-label="Dasha system"
           value={system}
           onChange={(event) => onSystemChange(event.target.value as DashaSystem)}
-          className="h-10 min-w-0 rounded-lg border border-input bg-card px-3 text-xs font-medium normal-case tracking-normal text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600/40"
+          className="h-10 min-w-0 rounded-lg border border-input bg-card px-3 text-xs font-medium normal-case tracking-normal text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
         >
           {SYSTEMS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
         </select>
@@ -68,7 +68,7 @@ export default function DashaControlBar({
             aria-label="Dasha lagna"
             value={lagnaMode}
             onChange={(event) => onLagnaModeChange(event.target.value as DashaLagnaMode)}
-            className="h-10 min-w-0 rounded-lg border border-input bg-card px-3 text-xs font-medium normal-case tracking-normal text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-600/40"
+            className="h-10 min-w-0 rounded-lg border border-input bg-card px-3 text-xs font-medium normal-case tracking-normal text-card-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
           >
             <option value="natural">Natural (Janma)</option>
             <option value="maha-lord">Active Maha Dasha Lord</option>

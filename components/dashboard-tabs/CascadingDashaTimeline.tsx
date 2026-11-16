@@ -13,15 +13,15 @@ const TRACKS: Record<DashaSystem, string[]> = {
 };
 
 const PLANET_COLORS: Record<string, string> = {
-  Sun: "bg-orange-100 text-orange-900 border-orange-200 dark:bg-orange-900/30 dark:text-orange-200 dark:border-orange-800/50",
-  Moon: "bg-sky-100 text-sky-900 border-sky-200 dark:bg-sky-900/30 dark:text-sky-200 dark:border-sky-800/50",
-  Mars: "bg-rose-100 text-rose-900 border-rose-200 dark:bg-rose-900/30 dark:text-rose-200 dark:border-rose-800/50",
-  Mercury: "bg-emerald-100 text-emerald-900 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-200 dark:border-emerald-800/50",
-  Jupiter: "bg-amber-100 text-amber-900 border-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-800/50",
-  Venus: "bg-pink-100 text-pink-900 border-pink-200 dark:bg-pink-900/30 dark:text-pink-200 dark:border-pink-800/50",
-  Saturn: "bg-slate-100 text-slate-900 border-slate-200 dark:bg-slate-800/50 dark:text-slate-300 dark:border-slate-700/50",
-  Rahu: "bg-fuchsia-100 text-fuchsia-900 border-fuchsia-200 dark:bg-fuchsia-900/30 dark:text-fuchsia-200 dark:border-fuchsia-800/50",
-  Ketu: "bg-indigo-100 text-indigo-900 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-200 dark:border-indigo-800/50",
+  Sun: "bg-accent text-accent-foreground border-primary/30",
+  Moon: "bg-muted text-foreground border-border",
+  Mars: "bg-rose-100 text-rose-950 border-rose-200 dark:bg-rose-950/40 dark:text-rose-100 dark:border-rose-900/60",
+  Mercury: "bg-emerald-100 text-emerald-950 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-100 dark:border-emerald-900/60",
+  Jupiter: "bg-accent text-accent-foreground border-primary/30",
+  Venus: "bg-rose-50 text-rose-950 border-rose-200 dark:bg-rose-950/30 dark:text-rose-100 dark:border-rose-900/50",
+  Saturn: "bg-muted text-foreground border-border",
+  Rahu: "bg-muted text-foreground border-border",
+  Ketu: "bg-emerald-50 text-emerald-950 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-100 dark:border-emerald-900/50",
 };
 
 const PLANET_ABBREVIATIONS: Record<string, string> = {
@@ -250,7 +250,7 @@ export default function CascadingDashaTimeline({
         <h3 className="text-sm font-semibold">{summary}</h3>
         <div className="mt-1 flex items-center justify-center gap-2">
           <p className="text-[10px] text-muted-foreground">Maha window · active parent subperiods</p>
-          <span className="rounded bg-amber-300 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-amber-950">Now</span>
+          <span className="rounded bg-accent px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-accent-foreground">Now</span>
         </div>
       </div>
       <div className="flex gap-3">
@@ -288,11 +288,11 @@ export default function CascadingDashaTimeline({
                         className="relative h-full shrink-0"
                         style={{ width: `${width}%` }}
                       >
-                        <span className="absolute -top-6 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap text-xs font-medium text-slate-500 dark:text-slate-400">
+                        <span className="absolute -top-6 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap text-xs font-medium text-muted-foreground">
                           {durationLabel}
                         </span>
                         <div className={`flex h-full w-full items-center justify-center overflow-hidden border-r px-0.5 text-xs font-medium transition-colors duration-200 ${colorClassesFor(period, system)} ${active ? "ring-1 ring-inset ring-current/40" : ""}`}>
-                          <span className="truncate text-slate-900 dark:text-slate-200">
+                          <span className="truncate">
                             {abbreviationFor(period, system)}
                           </span>
                         </div>
@@ -303,7 +303,7 @@ export default function CascadingDashaTimeline({
                 {row.periods.length > 0 && domainDuration > 0 && (
                   <div
                     aria-label={`${row.label} current datetime`}
-                    className="pointer-events-none absolute bottom-0 top-0 z-10 border-l border-dashed border-amber-950 dark:border-amber-200"
+                    className="pointer-events-none absolute bottom-0 top-0 z-10 border-l border-dashed border-primary"
                     style={{ left: `${nowPercent}%` }}
                   />
                 )}

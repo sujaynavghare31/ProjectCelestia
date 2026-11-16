@@ -65,7 +65,7 @@ export default function CarterCuspsPanel({
               type="button"
               aria-pressed={zodiacMode === value}
               onClick={() => onZodiacModeChange(value)}
-              className={`min-h-8 rounded-md px-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${zodiacMode === value ? "bg-primary/15 text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+              className={`min-h-8 rounded-md px-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${zodiacMode === value ? "border border-blue-200 bg-blue-100 text-blue-900" : "text-muted-foreground hover:bg-blue-50 hover:text-blue-900"}`}
             >
               {label}
             </button>

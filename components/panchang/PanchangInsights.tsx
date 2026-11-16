@@ -7,7 +7,7 @@ import type { PanchangDay, PanchangQuality, PanchangSlot } from "@/lib/astrology
 const qualityStyles: Record<PanchangQuality, string> = {
   auspicious: "bg-emerald-50 text-emerald-900 dark:bg-emerald-900/25 dark:text-emerald-100",
   inauspicious: "bg-rose-50 text-rose-900 dark:bg-rose-900/25 dark:text-rose-100",
-  neutral: "bg-slate-100 text-slate-800 dark:bg-slate-800/60 dark:text-slate-200",
+  neutral: "bg-muted text-foreground",
 };
 
 function formatTime(value: string, timezone: string) {
@@ -68,7 +68,7 @@ function PanchangInsightsView({ data }: { data: PanchangDay }) {
 
   return (
     <div className="space-y-5">
-      <section aria-label="Lunar and solar specifications" className="overflow-hidden rounded-2xl border border-white/60 bg-white/70 shadow-[0_12px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/45 dark:shadow-[0_12px_42px_rgba(2,6,23,0.28)]">
+      <section aria-label="Lunar and solar specifications" className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
         <div className="flex flex-wrap items-end justify-between gap-2 border-b border-border/70 px-4 py-3 sm:px-5">
           <div>
             <h2 className="text-sm font-semibold">Lunar &amp; solar specifications</h2>
@@ -92,7 +92,7 @@ function PanchangInsightsView({ data }: { data: PanchangDay }) {
         </div>
       </section>
 
-      <section aria-label="Choghadiya periods" className="rounded-2xl border border-white/60 bg-white/70 p-4 shadow-[0_12px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/45 dark:shadow-[0_12px_42px_rgba(2,6,23,0.28)] sm:p-5">
+      <section aria-label="Choghadiya periods" className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
           <div>
             <h2 className="text-sm font-semibold">Choghadiya</h2>
@@ -107,7 +107,7 @@ function PanchangInsightsView({ data }: { data: PanchangDay }) {
       </section>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
-        <section aria-label="Tarabalam grid" className="min-w-0 rounded-2xl border border-white/60 bg-white/70 p-4 shadow-[0_12px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/45 dark:shadow-[0_12px_42px_rgba(2,6,23,0.28)] sm:p-5">
+        <section aria-label="Tarabalam grid" className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
           <div className="mb-3">
             <h2 className="text-sm font-semibold">Tarabalam</h2>
             <p className="mt-1 text-[11px] text-muted-foreground">
@@ -134,7 +134,7 @@ function PanchangInsightsView({ data }: { data: PanchangDay }) {
                     </th>
                     {row.janmaNakshatras.map(({ name, selected }) => (
                       <td key={`${row.name}-${name}`} className="px-0.5 py-1.5" title={`${name}: ${row.name}${selected ? " for today's transit" : ""}`}>
-                        <span className={`mx-auto block size-3 rounded-full ${selected ? qualityStyles[row.quality] : "bg-slate-200/70 dark:bg-slate-800/70"}`} />
+                        <span className={`mx-auto block size-3 rounded-full ${selected ? qualityStyles[row.quality] : "bg-muted"}`} />
                       </td>
                     ))}
                   </tr>
@@ -144,7 +144,7 @@ function PanchangInsightsView({ data }: { data: PanchangDay }) {
           </div>
         </section>
 
-        <section aria-label="Chandrabalam grid" className="rounded-2xl border border-white/60 bg-white/70 p-4 shadow-[0_12px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/45 dark:shadow-[0_12px_42px_rgba(2,6,23,0.28)] sm:p-5">
+        <section aria-label="Chandrabalam grid" className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
           <div className="mb-3">
             <h2 className="text-sm font-semibold">Chandrabalam</h2>
             <p className="mt-1 text-[11px] text-muted-foreground">Moon in {data.chandrabalam.transitMoonSign} · relative to Janma Rashi.</p>
@@ -172,7 +172,7 @@ function PanchangInsightsView({ data }: { data: PanchangDay }) {
         </section>
       </div>
 
-      <section aria-label="Panchaka Rahita and Lagna transitions" className="overflow-hidden rounded-2xl border border-white/60 bg-white/70 shadow-[0_12px_42px_rgba(15,23,42,0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/45 dark:shadow-[0_12px_42px_rgba(2,6,23,0.28)]">
+      <section aria-label="Panchaka Rahita and Lagna transitions" className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
         <div className="flex flex-wrap items-end justify-between gap-2 border-b border-border/70 px-4 py-3 sm:px-5">
           <div>
             <h2 className="text-sm font-semibold">Panchaka Rahita &amp; Lagna transitions</h2>

@@ -12,6 +12,7 @@ import { mapPositionsToHouses } from "@/lib/astrology/house-placements";
 import { getPlanetaryDignity } from "@/lib/astrology/planetary-dignity-service";
 import { localDateTimeToUtc } from "@/lib/astrology/timezone";
 import { calculateGulikaMandi } from "@/lib/astrology/upagrahas";
+import { getBirthDateTimeError } from "@/lib/astrology/ephemeris-input";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,15 +65,11 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function validateRequest(value: unknown): EphemerisRequest {
   if (!isRecord(value)) throw new Error("Request body must be a JSON object.");
   const { date, time, lat, lng, timezone, ayanamsa, nodeType, targetAge, ageMode, dashaSeed, zodiacMode, customAyanamsaDegrees, avasthaConfig, nameFirstLetter, gender } = value;
-  if (typeof date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("date must use YYYY-MM-DD.");
-  if (typeof time !== "string" || !/^\d{2}:\d{2}:\d{2}$/.test(time)) throw new Error("time must use HH:MM:SS.");
-  const [year, month, day] = date.split("-").map(Number);
-  const checkDate = new Date(0);
-  checkDate.setUTCFullYear(year, month - 1, day);
-  checkDate.setUTCHours(0, 0, 0, 0);
-  if (checkDate.getUTCFullYear() !== year || checkDate.getUTCMonth() !== month - 1 || checkDate.getUTCDate() !== day) throw new Error("date is not a valid calendar date.");
-  const [hour, minute, second] = time.split(":").map(Number);
-  if (hour > 23 || minute > 59 || second > 59) throw new Error("time is outside the 24-hour clock.");
+  const dateTimeError = getBirthDateTimeError(date, time);
+  if (dateTimeError) throw new Error(dateTimeError);
+  if (typeof date !== "string" || typeof time !== "string") {
+    throw new Error("Birth date and time must be provided as strings.");
+  }
   if (typeof lat !== "number" || !Number.isFinite(lat) || lat < -90 || lat > 90) throw new Error("lat must be a number from -90 to 90.");
   if (typeof lng !== "number" || !Number.isFinite(lng) || lng < -180 || lng > 180) throw new Error("lng must be a number from -180 to 180.");
   if (typeof timezone !== "string" || timezone.length > 64 || !timezone.trim()) throw new Error("timezone is required.");
