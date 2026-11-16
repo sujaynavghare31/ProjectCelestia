@@ -49,7 +49,7 @@ cd ProjectCelestia
 npm install
 ```
 
-Account sign-in, registration, and saved chart profiles use the PostgreSQL database configured by `DATABASE_URL`. Set that variable before running the schema commands:
+Account sign-in, registration, and saved chart profiles use the PostgreSQL database configured by `DATABASE_URL`; that database must be running, reachable from the app, and have the Prisma schema applied. Authentication also requires a stable `AUTH_SECRET` (or `NEXTAUTH_SECRET`) in every environment; generate one with `openssl rand -base64 32`, keep it private, and configure the same value in the deployment environment. Without it, Auth.js session, CSRF, and provider endpoints return a server configuration error. Set these variables before running the schema commands:
 
 ```bash
 npm run db:generate

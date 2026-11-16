@@ -1,7 +1,7 @@
 "use client";
 
-import type { EphemerisResponse } from "@/lib/kundali-types";
-import { GRAHAS } from "@/lib/astrology/avastha/types";
+import type { EphemerisResponse } from "../../lib/kundali-types";
+import { GRAHAS } from "../../lib/astrology/avastha/types";
 
 const SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
 const CENTERS: Record<number, [number, number]> = {
@@ -42,10 +42,10 @@ export default function DashaLagnaChart({
   activeLord?: string;
 }) {
   const dashaLord = data.planets.find(({ name }) => name === activeLord);
-  const ascendantSign = dashaLord?.sign ?? data.ascendant.sign;
+  const ascendantSignIndex = dashaLord?.sign ?? data.ascendant.sign;
   const planetsByHouse = new Map<number, typeof data.planets>();
   data.planets.filter(({ name }) => GRAHAS.includes(name as (typeof GRAHAS)[number])).forEach((planet) => {
-    const house = ((planet.sign - ascendantSign + 12) % 12) + 1;
+    const house = ((planet.sign - ascendantSignIndex + 12) % 12) + 1;
     planetsByHouse.set(house, [...(planetsByHouse.get(house) ?? []), planet]);
   });
 
@@ -54,7 +54,7 @@ export default function DashaLagnaChart({
       <figcaption className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold">Dasha Lagna Chart</h3>
-          <p className="mt-0.5 text-[10px] text-muted-foreground">{dashaLord ? `${activeLord} rising · ${SIGNS[ascendantSign - 1]}` : `Janma Lagna · ${SIGNS[ascendantSign - 1]}`}</p>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">{dashaLord ? `${activeLord} rising · ${SIGNS[ascendantSignIndex]}` : `Janma Lagna · ${SIGNS[ascendantSignIndex]}`}</p>
         </div>
         <span className="rounded-full bg-amber-50 px-2 py-1 text-[9px] font-semibold text-amber-900 dark:bg-amber-400/10 dark:text-amber-200">D-1</span>
       </figcaption>
@@ -69,13 +69,13 @@ export default function DashaLagnaChart({
         <path d="M10 10 350 350M350 10 10 350M180 10 350 180 180 350 10 180 180 10" fill="none" stroke="hsl(var(--chart-grid))" strokeWidth="1" />
         {Array.from({ length: 12 }, (_, index) => {
           const house = index + 1;
-          const sign = ((ascendantSign - 1 + house - 1) % 12) + 1;
+          const signIndex = (ascendantSignIndex + house - 1) % 12;
           const [x, y] = CENTERS[house];
           const bodies = planetsByHouse.get(house) ?? [];
           return (
             <g key={`house-label-${house}`}>
               <text x={x} y={y - 11} textAnchor="middle" fill={house === 1 ? "hsl(var(--champagne-gold))" : "hsl(var(--muted-foreground))"} fontSize="8">
-                H{house} · {SIGNS[sign - 1].toUpperCase()}
+                H{house} · {SIGNS[signIndex].toUpperCase()}
               </text>
               {house === 1 && <text x={x} y={y + 1} textAnchor="middle" fill="hsl(var(--foreground))" fontSize="7" fontWeight="600">ASC</text>}
               {bodies.map((planet, index) => (
