@@ -13,6 +13,7 @@ import { getPlanetaryDignity } from "@/lib/astrology/planetary-dignity-service";
 import { localDateTimeToUtc } from "@/lib/astrology/timezone";
 import { calculateGulikaMandi } from "@/lib/astrology/upagrahas";
 import { getBirthDateTimeError } from "@/lib/astrology/ephemeris-input";
+import { calculateKpDetails } from "@/lib/astrology/kp-calculations";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,7 +65,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function validateRequest(value: unknown): EphemerisRequest {
   if (!isRecord(value)) throw new Error("Request body must be a JSON object.");
-  const { date, time, lat, lng, timezone, ayanamsa, nodeType, targetAge, ageMode, dashaSeed, zodiacMode, customAyanamsaDegrees, avasthaConfig, nameFirstLetter, gender } = value;
+  const { date, time, lat, lng, timezone, ayanamsa, nodeType, targetAge, ageMode, dashaSeed, zodiacMode, calculationMode, kp, customAyanamsaDegrees, avasthaConfig, nameFirstLetter, gender } = value;
   const dateTimeError = getBirthDateTimeError(date, time);
   if (dateTimeError) throw new Error(dateTimeError);
   if (typeof date !== "string" || typeof time !== "string") {
@@ -73,8 +74,11 @@ function validateRequest(value: unknown): EphemerisRequest {
   if (typeof lat !== "number" || !Number.isFinite(lat) || lat < -90 || lat > 90) throw new Error("lat must be a number from -90 to 90.");
   if (typeof lng !== "number" || !Number.isFinite(lng) || lng < -180 || lng > 180) throw new Error("lng must be a number from -180 to 180.");
   if (typeof timezone !== "string" || timezone.length > 64 || !timezone.trim()) throw new Error("timezone is required.");
-  const normalizedAyanamsa = typeof ayanamsa === "string" ? ayanamsa.toLowerCase() : "";
-  const normalizedZodiacMode = zodiacMode === undefined ? "sidereal" : zodiacMode;
+  if (calculationMode !== undefined && calculationMode !== "standard" && calculationMode !== "kp") throw new Error("calculationMode must be 'standard' or 'kp'.");
+  if (kp !== undefined && typeof kp !== "boolean") throw new Error("kp must be a boolean.");
+  const kpMode = calculationMode === "kp" || kp === true;
+  const normalizedAyanamsa = kpMode ? "krishnamurti" : typeof ayanamsa === "string" ? ayanamsa.toLowerCase() : "";
+  const normalizedZodiacMode = kpMode ? "sidereal" : zodiacMode === undefined ? "sidereal" : zodiacMode;
   if (normalizedZodiacMode !== "sidereal" && normalizedZodiacMode !== "tropical") throw new Error("zodiacMode must be 'sidereal' or 'tropical'.");
   if (normalizedAyanamsa === "custom") {
     if (typeof customAyanamsaDegrees !== "number" || !Number.isFinite(customAyanamsaDegrees) || customAyanamsaDegrees < -360 || customAyanamsaDegrees > 360) {
@@ -98,6 +102,8 @@ function validateRequest(value: unknown): EphemerisRequest {
   return {
     date, time, lat, lng, timezone: timezone.trim(), ayanamsa: normalizedAyanamsa, nodeType,
     zodiacMode: normalizedZodiacMode,
+    calculationMode: kpMode ? "kp" : "standard",
+    kp: kpMode,
     ...(typeof customAyanamsaDegrees === "number" ? { customAyanamsaDegrees } : {}),
     ...(typeof targetAge === "number" ? { targetAge } : {}),
     ...(ageMode !== undefined ? { ageMode } : {}),
@@ -277,7 +283,7 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
   const houseCusps = bhavaResult.house.map((longitude, index) => {
     const adjustedLongitude = normalizeDegrees(longitude + longitudeOffset);
     const sign = Math.floor(adjustedLongitude / 30);
-    return { house: index + 1, longitude: adjustedLongitude, sign, signName: SIGNS[sign] };
+    return { house: index + 1, longitude: adjustedLongitude, sign, signName: SIGNS[sign], ...(input.kp ? { kp: calculateKpDetails(adjustedLongitude) } : {}) };
   });
   const interceptedSigns = getInterceptedSigns(houseCusps.map((cusp) => cusp.sign));
   const chartPlanets = [
@@ -288,7 +294,9 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
   ].map((planet) => ({
     ...planet,
     house: ((planet.sign - ascSign + 12) % 12) + 1,
+    ...(input.kp ? { kp: calculateKpDetails(planet.longitude) } : {}),
   }));
+  const kpAscendant = input.kp ? { ...ascendant, kp: calculateKpDetails(ascendant.longitude) } : ascendant;
   const bhavChalitPlanets = mapPositionsToHouses(chartPlanets, houseCusps);
   const moon = planets.find(({ name }) => name === "Moon");
   const sun = planets.find(({ name }) => name === "Sun");
@@ -377,7 +385,7 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
     julianDay,
     ayanamsa: { name: input.zodiacMode === "tropical" ? "Tropical" : input.ayanamsa, degrees: ayanamsaDegrees },
     zodiacMode: input.zodiacMode,
-    ascendant,
+    ascendant: kpAscendant,
     mc,
     planets: chartPlanets,
     bhavChalitPlanets,

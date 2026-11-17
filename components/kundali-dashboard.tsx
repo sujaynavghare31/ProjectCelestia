@@ -34,6 +34,7 @@ import { getBirthDateTimeError } from "@/lib/astrology/ephemeris-input";
 import { readSavedAstrologyConfig } from "@/lib/astrology/config-storage";
 import { calculateCarterCusps, getCarterPlacementCusps, placeInCarterHouses } from "@/lib/astrology/carter-chart";
 import { cuspLabels, northCuspAnchor } from "@/lib/astrology/cusp-labels";
+import dynamic from "next/dynamic";
 import { readAnalysisPreferences, writeAnalysisPreferences } from "@/lib/astrology/analysis-preferences";
 import { createMidpointReport, visibleMidpointRows, visibleMidpointTrees } from "@/lib/astrology/midpoint-chart";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -83,6 +84,10 @@ type ChartOption = {
   description: string;
   group: "Primary" | "Divisional";
 };
+
+const KPAstrology = dynamic(() => import("@/components/kp/KPAstrology"), {
+  loading: () => <div className="grid min-h-96 place-items-center rounded-2xl border border-border bg-card p-8 text-sm text-muted-foreground"><LoaderCircle className="mr-2 size-4 animate-spin" /> Loading KP Astrology</div>,
+});
 const AUXILIARY_CHARTS: ChartOption[] = [
   { id: "D1", label: "D1 · Rashi", description: "Primary Birth Chart", group: "Primary" },
   { id: "BHAVA", label: "Bhava Chalit", description: "House Positions (Sripati/Placidus)", group: "Primary" },
@@ -757,7 +762,7 @@ function ChartOverflowFrame({
   );
 }
 
-function SvgChart({
+export function SvgChart({
   style,
   ascendant,
   planets,
@@ -1137,11 +1142,12 @@ type AuxiliaryType = "divisional" | "transit" | "solar" | "tajika" | "progressio
 type DashaSystem = "vimshottari" | "chara" | "ashtottari" | "yogini" | "kalachakra";
 type DashaSeed = "moon" | "ascendant" | "sun" | "ascendant-lord";
 type DashaLagnaMode = "natural" | "maha-lord" | "antar-lord";
-type DashboardTab = "core" | "dasha" | "element-modality" | "aspects" | "midpoints" | "ashtakavarga" | "medical";
+type DashboardTab = "core" | "kp" | "dasha" | "element-modality" | "aspects" | "midpoints" | "ashtakavarga" | "medical";
 
 // All existing astrology views remain available; strength modules are now grouped with Ashtakavarga.
 const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
   { id: "core", label: "Core Dashboard" },
+  { id: "kp", label: "KP Astrology" },
   { id: "dasha", label: "Dasha Systems" },
   { id: "element-modality", label: "Element & Modality" },
   { id: "aspects", label: "Drishti & Aspects" },
@@ -1156,6 +1162,7 @@ function dashboardTabFromLocation(): DashboardTab {
 }
 
 function preloadDashboardTab(tab: DashboardTab) {
+  if (tab === "kp") return;
   const loaders = {
     dasha: loadDashaTab,
     "element-modality": loadElementModalityTab,
@@ -2329,6 +2336,14 @@ export function KundaliDashboard() {
         </nav>
 
         <div id="kundali-tab-panel" role="tabpanel" aria-labelledby={`kundali-tab-${dashboardTab}`} className="min-w-0">
+        {dashboardTab === "kp" && (
+          <KPAstrology
+            profile={submittedProfile ?? profile}
+            language={language}
+            viewPreferences={viewPreferences}
+            ChartRenderer={SvgChart}
+          />
+        )}
         {dashboardTab === "dasha" && (
           <Suspense fallback={<SecondaryTabSkeleton />}>
             <DashaTab

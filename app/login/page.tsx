@@ -1,5 +1,6 @@
 import { SignIn, SignUp } from "@clerk/nextjs";
 import Link from "next/link";
+import { isLocalClerkFallback } from "@/lib/clerk-config";
 
 export default async function LoginPage({
   searchParams,
@@ -11,6 +12,21 @@ export default async function LoginPage({
     ? callbackUrl
     : "/saved-charts";
   const isSignUp = mode === "signup";
+
+  if (isLocalClerkFallback) {
+    return (
+      <main className="cosmic-grid flex min-h-screen items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md rounded-3xl border border-border/80 bg-card/90 p-7 shadow-[0_24px_70px_-30px_rgba(91,61,43,0.25)] backdrop-blur-xl sm:p-9">
+          <Link href="/" className="text-sm font-semibold tracking-wide text-foreground">Project Celestia</Link>
+          <h1 className="mt-4 text-2xl font-semibold tracking-tight">Local preview mode</h1>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            Clerk is configured with a production key for <strong>jyotishi.tech</strong>. Replace it with Clerk development keys to test sign-in on localhost.
+          </p>
+          <Link href="/" className="mt-6 inline-flex h-10 items-center rounded-lg bg-[#C64F30] px-4 text-sm font-semibold text-white hover:bg-[#A94025]">Return to portal</Link>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="cosmic-grid flex min-h-screen items-center justify-center px-4 py-12">

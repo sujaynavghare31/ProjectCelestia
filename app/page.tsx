@@ -39,6 +39,7 @@ import type { CelestialLanguage } from "@/lib/kundali-types";
 import { useKundaliStore } from "@/lib/kundali-store";
 import { TABLES, chaldeanSum, computeProfile, digitSum, kuaOf, masterReduce, pythSum, reduce, relationLabel } from "@/lib/numerology";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { isLocalClerkFallback } from "@/lib/clerk-config";
 
 const gridNumbers = [4, 9, 2, 3, 5, 7, 8, 1, 6];
 
@@ -186,8 +187,7 @@ function MetricCard({
   );
 }
 
-export default function Home() {
-  const { isSignedIn } = useAuth();
+function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
   const { resolvedTheme, setTheme } = useTheme();
   const birthProfile = useKundaliStore((state) => state.profile);
   const setBirthProfile = useKundaliStore((state) => state.setProfile);
@@ -317,6 +317,7 @@ export default function Home() {
       } else {
         scroller.scrollTo({ top: 0, behavior: "smooth" });
       }
+
     });
   };
   const renderNavigationItems = (compact = false) => navigationItems.map(({ id, label, icon: Icon }) => {
@@ -711,4 +712,13 @@ export default function Home() {
         </div>
     </main>
   );
+}
+
+function ClerkHome() {
+  const { isSignedIn } = useAuth();
+  return <HomeContent isSignedIn={Boolean(isSignedIn)} />;
+}
+
+export default function Home() {
+  return isLocalClerkFallback ? <HomeContent isSignedIn={false} /> : <ClerkHome />;
 }

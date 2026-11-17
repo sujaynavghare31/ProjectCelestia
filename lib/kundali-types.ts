@@ -7,6 +7,7 @@ export type CarterZodiac = "sayana" | "nirayanaA" | "nirayanaB";
 export type CuspLabelSignStyle = "short" | "full" | "number" | "hindi" | "glyph";
 export type CuspLabelDegreeFormat = "dms" | "dm" | "decimal" | "compact";
 export type CuspLabelStyle = "line" | "box";
+export type EphemerisCalculationMode = "standard" | "kp";
 
 export interface MidpointPreferences {
   mode: import("@/lib/astrology/engines/midpoints").MidpointMode;
@@ -56,6 +57,8 @@ export interface EphemerisRequest {
   timezone: string;
   ayanamsa: string;
   zodiacMode?: ZodiacMode;
+  calculationMode?: EphemerisCalculationMode;
+  kp?: boolean;
   customAyanamsaDegrees?: number;
   nodeType: NodeType;
   targetAge?: number;
@@ -83,6 +86,7 @@ export interface PlanetPosition {
   nakshatraLord: string;
   house: number;
   dignity: string;
+  kp?: import("@/lib/astrology/kp-calculations").KpDetails;
   jaimini?: string;
 }
 
@@ -122,7 +126,7 @@ export interface EphemerisResponse {
   bhavChalitPlanets: PlanetPosition[];
   points: PlanetPosition[];
   bhavChalitPoints: PlanetPosition[];
-  houseCusps: Array<{ house: number; longitude: number; sign: number; signName: string }>;
+  houseCusps: Array<{ house: number; longitude: number; sign: number; signName: string; kp?: import("@/lib/astrology/kp-calculations").KpDetails }>;
   interceptedSigns: number[];
   houseCuspSystem: string;
   ashtakavarga?: Array<{ planet: string; bindus: number[]; total: number }>;
