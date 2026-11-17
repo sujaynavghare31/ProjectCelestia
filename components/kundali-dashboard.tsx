@@ -46,6 +46,7 @@ const loadAspectsTab = () => import("@/components/dashboard-tabs/aspects-tab");
 const loadAshtakavargaTab = () => import("@/components/dashboard-tabs/ashtakavarga-tab");
 const loadStrengthAnalysisTab = () => import("@/components/dashboard-tabs/strength-analysis-tab");
 const loadMedicalTab = () => import("@/components/dashboard-tabs/medical-tab");
+const loadTransitCalendarTab = () => import("@/components/dashboard-tabs/transit-calendar-tab");
 const loadMidpointsTab = () => import("@/components/dashboard-tabs/midpoints-tab");
 const loadCarterCuspsPanel = () => import("@/components/dashboard-tabs/carter-cusps-panel");
 const DashaTab = lazy(loadDashaTab);
@@ -54,6 +55,9 @@ const AspectsTab = lazy(loadAspectsTab);
 const AshtakavargaTab = lazy(loadAshtakavargaTab);
 const StrengthAnalysisTab = lazy(loadStrengthAnalysisTab);
 const MedicalTab = lazy(loadMedicalTab);
+const TransitCalendarTab = dynamic(loadTransitCalendarTab, {
+  loading: () => <SecondaryTabSkeleton />,
+});
 const MidpointsTab = lazy(loadMidpointsTab);
 const CarterCuspsPanel = lazy(loadCarterCuspsPanel);
 
@@ -1142,7 +1146,7 @@ type AuxiliaryType = "divisional" | "transit" | "solar" | "tajika" | "progressio
 type DashaSystem = "vimshottari" | "chara" | "ashtottari" | "yogini" | "kalachakra";
 type DashaSeed = "moon" | "ascendant" | "sun" | "ascendant-lord";
 type DashaLagnaMode = "natural" | "maha-lord" | "antar-lord";
-type DashboardTab = "core" | "kp" | "dasha" | "element-modality" | "aspects" | "midpoints" | "ashtakavarga" | "medical";
+type DashboardTab = "core" | "kp" | "dasha" | "element-modality" | "aspects" | "midpoints" | "ashtakavarga" | "medical" | "transit-calendar";
 
 // All existing astrology views remain available; strength modules are now grouped with Ashtakavarga.
 const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
@@ -1154,6 +1158,7 @@ const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
   { id: "midpoints", label: "Midpoints" },
   { id: "ashtakavarga", label: "Ashtakavarga & Strength" },
   { id: "medical", label: "Medical Astrology" },
+  { id: "transit-calendar", label: "Transit Calendar" },
 ];
 
 function dashboardTabFromLocation(): DashboardTab {
@@ -1170,6 +1175,7 @@ function preloadDashboardTab(tab: DashboardTab) {
     midpoints: loadMidpointsTab,
     ashtakavarga: () => Promise.all([loadAshtakavargaTab(), loadStrengthAnalysisTab()]),
     medical: loadMedicalTab,
+    "transit-calendar": loadTransitCalendarTab,
   };
   if (tab === "core") return;
   void loaders[tab]().catch((error: unknown) => {
@@ -2594,6 +2600,11 @@ export function KundaliDashboard() {
               transitLoading={transitLoading}
               transitError={transitError}
             />
+          </Suspense>
+        )}
+        {dashboardTab === "transit-calendar" && (
+          <Suspense fallback={<SecondaryTabSkeleton />}>
+            <TransitCalendarTab natalPlanets={data?.planets ?? []} />
           </Suspense>
         )}
         </div>
