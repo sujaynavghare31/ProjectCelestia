@@ -13,3 +13,4 @@ lib/generated/prisma/
 
 /lib/generated/prisma
 .clerk/
+.vercel
