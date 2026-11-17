@@ -33,6 +33,7 @@ import { dagdhaRashis } from "@/lib/astrology/dagdha-rashi";
 import { getBirthDateTimeError } from "@/lib/astrology/ephemeris-input";
 import { readSavedAstrologyConfig } from "@/lib/astrology/config-storage";
 import { calculateCarterCusps, getCarterPlacementCusps, placeInCarterHouses } from "@/lib/astrology/carter-chart";
+import { cuspLabels, northCuspAnchor } from "@/lib/astrology/cusp-labels";
 import { readAnalysisPreferences, writeAnalysisPreferences } from "@/lib/astrology/analysis-preferences";
 import { createMidpointReport, visibleMidpointRows, visibleMidpointTrees } from "@/lib/astrology/midpoint-chart";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -280,8 +281,12 @@ const CHART_STYLE_LABELS: Record<ChartStyle, string> = {
   placidus: "Placidus",
 };
 
+type BooleanPreferenceKey = {
+  [K in keyof ViewPreferences]-?: ViewPreferences[K] extends boolean ? K : never;
+}[keyof ViewPreferences];
+
 type PreferenceOption = {
-  key: keyof ViewPreferences;
+  key: BooleanPreferenceKey;
   label: string;
   description?: string;
   disabledFor?: ChartStyle[];
@@ -290,7 +295,7 @@ type PreferenceOption = {
 const CHART_ELEMENT_OPTIONS: PreferenceOption[] = [
   { key: "showHouseLabels", label: "House labels", description: "Show house numbers around the chart." },
   { key: "showSignNumbers", label: "Sign numbers", description: "Use Aries = 1 through Pisces = 12." },
-  { key: "showBhavaCusps", label: "Bhava cusp labels", description: "Show calculated cusp degrees.", disabledFor: ["south", "east"] },
+  { key: "showBhavaCusps", label: "Bhava cusp labels", description: "Show each house cusp in the sign where it starts." },
 ];
 
 const CELESTIAL_BODY_OPTIONS: PreferenceOption[] = [
@@ -535,6 +540,46 @@ function ChartSettingsDrawer({
                 <h4 className="mb-2 text-xs font-semibold text-muted-foreground">House and sign labels</h4>
                 {renderPreferenceOptions(CHART_ELEMENT_OPTIONS)}
               </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="text-xs font-medium">
+                  Cusp sign labels
+                  <select
+                    value={draft.viewPreferences.cuspLabelSignStyle}
+                    onChange={(event) => setPreference("cuspLabelSignStyle", event.target.value as ChartSettings["viewPreferences"]["cuspLabelSignStyle"])}
+                    className={`${CONTROL_CLASS} mt-1.5 h-10 w-full text-sm`}
+                  >
+                    <option value="short">Short · Vi</option>
+                    <option value="full">Full · Virgo</option>
+                    <option value="number">Number · 6</option>
+                    <option value="hindi">Hindi · कन्या</option>
+                    <option value="glyph">Glyph · ♍︎</option>
+                  </select>
+                </label>
+                <label className="text-xs font-medium">
+                  Cusp degree format
+                  <select
+                    value={draft.viewPreferences.cuspLabelDegreeFormat}
+                    onChange={(event) => setPreference("cuspLabelDegreeFormat", event.target.value as ChartSettings["viewPreferences"]["cuspLabelDegreeFormat"])}
+                    className={`${CONTROL_CLASS} mt-1.5 h-10 w-full text-sm`}
+                  >
+                    <option value="dms">DMS · 22°47′10″</option>
+                    <option value="dm">Degrees/minutes</option>
+                    <option value="decimal">Decimal · 22.79°</option>
+                    <option value="compact">Compact</option>
+                  </select>
+                </label>
+                <label className="text-xs font-medium">
+                  Cusp placement
+                  <select
+                    value={draft.viewPreferences.cuspLabelStyle}
+                    onChange={(event) => setPreference("cuspLabelStyle", event.target.value as ChartSettings["viewPreferences"]["cuspLabelStyle"])}
+                    className={`${CONTROL_CLASS} mt-1.5 h-10 w-full text-sm`}
+                  >
+                    <option value="line">On the line</option>
+                    <option value="box">In the sign box</option>
+                  </select>
+                </label>
+              </div>
               <div>
                 <h4 className="mb-2 text-xs font-semibold text-muted-foreground">Additional bodies</h4>
                 {renderPreferenceOptions(CELESTIAL_BODY_OPTIONS)}
@@ -724,7 +769,7 @@ function SvgChart({
   houseCusps = [],
   language = "en",
   showTransitLabels = false,
-  preferences = { showHouseLabels: true, showOuterPlanets: true, showAsteroids: false, showUpagrahas: false, showFortune: true, usePlanetIcons: false, useSignIcons: false, showEqualHouses: false, showSignDivisions: true, showSignNumbers: true, showBhavaCusps: false },
+  preferences = { showHouseLabels: true, showOuterPlanets: true, showAsteroids: false, showUpagrahas: false, showFortune: true, usePlanetIcons: false, useSignIcons: false, showEqualHouses: false, showSignDivisions: true, showSignNumbers: true, showBhavaCusps: false, cuspLabelSignStyle: "short", cuspLabelDegreeFormat: "dms", cuspLabelStyle: "line" },
 }: {
   style: ChartStyle;
   ascendant: PlanetPosition;
@@ -779,6 +824,18 @@ function SvgChart({
   const overflowGroups: HouseOverflowGroup[] = houseBodyGroups.flatMap(({ house, overflow }) => (
     overflow.length > 0 ? [{ house, bodies: overflow }] : []
   ));
+  const cuspLabelResult = useMemo(() => {
+    if (varga !== 1 || houseCusps.length !== 12) return null;
+    return cuspLabels(
+      houseCusps.map((cusp) => cusp.longitude),
+      {
+        signStyle: preferences.cuspLabelSignStyle,
+        degreeFormat: preferences.cuspLabelDegreeFormat,
+        showHouseNumber: true,
+      },
+      ascendant.longitude,
+    );
+  }, [ascendant.longitude, houseCusps, preferences.cuspLabelDegreeFormat, preferences.cuspLabelSignStyle, preferences.cuspLabelStyle, varga]);
 
   if (style === "placidus") {
     const cusps = varga === 1 && houseCusps.length === 12
@@ -821,6 +878,11 @@ function SvgChart({
             <g key={house.house}>
               <polygon points={polygon} fill={house.house === 1 ? "hsl(var(--champagne-gold) / 0.12)" : "hsl(var(--card))"} stroke="hsl(var(--chart-grid))" strokeWidth="1" />
               <text x={x} y={y - 10} fill="hsl(var(--foreground))" fontSize="8" fontWeight="600" textAnchor="middle">{preferences.showHouseLabels ? `H${house.house} · ` : ""}{chartSignDisplay(house.sign, language, preferences)}</text>
+              {preferences.showBhavaCusps && cuspLabelResult && cuspLabelResult.bySign[house.sign].cusps.map((cusp, cuspIndex) => (
+                <text key={`cusp-${cusp.house}`} x={x} y={y + 3 + cuspIndex * 10} fill={cusp.shifted ? "hsl(var(--champagne-gold))" : "hsl(var(--foreground))"} fontSize="7" fontWeight="600" textAnchor="middle" opacity={preferences.cuspLabelStyle === "line" ? 0.9 : 1}>
+                  {cusp.label}
+                </text>
+              ))}
               {contents.map((body, bodyIndex) => {
                 const name = chartPlanetDisplay(body, language, preferences.usePlanetIcons);
                 const vargottama = body.name !== "Ascendant" && body.sign === getVargaSign(body, 9);
@@ -854,6 +916,15 @@ function SvgChart({
           return (
             <div key={sign} className={`flex min-w-0 flex-col items-center justify-center gap-1 border border-slate-200 p-1 text-center dark:border-slate-700 ${signHouse === 1 ? "bg-amber-100/70 dark:bg-amber-400/10" : ""}`}>
               <span className="text-xs text-foreground">{chartSignDisplay(sign, language, preferences)}{preferences.showHouseLabels ? ` · H${signHouse}` : ""}</span>
+              {preferences.showBhavaCusps && cuspLabelResult && cuspLabelResult.bySign[sign].cusps.length > 0 && (
+                <span className="flex flex-wrap justify-center gap-1">
+                  {cuspLabelResult.bySign[sign].cusps.map((cusp) => (
+                    <span key={`cusp-${cusp.house}`} title={`House ${cusp.house} starts in ${cusp.sign}`} className={`rounded px-1 text-[9px] font-semibold leading-4 ${preferences.cuspLabelStyle === "line" ? "bg-yellow-300/90 text-slate-900" : cusp.shifted ? "text-amber-700 dark:text-amber-300" : "text-foreground"}`}>
+                      {cusp.label}
+                    </span>
+                  ))}
+                </span>
+              )}
               <span className="flex flex-wrap justify-center gap-1 text-[11px] leading-4">
                 {bodies.map((body) => {
                   const name = chartPlanetDisplay(body, language, preferences.usePlanetIcons);
@@ -905,7 +976,11 @@ function SvgChart({
         return (
           <g key={house.house}>
             <text x={x} y={y - 15} fill="hsl(var(--foreground))" fontSize="9" textAnchor="middle">{preferences.showHouseLabels ? isAscHouse ? "1ST HOUSE" : `H${house.house}` : ""}{preferences.showHouseLabels ? " · " : ""}{chartSignDisplay(house.sign, language, preferences).toUpperCase()}</text>
-            {preferences.showBhavaCusps && houseCusps[house.house - 1] && <text x={x} y={y - 3} fill="hsl(var(--foreground))" fontSize="7" textAnchor="middle">C{house.house} {degreeToDms(houseCusps[house.house - 1].longitude % 30)}</text>}
+            {preferences.showBhavaCusps && preferences.cuspLabelStyle === "box" && cuspLabelResult && cuspLabelResult.boxes[house.house - 1].cusps.map((cusp, cuspIndex) => (
+              <text key={`cusp-${cusp.house}`} x={x} y={y - 3 + cuspIndex * 9} fill={cusp.shifted ? "hsl(var(--champagne-gold))" : "hsl(var(--foreground))"} fontSize="7" fontWeight="600" textAnchor="middle">
+                {cusp.label}
+              </text>
+            ))}
             {houseBodyGroups[house.house - 1].inline.map((body, index) => {
               const row = Math.floor(index / 1);
               const bodyColor = "hsl(var(--foreground))";
@@ -922,6 +997,22 @@ function SvgChart({
                 </g>
               );
             })}
+          </g>
+        );
+      })}
+      {preferences.showBhavaCusps && preferences.cuspLabelStyle === "line" && cuspLabelResult?.cusps.map((cusp) => {
+        const anchor = northCuspAnchor(cusp);
+        const x = anchor.x + 10;
+        const y = anchor.y + 10;
+        const width = Math.min(92, Math.max(48, cusp.label.length * 4.5));
+        return (
+          <g key={`cusp-line-${cusp.house}`}>
+            <title>House {cusp.house} starts in {cusp.sign}</title>
+            <line x1={anchor.tick[0][0] + 10} y1={anchor.tick[0][1] + 10} x2={anchor.tick[1][0] + 10} y2={anchor.tick[1][1] + 10} stroke="hsl(var(--champagne-gold))" strokeWidth="1.5" />
+            <g transform={`translate(${x} ${y}) rotate(${anchor.angle})`}>
+              <rect x={-width / 2} y="-6" width={width} height="12" rx="3" fill="#FDE047" fillOpacity="0.9" />
+              <text x="0" y="3" fill="#0f172a" fontSize="7" fontWeight="700" textAnchor="middle" fontFamily="Segoe UI Symbol, Noto Sans Symbols 2, DejaVu Sans, sans-serif">{cusp.label}</text>
+            </g>
           </g>
         );
       })}
@@ -2007,6 +2098,17 @@ export function KundaliDashboard() {
   }, [sourceDisplayData, houseSystem, carterResult, carterZodiac]);
   const displayLoading = chartMode === "transit" ? transitLoading : loading;
   const displayError = chartMode === "transit" ? transitError : error;
+  const displayCuspLabels = useMemo(() => {
+    if (!displayData || displayData.houseCusps.length !== 12) return null;
+    return cuspLabels(
+      displayData.houseCusps.map((cusp) => cusp.longitude),
+      {
+        signStyle: viewPreferences.cuspLabelSignStyle,
+        degreeFormat: viewPreferences.cuspLabelDegreeFormat,
+      },
+      displayData.ascendant.longitude,
+    );
+  }, [displayData, viewPreferences.cuspLabelDegreeFormat, viewPreferences.cuspLabelSignStyle]);
   const midpointReport = useMemo(
     () => createMidpointReport(displayData, midpointPreferences),
     [displayData, midpointPreferences],
@@ -2411,9 +2513,22 @@ export function KundaliDashboard() {
                   <span className="font-medium">{houseSystem === "carter" ? "Carter house cusps" : "Bhava Chalit cusps"}</span><span className="text-slate-600">· {displayData.houseCuspSystem}</span>
                   <ChevronDown className="ml-auto size-3.5 text-slate-600 transition group-open:rotate-180" />
                 </summary>
-                <div className="grid grid-cols-3 gap-1.5 border-t border-slate-200 p-2 sm:grid-cols-4 lg:grid-cols-6 dark:border-slate-800">
-                  {displayData.houseCusps.map((cusp) => <div key={cusp.house} className="rounded-md bg-card px-2 py-1.5"><p className="text-xs uppercase text-muted-foreground">House {cusp.house}</p><p className="mt-0.5 truncate font-mono text-xs">{cusp.signName} {degreeToDms(cusp.longitude % 30)}</p></div>)}
+                <div className="grid grid-cols-2 gap-1.5 border-t border-slate-200 p-2 sm:grid-cols-3 lg:grid-cols-4 dark:border-slate-800">
+                  {displayData.houseCusps.map((cusp, index) => {
+                    const next = displayData.houseCusps[(index + 1) % 12];
+                    const span = ((next.longitude - cusp.longitude + 360) % 360).toFixed(2);
+                    return <div key={cusp.house} className="rounded-md bg-card px-2 py-1.5"><p className="text-xs uppercase text-muted-foreground">House {cusp.house}</p><p className="mt-0.5 truncate font-mono text-xs">{cusp.signName} {degreeToDms(((cusp.longitude % 30) + 30) % 30)}</p><p className="mt-0.5 text-[10px] text-muted-foreground">to {next.signName} · {span}° span</p></div>;
+                  })}
                 </div>
+                {displayCuspLabels && (
+                  <div className="border-t border-slate-200 px-3 py-2 text-xs dark:border-slate-800">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      <span><strong>Intercepted:</strong> {displayCuspLabels.interceptedSigns.length ? displayCuspLabels.interceptedSigns.join(", ") : "None"}</span>
+                      <span><strong>Double-cusp signs:</strong> {displayCuspLabels.signsWithTwoCusps.length ? displayCuspLabels.signsWithTwoCusps.join(", ") : "None"}</span>
+                    </div>
+                    <p className="mt-1 text-muted-foreground">Bhava Chalit comparison is available from the chart selector; cusp houses use the start-to-next-cusp spans shown above.</p>
+                  </div>
+                )}
               </details>
             )}
             {houseSystem === "carter" && (

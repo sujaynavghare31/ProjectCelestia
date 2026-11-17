@@ -3,6 +3,7 @@
 import type { CelestialLanguage, EphemerisResponse, PlanetPosition, ViewPreferences } from "@/lib/kundali-types";
 import { useKundaliStore } from "@/lib/kundali-store";
 import { formatPlanetDegree, planetChartDisplayName, planetChartName, signName } from "@/lib/astrology/localization";
+import { cuspLabels } from "@/lib/astrology/cusp-labels";
 
 const CENTER = 500;
 const ZODIAC_OUTER_RADIUS = 472;
@@ -182,6 +183,17 @@ function PlacidusWheel({
   ];
   const sortedCusps = Array.from({ length: 12 }, (_, index) => cusps.find((cusp) => cusp.house === index + 1))
     .filter((cusp): cusp is EphemerisResponse["houseCusps"][number] => cusp !== undefined);
+  const cuspLabelResult = cusps.length === 12
+    ? cuspLabels(
+      cusps.map((cusp) => cusp.longitude),
+      {
+        signStyle: preferences.cuspLabelSignStyle,
+        degreeFormat: preferences.cuspLabelDegreeFormat,
+        showHouseNumber: true,
+      },
+      ascendant.longitude,
+    )
+    : null;
   const bodyPlacements = getBodyPlacements(chartBodies, referenceLongitude);
   const aspectLines = getAspectLines(visiblePlanets, referenceLongitude);
   const ascendantName = preferences.usePlanetIcons
@@ -314,21 +326,27 @@ function PlacidusWheel({
                 H{relativeHouse}
               </text>
             )}
-            {preferences.showBhavaCusps && (
-              <text
-                x={outer.x}
-                y={outer.y + 3}
-                fill="hsl(var(--foreground))"
-                fontSize="9"
-                fontWeight="500"
-                textAnchor="middle"
-                stroke="hsl(var(--card))"
-                strokeWidth="3"
-                paintOrder="stroke"
-              >
-                {`C${relativeHouse} ${formatPlanetDegree(normalizeDegrees(cusp.longitude) % 30)}`}
-              </text>
-            )}
+            {preferences.showBhavaCusps && cuspLabelResult && (() => {
+              const label = cuspLabelResult.cusps[cusp.house - 1];
+              if (!label) return null;
+              return (
+                <text
+                  x={outer.x}
+                  y={outer.y + 3}
+                  fill={preferences.cuspLabelStyle === "line" ? "#0f172a" : "hsl(var(--foreground))"}
+                  fontSize="9"
+                  fontWeight="600"
+                  textAnchor="middle"
+                  stroke={preferences.cuspLabelStyle === "line" ? "#FDE047" : "hsl(var(--card))"}
+                  strokeWidth={preferences.cuspLabelStyle === "line" ? "7" : "3"}
+                  strokeLinecap="round"
+                  paintOrder="stroke"
+                  fontFamily={preferences.cuspLabelSignStyle === "glyph" ? "Segoe UI Symbol, Noto Sans Symbols 2, DejaVu Sans, sans-serif" : undefined}
+                >
+                  {label.label}
+                </text>
+              );
+            })()}
           </g>
         );
       })}

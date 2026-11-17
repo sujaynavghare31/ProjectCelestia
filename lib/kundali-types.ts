@@ -4,6 +4,9 @@ export type CelestialLanguage = "en" | "hi" | "mr" | "initials";
 export type ZodiacMode = "sidereal" | "tropical";
 export type HouseSystem = "placidus" | "carter";
 export type CarterZodiac = "sayana" | "nirayanaA" | "nirayanaB";
+export type CuspLabelSignStyle = "short" | "full" | "number" | "hindi" | "glyph";
+export type CuspLabelDegreeFormat = "dms" | "dm" | "decimal" | "compact";
+export type CuspLabelStyle = "line" | "box";
 
 export interface MidpointPreferences {
   mode: import("@/lib/astrology/engines/midpoints").MidpointMode;
@@ -30,6 +33,9 @@ export interface ViewPreferences {
   showSignDivisions: boolean;
   showSignNumbers: boolean;
   showBhavaCusps: boolean;
+  cuspLabelSignStyle: CuspLabelSignStyle;
+  cuspLabelDegreeFormat: CuspLabelDegreeFormat;
+  cuspLabelStyle: CuspLabelStyle;
 }
 
 export interface ChartSettings {
