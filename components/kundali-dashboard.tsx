@@ -1116,6 +1116,278 @@ type SavedProfile = {
   notes: string;
 };
 
+function SaveChartDialog({
+  open,
+  loading,
+  saving,
+  profiles,
+  mode,
+  targetId,
+  chartName,
+  onClose,
+  onModeChange,
+  onTargetChange,
+  onChartNameChange,
+  onSave,
+}: {
+  open: boolean;
+  loading: boolean;
+  saving: boolean;
+  profiles: SavedProfile[];
+  mode: "new" | "update";
+  targetId: string | null;
+  chartName: string;
+  onClose: () => void;
+  onModeChange: (mode: "new" | "update") => void;
+  onTargetChange: (id: string) => void;
+  onChartNameChange: (name: string) => void;
+  onSave: () => void;
+}) {
+  const firstFocusableRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    firstFocusableRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !saving) onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [onClose, open, saving]);
+
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[110] flex items-end justify-center bg-[#46332B]/45 p-3 backdrop-blur-[2px] sm:items-center sm:p-6"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && !saving) onClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="save-chart-dialog-title"
+        className="w-full max-w-lg rounded-2xl border border-border bg-card text-card-foreground shadow-2xl"
+      >
+        <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
+          <div>
+            <h2 id="save-chart-dialog-title" className="text-base font-semibold">Save chart</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Choose whether to create a new saved chart or update one you already have.</p>
+          </div>
+          <button
+            type="button"
+            aria-label="Close save chart dialog"
+            onClick={onClose}
+            disabled={saving}
+            className="grid size-8 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50"
+          >
+            <X className="size-4" aria-hidden="true" />
+          </button>
+        </header>
+
+        <div className="space-y-4 px-5 py-5 sm:px-6">
+          <fieldset className="space-y-2">
+            <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Save option</legend>
+            <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${mode === "new" ? "border-primary/40 bg-primary/5" : "border-border hover:border-primary/30"}`}>
+              <input
+                ref={firstFocusableRef}
+                type="radio"
+                name="save-chart-mode"
+                checked={mode === "new"}
+                onChange={() => onModeChange("new")}
+                className="mt-0.5 size-4 accent-primary"
+              />
+              <span>
+                <span className="block text-sm font-medium">Save as a new chart</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">Keep the existing saved charts unchanged.</span>
+              </span>
+            </label>
+            <label className={`flex items-start gap-3 rounded-xl border p-3 transition ${mode === "update" ? "border-primary/40 bg-primary/5" : "border-border hover:border-primary/30"} ${profiles.length ? "cursor-pointer" : "cursor-not-allowed opacity-55"}`}>
+              <input
+                type="radio"
+                name="save-chart-mode"
+                checked={mode === "update"}
+                onChange={() => profiles.length && onModeChange("update")}
+                disabled={!profiles.length}
+                className="mt-0.5 size-4 accent-primary"
+              />
+              <span>
+                <span className="block text-sm font-medium">Update an existing chart</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">{profiles.length ? "Replace its birth details and notes with the current profile." : "Save a chart first to enable updates."}</span>
+              </span>
+            </label>
+          </fieldset>
+
+          {mode === "update" && (
+            <label className="block text-sm font-medium">
+              Chart to update
+              <select
+                value={targetId ?? ""}
+                onChange={(event) => onTargetChange(event.target.value)}
+                className={`${CONTROL_CLASS} mt-2 h-10 w-full text-sm`}
+                disabled={loading || saving}
+              >
+                <option value="" disabled>Select a saved chart</option>
+                {profiles.map((saved) => (
+                  <option key={saved.id} value={saved.id}>{saved.chartName || saved.fullName}</option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <label className="block text-sm font-medium">
+            Chart name <span className="font-normal text-muted-foreground">(optional)</span>
+            <input
+              type="text"
+              maxLength={100}
+              value={chartName}
+              onChange={(event) => onChartNameChange(event.target.value)}
+              placeholder="e.g. My birth chart"
+              className={`${CONTROL_CLASS} mt-2 h-10 w-full text-sm`}
+              disabled={saving}
+            />
+          </label>
+        </div>
+
+        <footer className="flex flex-col-reverse gap-2 border-t border-border px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
+          <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-lg border border-border px-4 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50">Cancel</button>
+          <button type="button" onClick={onSave} disabled={saving || loading || (mode === "update" && !targetId)} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#C64F30] px-4 text-sm font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40 disabled:cursor-wait disabled:opacity-60">
+            {saving && <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />}
+            {saving ? "Saving…" : mode === "update" ? "Update chart" : "Save new chart"}
+          </button>
+        </footer>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
+function SavedChartsDialog({
+  open,
+  loading,
+  profiles,
+  query,
+  onQueryChange,
+  onClose,
+  onSelect,
+}: {
+  open: boolean;
+  loading: boolean;
+  profiles: SavedProfile[];
+  query: string;
+  onQueryChange: (query: string) => void;
+  onClose: () => void;
+  onSelect: (profile: SavedProfile) => void;
+}) {
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    searchRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [onClose, open]);
+
+  if (!open || typeof document === "undefined") return null;
+
+  const normalizedQuery = query.trim().toLowerCase();
+  const visibleProfiles = profiles.filter((profile) => {
+    if (!normalizedQuery) return true;
+    return [profile.chartName, profile.fullName, profile.city, profile.timezone]
+      .filter(Boolean)
+      .some((value) => value?.toLowerCase().includes(normalizedQuery));
+  });
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[105] flex items-center justify-center bg-[#46332B]/45 p-3 backdrop-blur-[2px] sm:p-6"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="saved-charts-dialog-title"
+        className="flex max-h-[min(720px,calc(100vh-1.5rem))] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-2xl sm:max-h-[min(760px,calc(100vh-3rem))]"
+      >
+        <header className="flex items-start justify-between gap-4 border-b border-border bg-primary px-5 py-4 text-primary-foreground sm:px-6">
+          <div>
+            <h2 id="saved-charts-dialog-title" className="text-lg font-semibold">All saved charts</h2>
+            <p className="mt-1 text-sm text-primary-foreground/75">Choose a profile to open in your chart workspace.</p>
+          </div>
+          <button type="button" aria-label="Close saved charts" onClick={onClose} className="grid size-8 shrink-0 place-items-center rounded-lg border border-primary-foreground/30 transition hover:bg-primary-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/60">
+            <X className="size-4" aria-hidden="true" />
+          </button>
+        </header>
+
+        <div className="border-b border-border bg-card p-4 sm:p-5">
+          <label className="relative block">
+            <span className="sr-only">Search saved charts</span>
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <input
+              ref={searchRef}
+              type="search"
+              value={query}
+              onChange={(event) => onQueryChange(event.target.value)}
+              placeholder="Search name, city, or timezone"
+              className="h-11 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/30"
+            />
+          </label>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="px-5 py-12 text-center text-sm text-muted-foreground">Loading your saved charts…</div>
+          ) : visibleProfiles.length ? (
+            <ul className="divide-y divide-border">
+              {visibleProfiles.map((saved) => (
+                <li key={saved.id}>
+                  <button type="button" onClick={() => onSelect(saved)} className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-muted/70 focus-visible:bg-muted/70 focus-visible:outline-none sm:px-6">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                      <Orbit className="size-5" aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{saved.chartName || saved.fullName}</span>
+                      <span className="mt-1 block truncate text-xs text-muted-foreground">{saved.city || "Coordinates"} · {saved.dateOfBirth} · {saved.timeOfBirth}</span>
+                    </span>
+                    <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="px-5 py-12 text-center sm:px-6">
+              <Orbit className="mx-auto size-8 text-muted-foreground/70" aria-hidden="true" />
+              <p className="mt-3 text-sm font-medium">{profiles.length ? "No matching charts" : "No saved charts yet"}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{profiles.length ? "Try a different search." : "Save your first birth chart from the workspace."}</p>
+            </div>
+          )}
+        </div>
+
+        <footer className="border-t border-border bg-muted/40 px-5 py-3 text-center text-xs text-muted-foreground sm:px-6">
+          {profiles.length} {profiles.length === 1 ? "saved chart" : "saved charts"}
+        </footer>
+      </section>
+    </div>,
+    document.body,
+  );
+}
+
 const PROFILE_DRAFT_STORAGE_KEY = "project-celestia:profile-draft";
 
 function parseProfileDraft(value: string): BirthProfile | null {
@@ -1204,6 +1476,12 @@ export function KundaliDashboard() {
   const [savedProfiles, setSavedProfiles] = useState<SavedProfile[]>([]);
   const [savedProfilesOpen, setSavedProfilesOpen] = useState(false);
   const [savedProfilesLoading, setSavedProfilesLoading] = useState(false);
+  const [savedProfilesQuery, setSavedProfilesQuery] = useState("");
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [saveDialogLoading, setSaveDialogLoading] = useState(false);
+  const [saveDialogMode, setSaveDialogMode] = useState<"new" | "update">("new");
+  const [saveDialogTargetId, setSaveDialogTargetId] = useState<string | null>(null);
+  const [saveDialogName, setSaveDialogName] = useState("");
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileActionError, setProfileActionError] = useState<string | null>(null);
   const [profileActionMessage, setProfileActionMessage] = useState<string | null>(null);
@@ -1500,7 +1778,7 @@ export function KundaliDashboard() {
     }
     window.location.assign(`/login?callbackUrl=${encodeURIComponent("/#kundali-charts")}`);
   };
-  const saveProfile = async () => {
+  const saveProfile = async (targetId: string | null = savedProfileId, chartName = profile.name) => {
     setProfileActionError(null);
     setProfileActionMessage(null);
     if (!profile.date || !profile.time || !profile.timezone) {
@@ -1519,8 +1797,8 @@ export function KundaliDashboard() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...profile,
-          name: profile.name === "Current transit" ? "" : profile.name,
-          id: savedProfileId,
+          name: chartName === "Current transit" ? "" : chartName,
+          id: targetId,
         }),
       });
       if (response.status === 401) {
@@ -1539,6 +1817,42 @@ export function KundaliDashboard() {
       setSavingProfile(false);
     }
   };
+  const openSaveDialog = async () => {
+    setProfileActionError(null);
+    setProfileActionMessage(null);
+    setSaveDialogName(profile.name === "Current transit" ? "" : profile.name);
+    setSaveDialogMode(savedProfileId ? "update" : "new");
+    setSaveDialogTargetId(savedProfileId);
+    setSaveDialogOpen(true);
+    if (savedProfiles.length) return;
+
+    setSaveDialogLoading(true);
+    try {
+      const response = await fetch("/api/profiles");
+      if (response.status === 401) {
+        setSaveDialogOpen(false);
+        redirectToSignIn();
+        return;
+      }
+      const result = await response.json() as { profiles?: SavedProfile[]; error?: string };
+      if (!response.ok || !Array.isArray(result.profiles)) throw new Error(result.error ?? "Saved charts could not be loaded.");
+      setSavedProfiles(result.profiles);
+      if (savedProfileId && result.profiles.some(({ id }) => id === savedProfileId)) {
+        setSaveDialogMode("update");
+        setSaveDialogTargetId(savedProfileId);
+      }
+    } catch (reason) {
+      setSaveDialogOpen(false);
+      setProfileActionError(reason instanceof Error ? reason.message : "Saved charts could not be loaded. Please try again.");
+    } finally {
+      setSaveDialogLoading(false);
+    }
+  };
+  const confirmSaveProfile = () => {
+    const targetId = saveDialogMode === "update" ? saveDialogTargetId : null;
+    void saveProfile(targetId, saveDialogName.trim());
+    setSaveDialogOpen(false);
+  };
   const toggleSavedProfiles = async () => {
     setProfileActionError(null);
     setProfileActionMessage(null);
@@ -1547,6 +1861,7 @@ export function KundaliDashboard() {
       return;
     }
 
+    setSavedProfilesQuery("");
     setSavedProfilesOpen(true);
     setSavedProfilesLoading(true);
     try {
@@ -1744,7 +2059,7 @@ export function KundaliDashboard() {
               <p className="text-xs font-semibold">Chart profile</p>
             </div>
             <div className="flex items-center gap-1.5">
-              <button type="button" onClick={saveProfile} disabled={savingProfile} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60">
+              <button type="button" onClick={openSaveDialog} disabled={savingProfile || saveDialogLoading} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60">
                 <Save aria-hidden="true" className="size-3.5" />
                 {savingProfile ? "Saving…" : "Save chart"}
               </button>
@@ -1847,30 +2162,50 @@ export function KundaliDashboard() {
                 </div>
             </div>
           </form>
-          {savedProfilesOpen && (
-            <div className="mt-3 rounded-lg border border-border bg-background p-3" aria-label="Saved charts">
-              {savedProfilesLoading ? (
-                <p className="text-xs text-muted-foreground">Loading your saved charts…</p>
-              ) : savedProfiles.length ? (
-                <ul className="divide-y divide-border">
-                  {savedProfiles.map((saved) => (
-                    <li key={saved.id}>
-                      <button type="button" onClick={() => selectSavedProfile(saved)} className="flex w-full flex-wrap items-center justify-between gap-2 py-2 text-left transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
-                        <span className="min-w-0 truncate text-sm font-medium">{saved.chartName || saved.fullName}</span>
-                        <span className="text-xs text-muted-foreground">{saved.city || `${saved.latitude.toFixed(2)}, ${saved.longitude.toFixed(2)}`} · {saved.dateOfBirth}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-xs text-muted-foreground">No saved charts yet. Use “Save chart” to keep this profile with its notes.</p>
-              )}
-            </div>
-          )}
           {profileActionError && <p role="alert" className="mt-2 text-xs text-rose-800 dark:text-rose-200">{profileActionError}</p>}
           {profileActionMessage && <p role="status" className="mt-2 text-xs text-emerald-700 dark:text-emerald-300">{profileActionMessage}</p>}
           {coordinateTimezoneError && <p role="status" className="mt-1 truncate text-[11px] text-rose-700 dark:text-rose-300">{coordinateTimezoneError}</p>}
         </section>
+
+        <SavedChartsDialog
+          open={savedProfilesOpen}
+          loading={savedProfilesLoading}
+          profiles={savedProfiles}
+          query={savedProfilesQuery}
+          onQueryChange={setSavedProfilesQuery}
+          onClose={() => setSavedProfilesOpen(false)}
+          onSelect={selectSavedProfile}
+        />
+
+        <SaveChartDialog
+          open={saveDialogOpen}
+          loading={saveDialogLoading}
+          saving={savingProfile}
+          profiles={savedProfiles}
+          mode={saveDialogMode}
+          targetId={saveDialogTargetId}
+          chartName={saveDialogName}
+          onClose={() => setSaveDialogOpen(false)}
+          onModeChange={(mode) => {
+            setSaveDialogMode(mode);
+            if (mode === "new") {
+              setSaveDialogTargetId(null);
+              setSaveDialogName("");
+            } else {
+              const nextTargetId = saveDialogTargetId ?? savedProfiles[0]?.id ?? null;
+              setSaveDialogTargetId(nextTargetId);
+              const target = savedProfiles.find(({ id }) => id === nextTargetId);
+              setSaveDialogName(target?.chartName ?? target?.fullName ?? "");
+            }
+          }}
+          onTargetChange={(id) => {
+            setSaveDialogTargetId(id);
+            const target = savedProfiles.find((saved) => saved.id === id);
+            setSaveDialogName(target?.chartName ?? target?.fullName ?? "");
+          }}
+          onChartNameChange={setSaveDialogName}
+          onSave={confirmSaveProfile}
+        />
 
         <nav role="tablist" aria-label="Kundali analysis" className="flex w-full gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 shadow-sm">
           {DASHBOARD_TABS.map(({ id, label }) => (

@@ -1,6 +1,10 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
+function isUniqueConstraintError(error: unknown) {
+  return error instanceof Error && "code" in error && error.code === "P2002";
+}
+
 function usernameFromClerkUser(email: string, clerkUserId: string, username: string | null) {
   const source = username ?? email.split("@")[0] ?? "";
   const normalized = source.toLowerCase().replace(/[^a-z0-9._-]/g, "-").replace(/^[.-]+|[.-]+$/g, "");
@@ -31,11 +35,23 @@ export async function getCurrentDatabaseUser() {
     });
   }
 
-  return prisma.user.create({
-    data: {
-      clerkId: clerkUserId,
-      email,
-      username: usernameFromClerkUser(email, clerkUserId, clerkUser.username),
-    },
-  });
+  try {
+    return await prisma.user.create({
+      data: {
+        clerkId: clerkUserId,
+        email,
+        username: usernameFromClerkUser(email, clerkUserId, clerkUser.username),
+      },
+    });
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) throw error;
+
+    const concurrentUser = await prisma.user.findUnique({ where: { clerkId: clerkUserId } });
+    if (concurrentUser) return concurrentUser;
+
+    const conflictingEmailUser = await prisma.user.findUnique({ where: { email } });
+    if (conflictingEmailUser?.clerkId === clerkUserId) return conflictingEmailUser;
+
+    throw error;
+  }
 }
