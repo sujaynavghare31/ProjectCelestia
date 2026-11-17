@@ -34,6 +34,12 @@ export default function ChartControls({
   onReferenceNameChange,
   onOpenSettings,
   onMaximize,
+  transitDate,
+  transitTime,
+  transitMode,
+  onTransitDateChange,
+  onTransitTimeChange,
+  onTransitModeChange,
 }: {
   chartMode: "transit" | "birth";
   chartStyle: ChartStyle;
@@ -45,11 +51,17 @@ export default function ChartControls({
   onReferenceNameChange: (value: string) => void;
   onOpenSettings: () => void;
   onMaximize: () => void;
+  transitDate: string;
+  transitTime: string;
+  transitMode: "current" | "specific";
+  onTransitDateChange: (value: string) => void;
+  onTransitTimeChange: (value: string) => void;
+  onTransitModeChange: (value: "current" | "specific") => void;
 }) {
-  const transitLabel = chartMode === "transit" ? "Show transit labels" : "Overlay current transits";
+  const transitLabel = chartMode === "transit" ? "Show transit labels" : "Overlay current transit";
 
   return (
-    <div className="space-y-4 border-b border-border bg-muted/10 p-4">
+    <div className="space-y-4 border-b border-border bg-muted/10 p-4 xl:min-h-[300px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
           <div className="min-w-0">
@@ -65,7 +77,7 @@ export default function ChartControls({
           <label
             title={chartMode === "transit"
               ? "This chart already shows current-sky positions; enable labels to mark them with T and degrees."
-              : "Calculate current-sky positions and draw them over the birth chart."}
+              : "Draw a current or date-specific transit sky over the birth chart."}
             className="inline-flex min-h-10 items-center gap-2 rounded-full border border-border bg-card px-3 text-xs font-medium text-foreground transition hover:border-stone-300"
           >
             <span>{transitLabel}</span>
@@ -86,6 +98,31 @@ export default function ChartControls({
             <Maximize2 className="size-4" />
           </button>
         </div>
+        {chartMode === "birth" && overlayTransits && (
+          <fieldset className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-3">
+            <legend className="w-full text-xs font-medium text-muted-foreground">Transit overlay</legend>
+            <label className={`flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-xs font-medium transition ${transitMode === "current" ? "border-primary/40 bg-accent text-accent-foreground" : "border-border bg-card text-foreground hover:bg-muted"}`}>
+              <input type="radio" name="overlay-transit-mode" checked={transitMode === "current"} onChange={() => onTransitModeChange("current")} className="accent-primary" />
+              Current transit
+            </label>
+            <label className={`flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-xs font-medium transition ${transitMode === "specific" ? "border-primary/40 bg-accent text-accent-foreground" : "border-border bg-card text-foreground hover:bg-muted"}`}>
+              <input type="radio" name="overlay-transit-mode" checked={transitMode === "specific"} onChange={() => onTransitModeChange("specific")} className="accent-primary" />
+              Specific date
+            </label>
+          </fieldset>
+        )}
+        {chartMode === "birth" && overlayTransits && transitMode === "specific" && (
+          <div className="flex flex-wrap items-end gap-2 border-t border-border/70 pt-3">
+            <label className="flex min-w-[150px] flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
+              Transit date
+              <input aria-label="Transit date" type="date" value={transitDate} onChange={(event) => onTransitDateChange(event.target.value)} className="h-9 rounded-lg border border-input bg-card px-2.5 text-xs text-card-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/40" />
+            </label>
+            <label className="flex min-w-[130px] flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
+              Local time
+              <input aria-label="Transit time" type="time" step="1" value={transitTime} onChange={(event) => onTransitTimeChange(event.target.value)} className="h-9 rounded-lg border border-input bg-card px-2.5 text-xs text-card-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/40" />
+            </label>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

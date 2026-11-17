@@ -25,7 +25,7 @@ import {
 import type { CarterZodiac, ChartSettings, ChartStyle, CelestialLanguage, EphemerisResponse, HouseSystem, MidpointPreferences, PlanetPosition, ViewPreferences } from "@/lib/kundali-types";
 import PlacidusWheel from "@/components/PlacidusWheel";
 import ChartControls from "@/components/ChartControls";
-import { getBirthDateTimeDefaults, useKundaliStore, type BirthProfile } from "@/lib/kundali-store";
+import { getBirthDateTimeDefaults, getCurrentBirthDateTime, useKundaliStore, type BirthProfile } from "@/lib/kundali-store";
 import { limitCoordinatePrecision, parseCoordinateDraft } from "@/lib/coordinate-input";
 import { formatPlanetDegree, planetChartDisplayName, planetName, signName } from "@/lib/astrology/localization";
 import { splitHouseBodies } from "@/lib/astrology/chart-layout";
@@ -48,6 +48,7 @@ const loadStrengthAnalysisTab = () => import("@/components/dashboard-tabs/streng
 const loadMedicalTab = () => import("@/components/dashboard-tabs/medical-tab");
 const loadTransitCalendarTab = () => import("@/components/dashboard-tabs/transit-calendar-tab");
 const loadMidpointsTab = () => import("@/components/dashboard-tabs/midpoints-tab");
+const loadJamakkolTab = () => import("@/components/dashboard-tabs/jamakkol-tab");
 const loadCarterCuspsPanel = () => import("@/components/dashboard-tabs/carter-cusps-panel");
 const DashaTab = lazy(loadDashaTab);
 const ElementModalityTab = lazy(loadElementModalityTab);
@@ -59,6 +60,7 @@ const TransitCalendarTab = dynamic(loadTransitCalendarTab, {
   loading: () => <SecondaryTabSkeleton />,
 });
 const MidpointsTab = lazy(loadMidpointsTab);
+const JamakkolTab = lazy(loadJamakkolTab);
 const CarterCuspsPanel = lazy(loadCarterCuspsPanel);
 
 const DIVISIONAL_CHARTS = {
@@ -1146,7 +1148,7 @@ type AuxiliaryType = "divisional" | "transit" | "solar" | "tajika" | "progressio
 type DashaSystem = "vimshottari" | "chara" | "ashtottari" | "yogini" | "kalachakra";
 type DashaSeed = "moon" | "ascendant" | "sun" | "ascendant-lord";
 type DashaLagnaMode = "natural" | "maha-lord" | "antar-lord";
-type DashboardTab = "core" | "kp" | "dasha" | "element-modality" | "aspects" | "midpoints" | "ashtakavarga" | "medical" | "transit-calendar";
+type DashboardTab = "core" | "kp" | "dasha" | "element-modality" | "aspects" | "midpoints" | "ashtakavarga" | "medical" | "transit-calendar" | "jamakkol";
 
 // All existing astrology views remain available; strength modules are now grouped with Ashtakavarga.
 const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
@@ -1159,6 +1161,7 @@ const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
   { id: "ashtakavarga", label: "Ashtakavarga & Strength" },
   { id: "medical", label: "Medical Astrology" },
   { id: "transit-calendar", label: "Transit Calendar" },
+  { id: "jamakkol", label: "Jamakkol" },
 ];
 
 function dashboardTabFromLocation(): DashboardTab {
@@ -1176,6 +1179,7 @@ function preloadDashboardTab(tab: DashboardTab) {
     ashtakavarga: () => Promise.all([loadAshtakavargaTab(), loadStrengthAnalysisTab()]),
     medical: loadMedicalTab,
     "transit-calendar": loadTransitCalendarTab,
+    jamakkol: loadJamakkolTab,
   };
   if (tab === "core") return;
   void loaders[tab]().catch((error: unknown) => {
@@ -1576,6 +1580,9 @@ export function KundaliDashboard() {
   const [dashaLagnaMode, setDashaLagnaMode] = useState<DashaLagnaMode>("maha-lord");
   const [notesFocused, setNotesFocused] = useState(false);
   const [chartMode, setChartMode] = useState<"transit" | "birth">("transit");
+  const [transitDate, setTransitDate] = useState(() => getCurrentBirthDateTime().date);
+  const [transitTime, setTransitTime] = useState(() => getCurrentBirthDateTime().time);
+  const [transitMode, setTransitMode] = useState<"current" | "specific">("current");
   const [savedProfileId, setSavedProfileId] = useState<string | null>(null);
   const [savedProfiles, setSavedProfiles] = useState<SavedProfile[]>([]);
   const [savedProfilesOpen, setSavedProfilesOpen] = useState(false);
@@ -1808,17 +1815,19 @@ export function KundaliDashboard() {
     const timeout = window.setTimeout(async () => {
       setTransitLoading(true);
       setTransitError(null);
-      const now = new Date();
+      const selectedTransit = transitMode === "specific"
+        ? { date: transitDate, time: transitTime }
+        : getCurrentBirthDateTime();
       try {
         const response = await fetch("/api/ephemeris", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            date: now.toISOString().slice(0, 10),
-            time: now.toISOString().slice(11, 19),
+            date: selectedTransit.date,
+            time: selectedTransit.time,
             lat: profile.lat,
             lng: profile.lng,
-            timezone: "UTC",
+            timezone: profile.timezone,
             ayanamsa,
             zodiacMode,
             customAyanamsaDegrees,
@@ -1848,13 +1857,16 @@ export function KundaliDashboard() {
       isMounted = false;
       window.clearTimeout(timeout);
     };
-  }, [profile.lat, profile.lng, ayanamsa, zodiacMode, customAyanamsaDegrees, nodeType, transitRefreshKey]);
+  }, [profile.lat, profile.lng, profile.timezone, transitDate, transitTime, transitMode, ayanamsa, zodiacMode, customAyanamsaDegrees, nodeType, transitRefreshKey]);
 
   const handleTransitOverlayChange = useCallback((checked: boolean) => {
     setOverlayTransits(checked);
     if (checked) setTransitRefreshKey((key) => key + 1);
   }, []);
-
+  const handleTransitModeChange = useCallback((value: "current" | "specific") => {
+    setTransitMode(value);
+    setTransitRefreshKey((key) => key + 1);
+  }, []);
   const submitBirthChart = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const dateTimeError = getBirthDateTimeError(profile.date, profile.time);
@@ -2163,7 +2175,7 @@ export function KundaliDashboard() {
   const selectedAuxiliaryChart = AUXILIARY_CHARTS.find((chart) => chart.id === auxiliaryChartId) ?? AUXILIARY_CHARTS[0];
   const auxiliaryVarga = auxiliaryType === "divisional" ? auxiliaryChartId === "BHAVA" ? 1 : Number(auxiliaryChartId.slice(1)) : 1;
   const solarReturnUtc = data?.solarReturn?.utc;
-  const currentTransitLabel = transitData ? new Date(transitData.calculatedAt).toLocaleTimeString() : "—";
+  const currentTransitLabel = transitData ? `${transitData.input.date} ${transitData.input.time}` : "—";
   return (
     <div id="kundali-dashboard" className="relative min-w-0 space-y-4 bg-background text-foreground">
       <div className="mx-auto max-w-[1750px] space-y-4">
@@ -2350,6 +2362,15 @@ export function KundaliDashboard() {
             ChartRenderer={SvgChart}
           />
         )}
+        {dashboardTab === "jamakkol" && (
+          <Suspense fallback={<SecondaryTabSkeleton />}>
+            <JamakkolTab
+              profile={submittedProfile ?? profile}
+              data={chartMode === "transit" ? transitData : data}
+              chartMode={chartMode}
+            />
+          </Suspense>
+        )}
         {dashboardTab === "dasha" && (
           <Suspense fallback={<SecondaryTabSkeleton />}>
             <DashaTab
@@ -2390,7 +2411,7 @@ export function KundaliDashboard() {
         <PanchangStrip date={displayData?.input.date ?? profile.date} planets={displayData?.planets ?? []} />
 
         {/* Core chart panels grow with their controls and charts; wide tables keep horizontal-only overflow. */}
-        <div id="kundali-charts" className="grid w-full grid-cols-1 items-stretch gap-4 scroll-mt-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+        <div id="kundali-charts" className="grid w-full grid-cols-1 items-stretch gap-4 scroll-mt-4 xl:grid-cols-2">
           <div className="row-start-1 flex min-h-0 min-w-0 xl:col-start-1">
             <section className="relative flex h-full min-h-0 w-full flex-col rounded-xl border border-border bg-card text-card-foreground shadow-sm" aria-label="Primary D1 chart">
               <ChartControls
@@ -2404,9 +2425,15 @@ export function KundaliDashboard() {
                 onReferenceNameChange={setReferenceName}
                 onOpenSettings={() => setChartSettingsOpen(true)}
                 onMaximize={() => setChartMaximized(true)}
+                transitDate={transitDate}
+                transitTime={transitTime}
+                transitMode={transitMode}
+                onTransitDateChange={setTransitDate}
+                onTransitTimeChange={setTransitTime}
+                onTransitModeChange={handleTransitModeChange}
               />
-              <div className="relative h-[min(95vw,500px)] min-h-[360px] min-w-0 w-full overflow-hidden p-4 flex items-center justify-center bg-card">
-                <div className="relative h-full w-full max-w-[500px] max-h-[500px] aspect-square">
+              <div className="relative aspect-square min-w-0 w-full overflow-hidden p-4 flex items-center justify-center bg-card">
+                <div className="relative h-full w-full max-w-[640px] max-h-[640px] aspect-square">
                   {displayData ? <SvgChart style={chartStyle} ascendant={displayData.ascendant} planets={displayData.planets} points={displayData.points} houseCusps={displayData.houseCusps} varga={1} referenceHouse={referenceHouseNumber} overlay={chartMode === "birth" && overlayTransits ? transitData?.planets : undefined} showTransitLabels={chartMode === "transit" && overlayTransits} language={language} preferences={viewPreferences} /> : <div className="grid h-full w-full place-items-center text-xs text-muted-foreground">{displayLoading ? <LoaderCircle className="size-5 animate-spin text-primary" /> : "Chart unavailable"}</div>}
                 </div>
                 {overlayTransits && transitLoading && (
@@ -2417,19 +2444,19 @@ export function KundaliDashboard() {
                 )}
               </div>
               <div className="mt-3 flex flex-none flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400">
-                <span className="flex items-center gap-1.5"><span className={`size-2 rounded-full ${chartMode === "transit" ? "bg-cyan-600 dark:bg-cyan-400" : "bg-amber-600 dark:bg-amber-400"}`} /> {chartMode === "transit" ? "Current transit" : "Birth chart"}</span>
+                <span className="flex items-center gap-1.5"><span className={`size-2 rounded-full ${chartMode === "transit" ? "bg-cyan-600 dark:bg-cyan-400" : "bg-amber-600 dark:bg-amber-400"}`} /> {chartMode === "transit" ? `Transit · ${currentTransitLabel}` : "Birth chart"}</span>
                 <button type="button" className="flex items-center gap-1.5 rounded px-1 transition hover:bg-[hsl(var(--input))]/50" onMouseEnter={() => setHoveredPlanet("Vargottama")} onMouseLeave={() => setHoveredPlanet(null)} onFocus={() => setHoveredPlanet("Vargottama")} onBlur={() => setHoveredPlanet(null)}><span className="inline-block size-3 rounded-full border border-primary" /> Vargottama</button>
                 <span title="Retrograde Motion"><span className="font-bold text-rose-700 dark:text-rose-300">R</span> = retrograde</span>
                 <span>{chartStyle === "placidus" ? `${referenceLabel} at 9 o’clock` : referenceLabel}</span>
               </div>
               {chartMode === "transit" && <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">{transitLoading ? "Refreshing current sky…" : transitError ?? `Current sky · ${currentTransitLabel}`}</p>}
-              {chartMode === "birth" && overlayTransits && <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">{transitLoading ? "Refreshing current sky…" : transitError ?? `Transit positions · ${currentTransitLabel}`}</p>}
+              {chartMode === "birth" && overlayTransits && <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">{transitLoading ? "Refreshing transit sky…" : transitError ?? `Transit positions · ${currentTransitLabel}`}</p>}
             </section>
           </div>
 
           <div className="order-2 flex min-h-0 min-w-0 xl:col-start-2 xl:row-start-1">
             <section id="auxiliary-chart" className="relative flex h-full min-h-0 w-full flex-col rounded-xl border border-border bg-card text-card-foreground shadow-sm" aria-label="Auxiliary chart viewer">
-              <div className="bg-muted/10 p-4 border-b border-border flex flex-col gap-3 xl:min-h-[232px]">
+              <div className="bg-muted/10 p-4 border-b border-border flex flex-col gap-3 xl:min-h-[300px]">
               <div className="grid flex-none grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold">{auxiliaryType === "divisional" ? selectedAuxiliaryChart.label : "Auxiliary chart viewer"}</p>
@@ -2493,8 +2520,8 @@ export function KundaliDashboard() {
                 </div>
               )}
               </div>
-              <div className="relative h-[min(95vw,500px)] min-h-[360px] min-w-0 w-full overflow-hidden p-4 flex items-center justify-center bg-card">
-                <div className="relative h-full w-full max-w-[500px] max-h-[500px] aspect-square">
+              <div className="relative aspect-square min-w-0 w-full overflow-hidden p-4 flex items-center justify-center bg-card">
+                <div className="relative h-full w-full max-w-[640px] max-h-[640px] aspect-square">
                   {auxiliaryAscendant && auxiliaryPlanets
                     ? <SvgChart style={chartStyle} ascendant={auxiliaryAscendant} planets={auxiliaryPlanets} points={auxiliaryPoints ?? []} houseCusps={auxiliaryCusps ?? []} varga={auxiliaryVarga} houseBasedPlacement={isBhavaChalitChart} referenceHouse={auxiliaryReferenceHouseNumber} overlay={undefined} language={language} preferences={viewPreferences} />
                     : <div className="grid h-full w-full place-items-center px-6 text-center text-xs text-muted-foreground">{displayLoading ? <LoaderCircle className="size-5 animate-spin text-primary" /> : "Auxiliary chart unavailable"}</div>}
@@ -2502,7 +2529,7 @@ export function KundaliDashboard() {
               </div>
               {auxiliaryType === "solar" || auxiliaryType === "tajika"
                 ? <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">Exact sidereal solar return · {solarReturnUtc ? `${new Date(solarReturnUtc ?? "").toLocaleString()} UTC` : "Awaiting calculation"} · {auxiliaryReferenceName === "Ascendant" ? "Ascendant" : `House ${auxiliaryReferenceHouseNumber}`} reference</p>
-                : auxiliaryType === "transit" ? <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">Current sky at chart coordinates · {currentTransitLabel} · {auxiliaryReferenceName === "Ascendant" ? "Ascendant" : `House ${auxiliaryReferenceHouseNumber}`} reference</p>
+                : auxiliaryType === "transit" ? <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">Transit sky at chart coordinates · {currentTransitLabel} · {auxiliaryReferenceName === "Ascendant" ? "Ascendant" : `House ${auxiliaryReferenceHouseNumber}`} reference</p>
                   : auxiliaryType === "progressions" ? <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Progression controls are saved in this view, but progression calculations are not yet provided by the ephemeris engine. Reference lagna: {auxiliaryReferenceName === "Ascendant" ? "Ascendant" : `House ${auxiliaryReferenceHouseNumber}`}.</p>
                     : <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">D{varga} divisional placements · whole-sign houses · {auxiliaryReferenceName === "Ascendant" ? "Ascendant" : `House ${auxiliaryReferenceHouseNumber}`} reference</p>}
               <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-[hsl(var(--muted-foreground))]">
@@ -2624,7 +2651,7 @@ export function KundaliDashboard() {
         }}>
           <section role="dialog" aria-modal="true" aria-labelledby="maximized-chart-title" className="flex max-h-full w-full max-w-[min(96vw,1100px)] flex-col rounded-2xl border border-border bg-card p-3 shadow-2xl sm:p-5">
             <header className="mb-2 flex items-center justify-between gap-3">
-              <div><h2 id="maximized-chart-title" className="text-sm font-semibold">D1 {chartMode === "transit" ? "Transit" : "Birth"} · {referenceLabel}</h2><p className="text-xs text-slate-600">{chartMode === "transit" ? `${transitData ? new Date(transitData.calculatedAt).toLocaleString() : "Current sky"} · ${profile.city}` : `${activeBirthProfile.name} · ${formatBirthDate(activeBirthProfile.date)} · ${activeBirthProfile.city}`}</p></div>
+              <div><h2 id="maximized-chart-title" className="text-sm font-semibold">D1 {chartMode === "transit" ? "Transit" : "Birth"} · {referenceLabel}</h2><p className="text-xs text-slate-600">{chartMode === "transit" ? `${currentTransitLabel} · ${profile.city}` : `${activeBirthProfile.name} · ${formatBirthDate(activeBirthProfile.date)} · ${activeBirthProfile.city}`}</p></div>
               <button type="button" onClick={() => setChartMaximized(false)} aria-label="Close maximized chart" className="grid size-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"><Minimize2 className="size-4" /></button>
             </header>
             <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-muted p-2">
