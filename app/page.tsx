@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
-import { signOut, useSession } from "next-auth/react";
+import { UserButton, useAuth } from "@clerk/nextjs";
 import {
   ArrowDownRight,
   ArrowRight,
@@ -187,7 +187,7 @@ function MetricCard({
 }
 
 export default function Home() {
-  const { status } = useSession();
+  const { isSignedIn } = useAuth();
   const { resolvedTheme, setTheme } = useTheme();
   const birthProfile = useKundaliStore((state) => state.profile);
   const setBirthProfile = useKundaliStore((state) => state.setProfile);
@@ -372,10 +372,8 @@ export default function Home() {
             <a href="/saved-charts" className="hidden rounded-lg px-2 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground sm:inline-flex">
               Saved charts
             </a>
-            {status === "authenticated" ? (
-              <button type="button" onClick={() => void signOut({ redirectTo: "/" })} className="rounded-lg px-2 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
-                Sign out
-              </button>
+            {isSignedIn ? (
+              <UserButton />
             ) : (
               <>
                 <a href="/login" className="rounded-lg px-2 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground">

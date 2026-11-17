@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import { ChartSex } from "@/lib/generated/prisma/enums";
+import { getCurrentDatabaseUser } from "@/lib/clerk-user";
 import { prisma } from "@/lib/prisma";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -40,8 +40,8 @@ function serializeProfile(profile: {
 }
 
 export async function GET() {
-  const session = await auth();
-  const userId = session?.user?.id;
+  const user = await getCurrentDatabaseUser();
+  const userId = user?.id;
   if (!userId) return NextResponse.json({ error: "Sign in to load saved charts." }, { status: 401 });
 
   const profiles = await prisma.profile.findMany({
@@ -66,8 +66,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
-  const userId = session?.user?.id;
+  const user = await getCurrentDatabaseUser();
+  const userId = user?.id;
   if (!userId) return NextResponse.json({ error: "Sign in to save this chart." }, { status: 401 });
 
   let body: unknown;

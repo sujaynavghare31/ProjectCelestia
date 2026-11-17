@@ -1,4 +1,4 @@
-import LoginForm from "@/components/LoginForm";
+import { SignIn, SignUp } from "@clerk/nextjs";
 import Link from "next/link";
 
 export default async function LoginPage({
@@ -22,7 +22,11 @@ export default async function LoginPage({
             {isSignUp ? "Create an account to save your charts and personal notes." : "Sign in to view and manage your saved charts."}
           </p>
         </div>
-        <LoginForm callbackUrl={safeCallbackUrl} mode={isSignUp ? "signup" : "signin"} />
+        {isSignUp ? (
+          <SignUp routing="hash" fallbackRedirectUrl={safeCallbackUrl} />
+        ) : (
+          <SignIn routing="hash" fallbackRedirectUrl={safeCallbackUrl} />
+        )}
         <p className="mt-5 text-center text-sm text-muted-foreground">
           {isSignUp ? "Already have an account?" : "New to Project Celestia?"}{" "}
           <Link

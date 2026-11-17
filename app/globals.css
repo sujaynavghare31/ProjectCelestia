@@ -30,36 +30,36 @@
 @layer base {
   :root {
     color-scheme: light;
-    --background: 40 60% 98%;
-    --foreground: 22 21% 19%;
-    --card: 40 100% 99%;
-    --card-foreground: 22 21% 19%;
-    --muted: 32 30% 93%;
-    --border: 26 27% 85%;
-    --input: 26 27% 85%;
-    --primary: 14 57% 43%;
-    --primary-hover: 14 55% 41%;
-    --primary-foreground: 40 60% 98%;
-    --accent: 12 48% 94%;
-    --accent-foreground: 14 55% 41%;
-    --popover: 40 100% 99%;
-    --popover-foreground: 22 21% 19%;
-    --muted-foreground: 24 11% 42%;
-    --champagne-gold: 14 57% 45%;
-    --chart-grid: 26 27% 85%;
-    --chart-1: 14 57% 45%;
-    --chart-2: 136 24% 40%;
-    --chart-3: 24 46% 54%;
-    --chart-4: 4 41% 53%;
-    --chart-5: 38 47% 49%;
-    --chart-6: 17 42% 43%;
-    --chart-7: 24 10% 47%;
-    --chart-8: 92 25% 38%;
-    --chart-9: 330 24% 49%;
-    --chart-10: 155 23% 39%;
-    --chart-11: 22 48% 46%;
-    --chart-12: 350 28% 47%;
-    --retrograde-crimson: 4 55% 38%;
+    --background: 40 33% 98%;
+    --foreground: 220 29% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 29% 15%;
+    --muted: 210 25% 95%;
+    --border: 214 27% 88%;
+    --input: 214 27% 88%;
+    --primary: 22 100% 36%;
+    --primary-hover: 20 100% 30%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 40 100% 95%;
+    --accent-foreground: 27 70% 35%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 29% 15%;
+    --muted-foreground: 217 25% 38%;
+    --champagne-gold: 35 50% 53%;
+    --chart-grid: 214 27% 88%;
+    --chart-1: 214 53% 44%;
+    --chart-2: 145 39% 39%;
+    --chart-3: 270 34% 50%;
+    --chart-4: 345 49% 48%;
+    --chart-5: 42 65% 47%;
+    --chart-6: 18 42% 48%;
+    --chart-7: 218 30% 43%;
+    --chart-8: 184 40% 38%;
+    --chart-9: 322 34% 47%;
+    --chart-10: 161 31% 43%;
+    --chart-11: 26 60% 43%;
+    --chart-12: 200 32% 44%;
+    --retrograde-crimson: 345 65% 40%;
     --radius: 0.75rem;
     --chart-panel: hsl(var(--card));
     --chart-line: hsl(var(--chart-grid));
@@ -68,41 +68,41 @@
     --chart-transit: hsl(var(--champagne-gold));
     --gold: hsl(var(--champagne-gold));
     --cyan: hsl(var(--champagne-gold));
-    --body-glow: rgb(178 79 49 / 0.2);
+    --body-glow: rgb(53 102 172 / 0.14);
   }
 
   .dark {
     color-scheme: dark;
-    --background: 20 17% 12%;
-    --foreground: 30 33% 90%;
-    --card: 21 17% 16%;
-    --card-foreground: 30 33% 90%;
-    --muted: 22 16% 22%;
-    --border: 24 18% 28%;
-    --input: 24 18% 28%;
-    --primary: 14 57% 43%;
-    --primary-hover: 14 55% 41%;
-    --primary-foreground: 40 60% 98%;
-    --accent: 15 24% 22%;
-    --accent-foreground: 14 49% 71%;
-    --popover: 21 17% 16%;
-    --popover-foreground: 30 33% 90%;
-    --muted-foreground: 27 16% 69%;
-    --champagne-gold: 14 57% 45%;
-    --chart-grid: 24 18% 28%;
-    --chart-1: 14 63% 62%;
-    --chart-2: 136 31% 62%;
-    --chart-3: 24 55% 68%;
-    --chart-4: 4 55% 68%;
-    --chart-5: 38 59% 65%;
-    --chart-6: 17 50% 62%;
-    --chart-7: 24 15% 68%;
-    --chart-8: 92 33% 61%;
-    --chart-9: 330 34% 68%;
-    --chart-10: 155 31% 60%;
-    --chart-11: 22 57% 65%;
-    --chart-12: 350 38% 66%;
-    --retrograde-crimson: 4 58% 65%;
+    --background: 220 26% 11%;
+    --foreground: 210 30% 92%;
+    --card: 220 24% 15%;
+    --card-foreground: 210 30% 92%;
+    --muted: 220 20% 22%;
+    --border: 215 24% 29%;
+    --input: 215 24% 29%;
+    --primary: 27 80% 55%;
+    --primary-hover: 27 82% 63%;
+    --primary-foreground: 220 26% 11%;
+    --accent: 38 35% 22%;
+    --accent-foreground: 38 70% 76%;
+    --popover: 220 24% 15%;
+    --popover-foreground: 210 30% 92%;
+    --muted-foreground: 215 22% 70%;
+    --champagne-gold: 38 64% 64%;
+    --chart-grid: 215 24% 29%;
+    --chart-1: 214 62% 64%;
+    --chart-2: 145 42% 62%;
+    --chart-3: 270 44% 70%;
+    --chart-4: 345 58% 68%;
+    --chart-5: 42 72% 64%;
+    --chart-6: 18 48% 66%;
+    --chart-7: 218 38% 68%;
+    --chart-8: 184 48% 62%;
+    --chart-9: 322 44% 68%;
+    --chart-10: 161 40% 63%;
+    --chart-11: 26 70% 64%;
+    --chart-12: 200 46% 66%;
+    --retrograde-crimson: 345 62% 70%;
     --chart-panel: hsl(var(--card));
     --chart-line: hsl(var(--chart-grid));
     --chart-muted: hsl(var(--muted-foreground));
@@ -129,12 +129,12 @@
 }
 
 .cosmic-grid {
-  background-image: radial-gradient(circle at 1px 1px, rgb(148 163 184 / 0.11) 1px, transparent 0);
+  background-image: radial-gradient(circle at 1px 1px, rgb(79 98 131 / 0.12) 1px, transparent 0);
   background-size: 24px 24px;
 }
 
 .dark .cosmic-grid {
-  background-image: radial-gradient(circle at 1px 1px, rgb(148 163 184 / 0.07) 1px, transparent 0);
+  background-image: radial-gradient(circle at 1px 1px, rgb(160 178 207 / 0.08) 1px, transparent 0);
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator {
