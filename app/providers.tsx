@@ -1,12 +1,14 @@
 "use client";
 
+import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "next-themes";
-import { SessionProvider } from "next-auth/react";
 
 export function Providers({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-      <SessionProvider>{children}</SessionProvider>
-    </ThemeProvider>
+    <ClerkProvider>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        {children}
+      </ThemeProvider>
+    </ClerkProvider>
   );
 }

@@ -1,15 +1,15 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { auth } from "@/auth";
 import { ChartSex } from "@/lib/generated/prisma/enums";
+import { getCurrentDatabaseUser } from "@/lib/clerk-user";
 import { prisma } from "@/lib/prisma";
 
 async function createProfile(formData: FormData) {
   "use server";
 
-  const session = await auth();
-  const userId = session?.user?.id;
+  const user = await getCurrentDatabaseUser();
+  const userId = user?.id;
   if (!userId) redirect("/login?callbackUrl=/saved-charts");
 
   const chartName = String(formData.get("chartName") ?? "").trim();
@@ -58,8 +58,8 @@ async function createProfile(formData: FormData) {
 async function saveProfileNotes(formData: FormData) {
   "use server";
 
-  const session = await auth();
-  const userId = session?.user?.id;
+  const user = await getCurrentDatabaseUser();
+  const userId = user?.id;
   if (!userId) redirect("/login?callbackUrl=/saved-charts");
 
   const profileId = String(formData.get("profileId") ?? "");
@@ -74,8 +74,8 @@ async function saveProfileNotes(formData: FormData) {
 }
 
 export default async function SavedChartsPage() {
-  const session = await auth();
-  const userId = session?.user?.id;
+  const user = await getCurrentDatabaseUser();
+  const userId = user?.id;
   if (!userId) redirect("/login?callbackUrl=/saved-charts");
 
   const profiles = await prisma.profile.findMany({
