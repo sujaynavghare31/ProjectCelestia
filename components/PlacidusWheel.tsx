@@ -103,9 +103,10 @@ function getBodyPlacements(bodies: WheelBody[], referenceLongitude: number): Bod
 
     point ??= polarToCartesian(body.longitude, 320, referenceLongitude);
     placed.push(point);
+    const displayPoint = body.transit ? { x: point.x, y: point.y + 10 } : point;
     placements.set(index, {
       body,
-      point,
+      point: displayPoint,
       degreePoint: polarToCartesian(body.longitude, DEGREE_RADIUS, referenceLongitude),
     });
   }
@@ -379,7 +380,7 @@ function PlacidusWheel({
       {bodyPlacements.map(({ body, point, degreePoint }, index) => {
         const glyph = PLANET_GLYPHS[body.name] ?? body.symbol;
         const displayName = bodyName(body, language, preferences.usePlanetIcons);
-        const display = `${body.transit ? "Transit " : ""}${displayName} · ${formatPlanetDegree(body.degree)}`;
+        const display = `${body.transit ? "T " : ""}${displayName} · ${formatPlanetDegree(body.degree)}`;
         const retrograde = body.motion === "R";
         const vargottama = body.name !== "Ascendant" && body.sign === getNavamsaSign(body);
         const highlighted = hoveredPlanet === null
@@ -423,12 +424,13 @@ function PlacidusWheel({
             <text
               x={point.x}
               y={point.y + 3.2}
-              fill="hsl(var(--foreground))"
+              fill={body.transit ? "hsl(var(--muted-foreground))" : "hsl(var(--foreground))"}
+              fillOpacity={body.transit ? 0.8 : 1}
               fontSize={glyphSize}
               fontWeight="700"
               textAnchor="middle"
             >
-              {glyph}{retrograde ? <tspan fontSize="6" dy="-6">R</tspan> : null}
+              {body.transit ? "T " : ""}{glyph}{retrograde ? <tspan fontSize="6" dy="-6">R</tspan> : null}
             </text>
           </g>
         );

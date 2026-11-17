@@ -1,9 +1,9 @@
 "use client";
 
-import { Maximize2, Settings } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { CalendarDays, Maximize2, Settings } from "lucide-react";
 import type { ChartStyle } from "@/lib/kundali-types";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 
 const CHART_STYLES: Array<{ value: ChartStyle; label: string }> = [
   { value: "diamond", label: "North" },
@@ -58,7 +58,30 @@ export default function ChartControls({
   onTransitTimeChange: (value: string) => void;
   onTransitModeChange: (value: "current" | "specific") => void;
 }) {
+  const [customPickerOpen, setCustomPickerOpen] = useState(false);
+  const customPickerRef = useRef<HTMLFieldSetElement>(null);
   const transitLabel = chartMode === "transit" ? "Show transit labels" : "Overlay current transit";
+  const transitOptions = [
+    { value: "off", label: "Off", active: !overlayTransits },
+    { value: "live", label: "Live", active: overlayTransits && transitMode === "current" },
+    { value: "custom", label: "Custom", active: overlayTransits && transitMode === "specific" },
+  ] as const;
+
+  useEffect(() => {
+    if (!customPickerOpen) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (customPickerRef.current && !customPickerRef.current.contains(event.target as Node)) setCustomPickerOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setCustomPickerOpen(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [customPickerOpen]);
 
   return (
     <div className="space-y-4 border-b border-border bg-muted/10 p-4 xl:min-h-[300px]">
@@ -73,21 +96,52 @@ export default function ChartControls({
             {ascendantLabel}
           </span>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <label
+        <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2">
+          <fieldset
+            ref={customPickerRef}
             title={chartMode === "transit"
               ? "This chart already shows current-sky positions; enable labels to mark them with T and degrees."
               : "Draw a current or date-specific transit sky over the birth chart."}
-            className="inline-flex min-h-10 items-center gap-2 rounded-full border border-border bg-card px-3 text-xs font-medium text-foreground transition hover:border-stone-300"
+            className="relative min-w-0"
           >
-            <span>{transitLabel}</span>
-            <Switch
-              aria-label={transitLabel}
-              checked={overlayTransits}
-              onCheckedChange={onOverlayTransitsChange}
-              className="data-[state=checked]:bg-blue-500 focus-visible:ring-blue-400"
-            />
-          </label>
+            <legend className="sr-only">{transitLabel}</legend>
+            <div role="radiogroup" aria-label="Transit overlay" className="inline-flex max-w-full items-center rounded-full bg-background/70 p-0.5">
+              {transitOptions.map(({ value, label, active }) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  aria-label={`${label} transit overlay`}
+                  onClick={() => {
+                    if (value === "off") {
+                      onOverlayTransitsChange(false);
+                      setCustomPickerOpen(false);
+                      return;
+                    }
+                    onTransitModeChange(value === "live" ? "current" : "specific");
+                    onOverlayTransitsChange(true);
+                    setCustomPickerOpen(value === "custom");
+                  }}
+                  className={`inline-flex h-8 items-center rounded-full px-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {overlayTransits && transitMode === "specific" && customPickerOpen && (
+              <div className="absolute right-0 top-full z-30 mt-2 flex w-[min(100vw-2rem,22rem)] flex-wrap items-end justify-end gap-2 rounded-xl border border-border bg-card p-3 shadow-lg">
+                <label className="flex min-w-[150px] flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground sm:flex-initial">
+                  <span className="inline-flex items-center gap-1.5"><CalendarDays className="size-3.5" /> Transit date</span>
+                  <input aria-label="Transit date" type="date" value={transitDate} onChange={(event) => onTransitDateChange(event.target.value)} className="h-9 rounded-lg border border-input bg-card px-2.5 text-xs text-card-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/40" />
+                </label>
+                <label className="flex min-w-[130px] flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground sm:flex-initial">
+                  Local time
+                  <input aria-label="Transit time" type="time" step="1" value={transitTime} onChange={(event) => onTransitTimeChange(event.target.value)} className="h-9 rounded-lg border border-input bg-card px-2.5 text-xs text-card-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/40" />
+                </label>
+              </div>
+            )}
+          </fieldset>
           <button
             type="button"
             onClick={onMaximize}
@@ -97,38 +151,22 @@ export default function ChartControls({
           >
             <Maximize2 className="size-4" />
           </button>
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            aria-label="Open chart settings"
+            title="Chart settings"
+            className="grid size-10 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+          >
+            <Settings className="size-4" />
+          </button>
         </div>
-        {chartMode === "birth" && overlayTransits && (
-          <fieldset className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-3">
-            <legend className="w-full text-xs font-medium text-muted-foreground">Transit overlay</legend>
-            <label className={`flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-xs font-medium transition ${transitMode === "current" ? "border-primary/40 bg-accent text-accent-foreground" : "border-border bg-card text-foreground hover:bg-muted"}`}>
-              <input type="radio" name="overlay-transit-mode" checked={transitMode === "current"} onChange={() => onTransitModeChange("current")} className="accent-primary" />
-              Current transit
-            </label>
-            <label className={`flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-xs font-medium transition ${transitMode === "specific" ? "border-primary/40 bg-accent text-accent-foreground" : "border-border bg-card text-foreground hover:bg-muted"}`}>
-              <input type="radio" name="overlay-transit-mode" checked={transitMode === "specific"} onChange={() => onTransitModeChange("specific")} className="accent-primary" />
-              Specific date
-            </label>
-          </fieldset>
-        )}
-        {chartMode === "birth" && overlayTransits && transitMode === "specific" && (
-          <div className="flex flex-wrap items-end gap-2 border-t border-border/70 pt-3">
-            <label className="flex min-w-[150px] flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
-              Transit date
-              <input aria-label="Transit date" type="date" value={transitDate} onChange={(event) => onTransitDateChange(event.target.value)} className="h-9 rounded-lg border border-input bg-card px-2.5 text-xs text-card-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/40" />
-            </label>
-            <label className="flex min-w-[130px] flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
-              Local time
-              <input aria-label="Transit time" type="time" step="1" value={transitTime} onChange={(event) => onTransitTimeChange(event.target.value)} className="h-9 rounded-lg border border-input bg-card px-2.5 text-xs text-card-foreground outline-none focus:border-primary focus:ring-2 focus:ring-primary/40" />
-            </label>
-          </div>
-        )}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-3">
         <fieldset className="min-w-0">
           <legend className="sr-only">Chart style</legend>
-          <div role="radiogroup" aria-label="Chart style" className="inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-border bg-background/70 p-1">
+          <div role="radiogroup" aria-label="Chart style" className="inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full bg-background/70 p-0.5">
             {CHART_STYLES.map(({ value, label }) => (
               <button
                 key={value}
@@ -137,7 +175,7 @@ export default function ChartControls({
                 aria-checked={chartStyle === value}
                 aria-label={`${label}${value === "diamond" ? " / Diamond" : ""} chart`}
                 onClick={() => onChartStyleChange(value)}
-                className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${chartStyle === value ? "border border-blue-300 bg-blue-100 text-blue-900 shadow-sm" : "text-muted-foreground hover:bg-blue-50 hover:text-blue-900"}`}
+                className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${chartStyle === value ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
               >
                 <ChartStyleIcon style={value} />
                 {label}
@@ -148,7 +186,7 @@ export default function ChartControls({
 
         <div className="w-full min-w-[160px] max-w-[210px] sm:w-auto">
           <Select value={referenceName} onValueChange={onReferenceNameChange}>
-            <SelectTrigger aria-label="D1 reference lagna" className="h-10 w-full bg-card text-sm">
+            <SelectTrigger aria-label="D1 reference lagna" className="h-8 w-full rounded-full bg-card text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="z-[110] !bg-card !text-foreground shadow-md">
@@ -171,15 +209,6 @@ export default function ChartControls({
             </SelectContent>
           </Select>
         </div>
-
-        <button
-          type="button"
-          onClick={onOpenSettings}
-          className="ml-auto inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2"
-        >
-          <Settings className="mr-2 size-4" />
-          Chart Settings
-        </button>
       </div>
     </div>
   );
