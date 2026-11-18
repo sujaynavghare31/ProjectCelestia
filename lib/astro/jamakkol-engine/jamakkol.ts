@@ -26,7 +26,7 @@ export const JAMA_EXALT = [0, 9, 3, 5, 11, 6, 1, 1];
 const HORA_ORDER = ["Sun", "Venus", "Mercury", "Moon", "Saturn", "Jupiter", "Mars"];
 const RAHU_PART = [8, 2, 7, 5, 6, 4, 3], YAMA_PART = [5, 4, 3, 2, 1, 7, 6], GULIKA_PART = [7, 6, 5, 4, 3, 2, 1];
 /** Kavippu veedi (0 Mesha, 1 Rishaba, 2 Mithuna) by the Sun's sidereal sign. */
-const VEEDI = [1, 0, 0, 0, 0, 1, 1, 2, 2, 2, 2, 1];
+const VEEDI = [0, 0, 1, 1, 2, 2, 0, 0, 1, 1, 2, 2];
 /** South-Indian layout: sign index per grid cell, null = centre. */
 export const SOUTH_INDIAN_GRID: (number | null)[][] = [[11, 0, 1, 2], [10, null, null, 3], [9, null, null, 4], [8, 7, 6, 5]];
 /** Chart category colors. */
@@ -50,15 +50,8 @@ export const PLANET_COLORS = {
   Ketu: "#C2410C",
 } as const;
 
-/** Fixed signs in the South-Indian outer ring: Taurus, Leo, Scorpio, Aquarius. */
-export const FIXED_OUTER_SIGN_INDEXES = [1, 4, 7, 10] as const;
-
 export function outerRingSignIndex(signIndex: number) {
-  let displaySignIndex = mod(signIndex, 12);
-  while (FIXED_OUTER_SIGN_INDEXES.includes(displaySignIndex as (typeof FIXED_OUTER_SIGN_INDEXES)[number])) {
-    displaySignIndex = mod(displaySignIndex + 1, 12);
-  }
-  return displaySignIndex;
+  return mod(signIndex, 12);
 }
 
 // ----------------------------- helpers -----------------------------
@@ -153,6 +146,37 @@ export const CITIES = [
   { place: "Pune", lat: 18.5204, lon: 73.8567, tz: 5.5 },
 ];
 
+export const JAMA_SEQUENCE = ["SU", "MA", "JU", "ME", "VE", "SA", "MO", "SN"] as const;
+export type JamaPlanet = (typeof JAMA_SEQUENCE)[number];
+export const WEEKDAY_JAMA_LORDS: readonly JamaPlanet[] = ["SU", "MO", "MA", "ME", "JU", "VE", "SA"];
+
+export function calculateOuterJamaGrahas(localDate: Date) {
+  const hours = localDate.getHours();
+  const minutes = localDate.getMinutes();
+  const seconds = localDate.getSeconds();
+  const totalMinutes = hours * 60 + minutes + seconds / 60;
+
+  let dayIndex = localDate.getDay();
+  if (hours < 6) dayIndex = (dayIndex + 6) % 7;
+  const dayLord = WEEKDAY_JAMA_LORDS[dayIndex];
+
+  let elapsedMinutes: number;
+  if (hours >= 6 && hours < 18) {
+    elapsedMinutes = totalMinutes - 360;
+  } else if (hours >= 18) {
+    elapsedMinutes = totalMinutes - 1080;
+  } else {
+    elapsedMinutes = totalMinutes + 360;
+  }
+
+  const lordLon = norm360(360 - elapsedMinutes * 0.5);
+  const lordIdx = JAMA_SEQUENCE.indexOf(dayLord);
+  return JAMA_SEQUENCE.map((planet, index) => {
+    const steps = (index - lordIdx + 8) % 8;
+    return { planet, longitude: norm360(lordLon - steps * 45) };
+  });
+}
+
 export function jamakkol(input: JamakkolInput) {
   const usingDefault = input.lat === undefined || input.lon === undefined;
   const inp = {
@@ -180,19 +204,39 @@ export function jamakkol(input: JamakkolInput) {
 
   // Jamakkol day starts at 06:00; jamam = 90 min; jama grahas move back 0.5°/min
   const jwd = weekdayOf(inp.date, QT < 0.25 ? -1 : 0);
-  const el = mod((QT - 0.25) * 1440, 720);
+  const totalMinutes = QT * 1440;
+  const el = QT >= 0.25 && QT < 0.75 ? totalMinutes - 360
+    : QT >= 0.75 ? totalMinutes - 1080
+      : totalMinutes + 360;
   const half: "Day" | "Night" = QT >= 0.25 && QT < 0.75 ? "Day" : "Night";
   const jamamNo = Math.floor(el / 90) + 1;
   const lord = WEEKDAY_LORD[jwd], li = JAMA_ORDER.indexOf(lord as (typeof JAMA_ORDER)[number]);
 
-  // Udayam (equal division of day / night from the Sun)
-  const ufrac = QT >= SR && QT < SS ? (QT - SR) / (SS - SR) : QT >= SS ? (QT - SS) / (1 + SRN - SS) : (QT + 1 - SSY) / (1 + SR - SSY);
-  const udayam = mod(sun + 360 * ufrac, 360);
-  const aarudam = mod(Math.round(QT * 1440 * 6 * 1e6) / 1e6, 360);   // 6° per clock minute (5 min = 1 sign), rounded like the Excel
+  // Udayam (equal division of actual day / night from the Sun longitude at the boundary)
+  const sunAtBoundary = (iso: string, fraction: number) => {
+    const boundaryDJ = serial(iso) + fraction - inp.tz / 24 + 2415018.5 - 2451545;
+    const boundaryAyan = inp.ayanamsa ?? lahiri(boundaryDJ);
+    return mod(sunTropical(boundaryDJ) - boundaryAyan, 360);
+  };
+  let ufrac: number;
+  let udayamStart: number;
+  if (QT >= SR && QT < SS) {
+    ufrac = (QT - SR) / (SS - SR);
+    udayamStart = sunAtBoundary(inp.date, SR);
+  } else if (QT >= SS) {
+    ufrac = (QT - SS) / (1 + SRN - SS);
+    udayamStart = sunAtBoundary(inp.date, SS);
+  } else {
+    ufrac = (QT + 1 - SSY) / (1 + SR - SSY);
+    udayamStart = sunAtBoundary(shift(inp.date, -1), SSY);
+  }
+  const udayam = mod(udayamStart + 360 * ufrac, 360);
+  const clockMinutes = (totalMinutes % 60 + 60) % 60;
+  const aarudam = mod(Math.round(clockMinutes * 6 * 1e6) / 1e6, 360); // 6° per minute in the current clock hour
   const sunSign = Math.floor(sun / 30);
+  const veedhiStart = VEEDI[sunSign] * 30;
   const kavN = mod(VEEDI[sunSign] - Math.floor(aarudam / 30), 12) + 1;
-  const kavRaw = mod(Math.floor(udayam / 30) + kavN - 1, 12) * 30 + (30 - (aarudam - Math.floor(aarudam / 30) * 30));
-  const kavippu = mod(Math.round(kavRaw * 1e6) / 1e6, 360);   // Kavippu sign = N-th from Udayam; degree = 30° − Aarudam degree
+  const kavippu = mod(udayam + veedhiStart - aarudam, 360);
 
   const mk = (name: string, short: string, category: Category, lon: number, extra: Partial<Point> = {}): Point => {
     const s = Math.floor(lon / 30);

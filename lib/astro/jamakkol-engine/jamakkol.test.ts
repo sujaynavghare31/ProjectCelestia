@@ -1,16 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { FIXED_OUTER_SIGN_INDEXES, jamakkol, outerRingSignIndex, PLANET_COLORS } from "./jamakkol";
+import { calculateOuterJamaGrahas, jamakkol, outerRingSignIndex, PLANET_COLORS } from "./jamakkol";
 import { renderJamakkolChart } from "./chartSvg";
 
 describe("Jamakkol outer grahas", () => {
-  it("skips fixed signs and jumps Jama grahas to the next sign on the outer ring", () => {
-    for (const fixedSignIndex of FIXED_OUTER_SIGN_INDEXES) {
-      const displaySignIndex = outerRingSignIndex(fixedSignIndex);
-      expect(displaySignIndex).toBe((fixedSignIndex + 1) % 12);
-      expect(FIXED_OUTER_SIGN_INDEXES).not.toContain(displaySignIndex);
-    }
-
-    expect(outerRingSignIndex(10)).toBe(11);
+  it("plots Jama grahas in their calculated sign", () => {
+    expect(outerRingSignIndex(1)).toBe(1);
+    expect(outerRingSignIndex(10)).toBe(10);
+  });
+  it("uses the fixed 6 AM / 6 PM outer Jama formula", () => {
+    const localDate = new Date(2026, 10, 18, 23, 27, 38);
+    const result = calculateOuterJamaGrahas(localDate);
+    const expected = [331 + 11 / 60, 286 + 11 / 60, 241 + 11 / 60, 196 + 11 / 60, 151 + 11 / 60, 106 + 11 / 60, 61 + 11 / 60, 16 + 11 / 60];
+    result.forEach((point, index) => {
+      expect(point.longitude).toBeCloseTo(expected[index], 5);
+    });
   });
   it("keeps the Wednesday night Jamam #4 positions, renders them on their sign edges, and includes Maandi", () => {
     const result = jamakkol({
@@ -82,7 +85,7 @@ describe("Jamakkol outer grahas", () => {
       expect(point.signIndex).toBe(Math.floor(expectedLongitudes[index] / 30));
     });
     expect(result.aarudam.longitude).toBe(308.5);
-    expect(result.kavippu.longitude).toBe(141.5);
+    expect(result.kavippu.longitude).toBeCloseTo(68.14841726701167, 6);
 
     const svg = renderJamakkolChart(result);
     for (const label of [
