@@ -156,6 +156,8 @@ export const useKundaliStore = create<KundaliState>((set) => ({
     showSignDivisions: false,
     showSignNumbers: true,
     showBhavaCusps: false,
+    showArudhaPadas: false,
+    arudhaPadaMode: "all",
     cuspLabelSignStyle: "short",
     cuspLabelDegreeFormat: "dms",
     cuspLabelStyle: "line",

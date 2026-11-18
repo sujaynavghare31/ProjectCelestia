@@ -4,6 +4,7 @@ import type { CelestialLanguage, EphemerisResponse, PlanetPosition, ViewPreferen
 import { useKundaliStore } from "@/lib/kundali-store";
 import { formatPlanetDegree, planetChartDisplayName, planetChartName, signName } from "@/lib/astrology/localization";
 import { cuspLabels } from "@/lib/astrology/cusp-labels";
+import { calculateArudhaPadas, type ArudhaPada } from "@/lib/astrology/arudha-padas";
 
 const CENTER = 500;
 const ZODIAC_OUTER_RADIUS = 472;
@@ -182,6 +183,25 @@ function PlacidusWheel({
       ))
       .map((planet) => ({ ...planet, transit: true })),
   ];
+  let arudhaPadas: ArudhaPada[] = [];
+  if (preferences.showArudhaPadas) {
+    try {
+      arudhaPadas = calculateArudhaPadas({
+        lagnaSign: Math.floor(((ascendant.longitude % 360) + 360) % 360 / 30),
+        planets: [
+          { name: "Ascendant", sign: Math.floor(((ascendant.longitude % 360) + 360) % 360 / 30) },
+          ...visiblePlanets.map((planet) => ({ name: planet.name, sign: Math.floor((((planet.longitude % 360) + 360) % 360) / 30) })),
+          ...visiblePoints.map((point) => ({ name: point.name, sign: Math.floor((((point.longitude % 360) + 360) % 360) / 30) })),
+        ],
+      }).filter((pada) =>
+        preferences.arudhaPadaMode === "all"
+        || pada.label === "AL"
+        || pada.label === "UL",
+      );
+    } catch {
+      arudhaPadas = [];
+    }
+  }
   const sortedCusps = Array.from({ length: 12 }, (_, index) => cusps.find((cusp) => cusp.house === index + 1))
     .filter((cusp): cusp is EphemerisResponse["houseCusps"][number] => cusp !== undefined);
   const cuspLabelResult = cusps.length === 12
@@ -263,6 +283,13 @@ function PlacidusWheel({
             {preferences.showSignNumbers && (
               <text x={label.x} y={label.y + 22} fill="hsl(var(--muted-foreground))" fontSize="11" fontWeight="500" textAnchor="middle">
                 {sign + 1}
+              </text>
+            )}
+            {arudhaPadas.length > 0 && (
+              <text x={label.x} y={label.y + (preferences.showSignNumbers ? 38 : 28)} fill="#C05A3A" className="dark:fill-amber-300" fontSize="9" fontWeight="500" textAnchor="middle">
+                {arudhaPadas.filter((pada) => pada.signIndex === sign).map((pada, index) => (
+                  <tspan key={pada.label} dx={index ? 3 : 0} fontWeight={pada.label === "AL" || pada.label === "UL" ? "700" : "500"}>{pada.label}</tspan>
+                ))}
               </text>
             )}
           </g>

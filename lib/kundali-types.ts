@@ -7,6 +7,7 @@ export type CarterZodiac = "sayana" | "nirayanaA" | "nirayanaB";
 export type CuspLabelSignStyle = "short" | "full" | "number" | "hindi" | "glyph";
 export type CuspLabelDegreeFormat = "dms" | "dm" | "decimal" | "compact";
 export type CuspLabelStyle = "line" | "box";
+export type ArudhaPadaMode = "all" | "al_ul_only";
 export type EphemerisCalculationMode = "standard" | "kp";
 
 export interface MidpointPreferences {
@@ -34,6 +35,8 @@ export interface ViewPreferences {
   showSignDivisions: boolean;
   showSignNumbers: boolean;
   showBhavaCusps: boolean;
+  showArudhaPadas: boolean;
+  arudhaPadaMode: ArudhaPadaMode;
   cuspLabelSignStyle: CuspLabelSignStyle;
   cuspLabelDegreeFormat: CuspLabelDegreeFormat;
   cuspLabelStyle: CuspLabelStyle;

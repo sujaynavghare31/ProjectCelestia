@@ -1,6 +1,6 @@
 import { PLANET_ORDER } from "./engines/midpoints";
 import type { MidpointMode } from "./engines/midpoints";
-import type { CarterZodiac, HouseSystem, MidpointPreferences } from "@/lib/kundali-types";
+import type { ArudhaPadaMode, CarterZodiac, HouseSystem, MidpointPreferences } from "@/lib/kundali-types";
 
 const STORAGE_KEY = "celestia-analysis-preferences";
 const MIDPOINT_MODES: MidpointMode[] = ["conjunction", "conjOpp", "hard", "hard45"];
@@ -10,6 +10,8 @@ export interface AnalysisPreferences {
   houseSystem: HouseSystem;
   carterZodiac: CarterZodiac;
   midpointPreferences: MidpointPreferences;
+  showArudhaPadas: boolean;
+  arudhaPadaMode: ArudhaPadaMode;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -51,6 +53,10 @@ export function readAnalysisPreferences(fallback: AnalysisPreferences): Analysis
         ? parsed.carterZodiac
         : fallback.carterZodiac,
       midpointPreferences: readMidpointPreferences(parsed.midpointPreferences, fallback.midpointPreferences),
+      showArudhaPadas: typeof parsed.showArudhaPadas === "boolean" ? parsed.showArudhaPadas : fallback.showArudhaPadas,
+      arudhaPadaMode: parsed.arudhaPadaMode === "all" || parsed.arudhaPadaMode === "al_ul_only"
+        ? parsed.arudhaPadaMode
+        : fallback.arudhaPadaMode,
     };
   } catch (error) {
     console.error("[kundali] Unable to read saved analysis preferences.", error);

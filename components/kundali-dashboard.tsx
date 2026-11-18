@@ -34,6 +34,7 @@ import { getBirthDateTimeError } from "@/lib/astrology/ephemeris-input";
 import { readSavedAstrologyConfig } from "@/lib/astrology/config-storage";
 import { calculateCarterCusps, getCarterPlacementCusps, placeInCarterHouses } from "@/lib/astrology/carter-chart";
 import { cuspLabels, northCuspAnchor } from "@/lib/astrology/cusp-labels";
+import { calculateArudhaPadas, type ArudhaPada } from "@/lib/astrology/arudha-padas";
 import dynamic from "next/dynamic";
 import { readAnalysisPreferences, writeAnalysisPreferences } from "@/lib/astrology/analysis-preferences";
 import { createMidpointReport, visibleMidpointRows, visibleMidpointTrees } from "@/lib/astrology/midpoint-chart";
@@ -594,6 +595,39 @@ function ChartSettingsDrawer({
               <div>
                 <h4 className="mb-2 text-xs font-semibold text-muted-foreground">Additional bodies</h4>
                 {renderPreferenceOptions(CELESTIAL_BODY_OPTIONS)}
+                <div className="mt-2 rounded-xl border border-border bg-card p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="min-w-0">
+                      <span className="block text-xs font-medium">Arudha Padas</span>
+                      <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">Show Bhava Padas (AL, UL, A2–A11) calculated via Jaimini/Parashara rules.</span>
+                    </span>
+                    <Switch
+                      aria-label="Arudha Padas"
+                      checked={draft.viewPreferences.showArudhaPadas}
+                      onCheckedChange={(checked) => setPreference("showArudhaPadas", checked)}
+                      className="mt-0.5 data-[state=checked]:bg-blue-500 focus-visible:ring-blue-400"
+                    />
+                  </div>
+                  {draft.viewPreferences.showArudhaPadas && (
+                    <div className="mt-3 inline-flex rounded-lg border border-border bg-muted p-1" role="radiogroup" aria-label="Arudha Pada display">
+                      {([
+                        ["all", "All 12 Padas"],
+                        ["al_ul_only", "AL & UL only"],
+                      ] as const).map(([mode, label]) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          role="radio"
+                          aria-checked={draft.viewPreferences.arudhaPadaMode === mode}
+                          onClick={() => setPreference("arudhaPadaMode", mode)}
+                          className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${draft.viewPreferences.arudhaPadaMode === mode ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <h4 className="mb-2 text-xs font-semibold text-muted-foreground">Visual style</h4>
@@ -702,8 +736,13 @@ function chartPointVisible(point: PlanetPosition, preferences: ViewPreferences) 
   return true;
 }
 
+function arudhaPadaLabels(padas: ArudhaPada[], signIndex: number) {
+  return padas.filter((pada) => pada.signIndex === signIndex);
+}
+
 type HouseOverflowGroup = {
   house: number;
+  sign: number;
   bodies: Array<PlanetPosition & { isTransit?: boolean }>;
 };
 
@@ -714,6 +753,7 @@ function ChartOverflowFrame({
   usePlanetIcons,
   onBodyEnter,
   onBodyLeave,
+  arudhaPadas,
 }: {
   children: React.ReactNode;
   overflow: HouseOverflowGroup[];
@@ -721,6 +761,7 @@ function ChartOverflowFrame({
   usePlanetIcons: boolean;
   onBodyEnter: (body: PlanetPosition) => void;
   onBodyLeave: () => void;
+  arudhaPadas: ArudhaPada[];
 }) {
   return (
     <div className="relative flex h-full w-full flex-col">
@@ -731,7 +772,7 @@ function ChartOverflowFrame({
         <div role="group" aria-label="Bodies outside crowded houses" className="shrink-0 border-t border-border/70 bg-muted/10 px-1.5 py-1.5">
           <p className="mb-1 text-[9px] font-medium text-muted-foreground">Outside crowded houses</p>
           <div className="grid grid-cols-3 gap-1">
-            {overflow.map(({ house, bodies }) => (
+            {overflow.map(({ house, sign, bodies }) => (
               <div key={house} className="flex min-w-0 flex-wrap items-center gap-x-1 rounded bg-background/70 px-1 py-0.5 text-[9px]">
                 <span className="shrink-0 font-semibold text-muted-foreground">H{house}</span>
                 <ArrowRight aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
@@ -759,6 +800,11 @@ function ChartOverflowFrame({
                     </span>
                   );
                 })}
+                {arudhaPadas.length > 0 && (
+                  <span className="ml-1 whitespace-nowrap font-semibold text-[#C05A3A] dark:text-amber-300">
+                    {arudhaPadaLabels(arudhaPadas, sign).map((pada) => `${pada.label === "AL" || pada.label === "UL" ? `${pada.label}` : pada.label}`).join(" · ")}
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -780,7 +826,7 @@ export function SvgChart({
   houseCusps = [],
   language = "en",
   showTransitLabels = false,
-  preferences = { showHouseLabels: true, showOuterPlanets: true, showAsteroids: false, showUpagrahas: false, showFortune: true, usePlanetIcons: false, useSignIcons: false, showEqualHouses: false, showSignDivisions: true, showSignNumbers: true, showBhavaCusps: false, cuspLabelSignStyle: "short", cuspLabelDegreeFormat: "dms", cuspLabelStyle: "line" },
+  preferences = { showHouseLabels: true, showOuterPlanets: true, showAsteroids: false, showUpagrahas: false, showFortune: true, usePlanetIcons: false, useSignIcons: false, showEqualHouses: false, showSignDivisions: true, showSignNumbers: true, showBhavaCusps: false, showArudhaPadas: false, arudhaPadaMode: "all" as const, cuspLabelSignStyle: "short", cuspLabelDegreeFormat: "dms", cuspLabelStyle: "line" },
 }: {
   style: ChartStyle;
   ascendant: PlanetPosition;
@@ -816,6 +862,25 @@ export function SvgChart({
     chartHouse: chartHouseForPlanet(planet),
     isTransit: true,
   }));
+  let arudhaPadas: ArudhaPada[] = [];
+  if (preferences.showArudhaPadas) {
+    try {
+      arudhaPadas = calculateArudhaPadas({
+        lagnaSign: ascSign,
+        planets: [
+          { name: "Ascendant", sign: ascSign },
+          ...visiblePlanets.map((planet) => ({ name: planet.name, sign: getVargaSign(planet, varga) })),
+          ...visiblePoints.map((point) => ({ name: point.name, sign: getVargaSign(point, varga) })),
+        ],
+      }).filter((pada) =>
+        preferences.arudhaPadaMode === "all"
+        || pada.label === "AL"
+        || pada.label === "UL",
+      );
+    } catch {
+      arudhaPadas = [];
+    }
+  }
   const spotlightActive = hoveredPlanet !== null;
   const isHighlighted = (body: PlanetPosition, vargottama: boolean) =>
     !spotlightActive || body.name === hoveredPlanet || (hoveredPlanet === "Vargottama" && vargottama);
@@ -833,7 +898,7 @@ export function SvgChart({
     ...splitHouseBodies([...house.bodies, ...transitBodies.filter((body) => body.chartHouse === house.house)]),
   }));
   const overflowGroups: HouseOverflowGroup[] = houseBodyGroups.flatMap(({ house, overflow }) => (
-    overflow.length > 0 ? [{ house, bodies: overflow }] : []
+    overflow.length > 0 ? [{ house, sign: houses[house - 1].sign, bodies: overflow }] : []
   ));
   const cuspLabelResult = useMemo(() => {
     if (varga !== 1 || houseCusps.length !== 12) return null;
@@ -879,7 +944,7 @@ export function SvgChart({
       { house: 12, polygon: "123,237 123,123 180,180", x: 142, y: 180 },
     ];
     return (
-      <ChartOverflowFrame overflow={overflowGroups} language={language} usePlanetIcons={preferences.usePlanetIcons} onBodyEnter={onBodyEnter} onBodyLeave={() => setHoveredPlanet(null)}>
+      <ChartOverflowFrame overflow={overflowGroups} language={language} usePlanetIcons={preferences.usePlanetIcons} onBodyEnter={onBodyEnter} onBodyLeave={() => setHoveredPlanet(null)} arudhaPadas={arudhaPadas}>
       <svg viewBox="0 0 360 360" className="absolute inset-0 h-full w-full object-contain rounded-xl" role="img" aria-label={`${varga === 1 ? "D1" : `D${varga}`} East Indian chart`}>
         <rect x="10" y="10" width="340" height="340" rx="8" fill="hsl(var(--card))" stroke="hsl(var(--chart-grid))" strokeWidth="1.5" />
         {eastCells.map(({ house: houseNumber, polygon, x, y }) => {
@@ -907,6 +972,13 @@ export function SvgChart({
                   </g>
                 );
               })}
+              {arudhaPadas.length > 0 && (
+                <text x={x} y={y + 54} fill="#C05A3A" fontSize="9" fontWeight="500" textAnchor="middle">
+                  {arudhaPadaLabels(arudhaPadas, house.sign).map((pada) => (
+                    <tspan key={pada.label} fontWeight={pada.label === "AL" || pada.label === "UL" ? "700" : "500"} dx="2">{pada.label}</tspan>
+                  ))}
+                </text>
+              )}
             </g>
           );
         })}
@@ -918,7 +990,7 @@ export function SvgChart({
   if (style === "south") {
     const signOrder = [11, 0, 1, 2, 10, -1, -1, 3, 9, -1, -1, 4, 8, 7, 6, 5];
     return (
-      <ChartOverflowFrame overflow={overflowGroups} language={language} usePlanetIcons={preferences.usePlanetIcons} onBodyEnter={onBodyEnter} onBodyLeave={() => setHoveredPlanet(null)}>
+      <ChartOverflowFrame overflow={overflowGroups} language={language} usePlanetIcons={preferences.usePlanetIcons} onBodyEnter={onBodyEnter} onBodyLeave={() => setHoveredPlanet(null)} arudhaPadas={arudhaPadas}>
       <div className="absolute inset-0 grid h-full w-full grid-cols-4 grid-rows-4 overflow-hidden rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))]">
         {signOrder.map((sign, index) => {
           if (sign < 0) return <div key={`empty-${index}`} className="border border-border bg-muted dark:bg-muted/60" />;
@@ -947,6 +1019,13 @@ export function SvgChart({
                   );
                 })}
               </span>
+              {arudhaPadas.length > 0 && (
+                <span className="flex flex-wrap justify-center gap-1 text-[9px] font-medium leading-3 text-[#C05A3A] dark:text-amber-300">
+                  {arudhaPadaLabels(arudhaPadas, sign).map((pada) => (
+                    <span key={pada.label} className={pada.label === "AL" || pada.label === "UL" ? "font-bold" : ""}>{pada.label}</span>
+                  ))}
+                </span>
+              )}
             </div>
           );
         })}
@@ -960,7 +1039,7 @@ export function SvgChart({
     7: [180, 282], 8: [272, 318], 9: [318, 270], 10: [276, 180], 11: [318, 90], 12: [272, 42],
   };
   return (
-    <ChartOverflowFrame overflow={overflowGroups} language={language} usePlanetIcons={preferences.usePlanetIcons} onBodyEnter={onBodyEnter} onBodyLeave={() => setHoveredPlanet(null)}>
+    <ChartOverflowFrame overflow={overflowGroups} language={language} usePlanetIcons={preferences.usePlanetIcons} onBodyEnter={onBodyEnter} onBodyLeave={() => setHoveredPlanet(null)} arudhaPadas={arudhaPadas}>
     <svg viewBox="0 0 360 360" className="absolute inset-0 h-full w-full object-contain rounded-xl" role="img" aria-label={`${varga === 1 ? "D1" : `D${varga}`} North Indian diamond chart`}>
       <rect x="10" y="10" width="340" height="340" rx="8" fill="hsl(var(--card))" stroke="hsl(var(--chart-grid))" strokeWidth="1" />
       {houses.map((house) => {
@@ -1008,6 +1087,20 @@ export function SvgChart({
                 </g>
               );
             })}
+            {arudhaPadas.length > 0 && (
+              <text
+                x={x}
+                y={y + 10 + houseBodyGroups[house.house - 1].inline.length * 13 + 10}
+                fill="#C05A3A"
+                className="dark:fill-amber-300"
+                fontSize="9"
+                textAnchor="middle"
+              >
+                {arudhaPadaLabels(arudhaPadas, house.sign).map((pada, index) => (
+                  <tspan key={pada.label} dx={index ? 3 : 0} fontWeight={pada.label === "AL" || pada.label === "UL" ? "700" : "500"}>{pada.label}</tspan>
+                ))}
+              </text>
+            )}
           </g>
         );
       })}
@@ -1551,6 +1644,7 @@ export function KundaliDashboard() {
   const setDecimalDegrees = useKundaliStore((state) => state.setDecimalDegrees);
   const setNodeType = useKundaliStore((state) => state.setNodeType);
   const setChartSettings = useKundaliStore((state) => state.setChartSettings);
+  const setViewPreference = useKundaliStore((state) => state.setViewPreference);
   const adjustTime = useKundaliStore((state) => state.adjustTime);
   const [data, setData] = useState<EphemerisResponse | null>(null);
   const [dashboardTab, setDashboardTab] = useState<DashboardTab>("core");
@@ -1622,19 +1716,29 @@ export function KundaliDashboard() {
       houseSystem: state.houseSystem,
       carterZodiac: state.carterZodiac,
       midpointPreferences: state.midpointPreferences,
+      showArudhaPadas: state.viewPreferences.showArudhaPadas,
+      arudhaPadaMode: state.viewPreferences.arudhaPadaMode,
     });
     if (saved) {
       setHouseSystem(saved.houseSystem);
       setCarterZodiac(saved.carterZodiac);
       setMidpointPreferences(saved.midpointPreferences);
+      setViewPreference("showArudhaPadas", saved.showArudhaPadas);
+      setViewPreference("arudhaPadaMode", saved.arudhaPadaMode);
     }
     setAnalysisPreferencesLoaded(true);
-  }, [setHouseSystem, setCarterZodiac, setMidpointPreferences]);
+  }, [setHouseSystem, setCarterZodiac, setMidpointPreferences, setViewPreference]);
 
   useEffect(() => {
     if (!analysisPreferencesLoaded) return;
-    writeAnalysisPreferences({ houseSystem, carterZodiac, midpointPreferences });
-  }, [analysisPreferencesLoaded, houseSystem, carterZodiac, midpointPreferences]);
+    writeAnalysisPreferences({
+      houseSystem,
+      carterZodiac,
+      midpointPreferences,
+      showArudhaPadas: viewPreferences.showArudhaPadas,
+      arudhaPadaMode: viewPreferences.arudhaPadaMode,
+    });
+  }, [analysisPreferencesLoaded, houseSystem, carterZodiac, midpointPreferences, viewPreferences.showArudhaPadas, viewPreferences.arudhaPadaMode]);
 
   useEffect(() => {
     const syncTab = () => setDashboardTab(dashboardTabFromLocation());
