@@ -11,7 +11,7 @@ const CHART_COLORS = {
 const SIGN_ELEMENT_FILLS = ["#FFF4F3", "#F9FDEB", "#F5FAFC", "#F2FDFC"] as const;
 const SHORT: Record<string, string> = {
   Udayam: "UD", Aarudam: "AR", Kavippu: "KV", Sun: "SU", Moon: "MO", Mars: "MA",
-  Mercury: "ME", Jupiter: "JU", Venus: "VE", Saturn: "SA", Rahu: "RA", Ketu: "KE", Ascendant: "ASC", Mandi: "md",
+  Mercury: "ME", Jupiter: "JU", Venus: "VE", Saturn: "SA", Rahu: "RA", Ketu: "KE", Ascendant: "ASC", Mandi: "Mandi",
 };
 const FULL_POINT_NAMES: Record<string, string> = {
   Udayam: "UD - Udayam",

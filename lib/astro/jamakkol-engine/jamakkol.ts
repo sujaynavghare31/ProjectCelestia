@@ -200,7 +200,7 @@ export function jamakkol(input: JamakkolInput) {
     return { name, short, category, longitude: lon, signIndex: s, sign: SIGNS[s], degree: dms(lon), nakshatraPada: nakshatraPada(lon), label: `${short} ${degMin(lon)}${flag}`, ...extra };
   };
   const points: Point[] = [mk("Udayam", "Udayam", "points", udayam), mk("Aarudam", "Aarudam", "points", aarudam), mk("Kavippu", "Kavippu", "points", kavippu)];
-  if (inp.mandiLongitude != null) points.push(mk("Mandi", "md", "upagraha", mod(inp.mandiLongitude, 360)));
+  if (inp.mandiLongitude != null) points.push(mk("Mandi", "Mandi", "upagraha", mod(inp.mandiLongitude, 360)));
   JAMA_ORDER.forEach((j, k) => {
     const lon = mod(360 - el * 0.5 - 45 * (k - li), 360);
     points.push(mk(`Jama ${j}`, JAMA_SHORT[k], "jama", lon, { exalted: Math.floor(lon / 30) === JAMA_EXALT[k] }));

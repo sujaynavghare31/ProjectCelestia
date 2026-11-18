@@ -45,9 +45,9 @@ describe("Jamakkol outer grahas", () => {
     }
 
     const mandi = result.points.find((point) => point.name === "Mandi");
-    expect(mandi).toMatchObject({ short: "md", signIndex: 6 });
-    expect(svg).toContain(">md<");
-    expect(svg).toContain("md</text>");
+    expect(mandi).toMatchObject({ short: "Mandi", signIndex: 6 });
+    expect(svg).toContain(">Mandi<");
+    expect(svg).toContain("Mandi</text>");
     expect(svg).toContain("8° 11′ 00″");
   });
 
