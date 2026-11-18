@@ -1,8 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { jamakkol, PLANET_COLORS } from "./jamakkol";
+import { FIXED_OUTER_SIGN_INDEXES, jamakkol, outerRingSignIndex, PLANET_COLORS } from "./jamakkol";
 import { renderJamakkolChart } from "./chartSvg";
 
 describe("Jamakkol outer grahas", () => {
+  it("skips fixed signs and jumps Jama grahas to the next sign on the outer ring", () => {
+    for (const fixedSignIndex of FIXED_OUTER_SIGN_INDEXES) {
+      const displaySignIndex = outerRingSignIndex(fixedSignIndex);
+      expect(displaySignIndex).toBe((fixedSignIndex + 1) % 12);
+      expect(FIXED_OUTER_SIGN_INDEXES).not.toContain(displaySignIndex);
+    }
+
+    expect(outerRingSignIndex(10)).toBe(11);
+  });
   it("keeps the Wednesday night Jamam #4 positions, renders them on their sign edges, and includes Maandi", () => {
     const result = jamakkol({
       date: "2026-11-18",

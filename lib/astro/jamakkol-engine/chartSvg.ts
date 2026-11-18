@@ -1,4 +1,4 @@
-import { COLORS, colorForPoint, type JamakkolResult, type Point } from "./jamakkol";
+import { COLORS, colorForPoint, outerRingSignIndex, type JamakkolResult, type Point } from "./jamakkol";
 
 const ABBR = ["Ari", "Tau", "Gem", "Can", "Leo", "Vir", "Lib", "Sco", "Sag", "Cap", "Aqu", "Pis"];
 const GRID: (number | null)[][] = [[11, 0, 1, 2], [10, null, null, 3], [9, null, null, 4], [8, 7, 6, 5]];
@@ -117,19 +117,28 @@ export function renderJamakkolChart(result: JamakkolResult, options: JamakkolCha
     if (signIndex !== null) signCells.set(signIndex, { row: rowIndex, column: columnIndex });
   }));
   const bandTop = 22;
+  const jamaBySign = new Map<number, Point[]>();
   result.jamaGrahas.forEach((point) => {
-    const cellPosition = signCells.get(point.signIndex);
+    const displaySignIndex = outerRingSignIndex(point.signIndex);
+    const jamaPoints = jamaBySign.get(displaySignIndex) ?? [];
+    jamaPoints.push(point);
+    jamaBySign.set(displaySignIndex, jamaPoints);
+  });
+  jamaBySign.forEach((points, displaySignIndex) => {
+    const cellPosition = signCells.get(displaySignIndex);
     if (!cellPosition) return;
     const { row, column } = cellPosition;
     const centerX = x(column) + cell / 2;
     const centerY = y(row) + cell / 2;
-    const name = JAMA_BORDER_NAMES[point.name.replace("Jama ", "")] ?? point.short;
-    const label = `${name} ${absoluteDegMin(point.longitude)}`;
-    const color = colorForPoint(point);
-    if (row === 0) parts.push(`<text x="${centerX}" y="${bandTop}" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} ←</text>`);
-    if (row === 3) parts.push(`<text x="${centerX}" y="${band + chartSize + 24}" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} →</text>`);
-    if (column === 3) parts.push(`<text transform="translate(${chartSize + band + 20},${centerY}) rotate(90)" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} ←</text>`);
-    if (column === 0) parts.push(`<text transform="translate(18,${centerY}) rotate(-90)" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} ←</text>`);
+    points.forEach((point, index) => {
+      const name = JAMA_BORDER_NAMES[point.name.replace("Jama ", "")] ?? point.short;
+      const label = `${name} ${absoluteDegMin(point.longitude)}`;
+      const color = colorForPoint(point);
+      if (row === 0) parts.push(`<text x="${centerX}" y="${bandTop + index * 14}" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} ←</text>`);
+      if (row === 3) parts.push(`<text x="${centerX}" y="${band + chartSize + 24 + index * 14}" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} →</text>`);
+      if (column === 3) parts.push(`<text transform="translate(${chartSize + band + 20 + index * 14},${centerY}) rotate(90)" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} ←</text>`);
+      if (column === 0) parts.push(`<text transform="translate(${18 - index * 14},${centerY}) rotate(-90)" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} ←</text>`);
+    });
   });
 
   parts.push("</svg>");

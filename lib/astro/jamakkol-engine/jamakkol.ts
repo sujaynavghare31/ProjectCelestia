@@ -50,6 +50,17 @@ export const PLANET_COLORS = {
   Ketu: "#C2410C",
 } as const;
 
+/** Fixed signs in the South-Indian outer ring: Taurus, Leo, Scorpio, Aquarius. */
+export const FIXED_OUTER_SIGN_INDEXES = [1, 4, 7, 10] as const;
+
+export function outerRingSignIndex(signIndex: number) {
+  let displaySignIndex = mod(signIndex, 12);
+  while (FIXED_OUTER_SIGN_INDEXES.includes(displaySignIndex as (typeof FIXED_OUTER_SIGN_INDEXES)[number])) {
+    displaySignIndex = mod(displaySignIndex + 1, 12);
+  }
+  return displaySignIndex;
+}
+
 // ----------------------------- helpers -----------------------------
 const RAD = Math.PI / 180;
 const sin = (d: number) => Math.sin(d * RAD), cos = (d: number) => Math.cos(d * RAD), tan = (d: number) => Math.tan(d * RAD);
