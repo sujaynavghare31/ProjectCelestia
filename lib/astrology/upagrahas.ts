@@ -54,6 +54,47 @@ export function gulikaSegment(weekday: number, isDaytime: boolean): number {
   return isDaytime ? DAY_GULIKA_SEGMENT[weekday] : NIGHT_GULIKA_SEGMENT[weekday];
 }
 
+const DAY_MAANDI_SUN_OFFSETS = [156, 132, 108, 84, 60, 36, 12] as const;
+const NIGHT_MAANDI_SUN_OFFSETS = [264, 240, 216, 336, 312, 288, 264] as const;
+
+export function calculateMaandiSunDegree({
+  date,
+  time,
+  timezone,
+  latitude,
+  longitude,
+  sunLongitude,
+}: {
+  date: string;
+  time: string;
+  timezone: string;
+  latitude: number;
+  longitude: number;
+  sunLongitude: number;
+}) {
+  const birthUtc = localDateTimeToUtc(date, time, timezone);
+  const todaySunrise = solarEvent(date, timezone, latitude, longitude, "rise");
+  const todaySunset = solarEvent(date, timezone, latitude, longitude, "set");
+
+  let weekdayDate = date;
+  let isDaytime = birthUtc >= todaySunrise.utc && birthUtc < todaySunset.utc;
+  if (birthUtc < todaySunrise.utc) {
+    weekdayDate = shiftLocalDate(date, -1);
+  }
+  if (birthUtc >= todaySunset.utc) {
+    isDaytime = false;
+  }
+  if (birthUtc < todaySunrise.utc) {
+    isDaytime = false;
+  }
+
+  const weekday = new Date(`${weekdayDate}T00:00:00Z`).getUTCDay();
+  const offset = isDaytime
+    ? DAY_MAANDI_SUN_OFFSETS[weekday]
+    : NIGHT_MAANDI_SUN_OFFSETS[weekday];
+  return normalizeDegrees(sunLongitude + offset);
+}
+
 function ascendantAt(date: Date, latitude: number, longitude: number, siderealFlag: number, longitudeOffset: number) {
   const result = swe.swe_houses_ex(toJulianDay(date), siderealFlag, latitude, longitude, "W") as HousesResult;
   if (result.error || !Number.isFinite(result.ascendant)) {

@@ -11,7 +11,7 @@ import { getInterceptedSigns } from "@/lib/astrology/intercepted-signs";
 import { mapPositionsToHouses } from "@/lib/astrology/house-placements";
 import { getPlanetaryDignity } from "@/lib/astrology/planetary-dignity-service";
 import { localDateTimeToUtc } from "@/lib/astrology/timezone";
-import { calculateGulikaMandi } from "@/lib/astrology/upagrahas";
+import { calculateGulikaMandi, calculateMaandiSunDegree } from "@/lib/astrology/upagrahas";
 import { getBirthDateTimeError } from "@/lib/astrology/ephemeris-input";
 import { calculateKpDetails } from "@/lib/astrology/kp-calculations";
 
@@ -29,11 +29,50 @@ const NAK_LORDS = ["Ketu", "Venus", "Sun", "Moon", "Mars", "Rahu", "Jupiter", "S
 const DASHA_ORDER = ["Ketu", "Venus", "Sun", "Moon", "Mars", "Rahu", "Jupiter", "Saturn", "Mercury"];
 const DASHA_YEARS: Record<string, number> = { Ketu: 7, Venus: 20, Sun: 6, Moon: 10, Mars: 7, Rahu: 18, Jupiter: 16, Saturn: 19, Mercury: 17 };
 const AYANAMSA_MODES: Record<string, number> = {
+  "tropical": -1,
   "fagan-bradley": swe.SE_SIDM_FAGAN_BRADLEY,
-  lahiri: swe.SE_SIDM_LAHIRI,
+  "de-luce": swe.SE_SIDM_DELUCE,
   raman: swe.SE_SIDM_RAMAN,
+  "usha-shashi": swe.SE_SIDM_USHASHASHI,
   krishnamurti: swe.SE_SIDM_KRISHNAMURTI,
+  "djwhal-khul": swe.SE_SIDM_DJWHAL_KHUL,
   yukteshwar: swe.SE_SIDM_YUKTESHWAR,
+  "jn-bhasin": swe.SE_SIDM_JN_BHASIN,
+  "babylonian-kugler-1": swe.SE_SIDM_BABYL_KUGLER1,
+  "babylonian-kugler-2": swe.SE_SIDM_BABYL_KUGLER2,
+  "babylonian-kugler-3": swe.SE_SIDM_BABYL_KUGLER3,
+  "babylonian-huber": swe.SE_SIDM_BABYL_HUBER,
+  "babylonian-eta-piscium": swe.SE_SIDM_BABYL_ETPSC,
+  "babylonian-aldebaran": swe.SE_SIDM_ALDEBARAN_15TAU,
+  hipparchos: swe.SE_SIDM_HIPPARCHOS,
+  sassanian: swe.SE_SIDM_SASSANIAN,
+  "galactic-center-0-sag": swe.SE_SIDM_GALCENT_0SAG,
+  j2000: swe.SE_SIDM_J2000,
+  j1900: swe.SE_SIDM_J1900,
+  b1950: swe.SE_SIDM_B1950,
+  "suryasiddhanta": swe.SE_SIDM_SURYASIDDHANTA,
+  "suryasiddhanta-mean-sun": swe.SE_SIDM_SURYASIDDHANTA_MSUN,
+  aryabhata: swe.SE_SIDM_ARYABHATA,
+  "aryabhata-mean-sun": swe.SE_SIDM_ARYABHATA_MSUN,
+  "ss-revati": swe.SE_SIDM_SS_REVATI,
+  "ss-citra": swe.SE_SIDM_SS_CITRA,
+  "true-citra": swe.SE_SIDM_TRUE_CITRA,
+  "true-revati": swe.SE_SIDM_TRUE_REVATI,
+  "true-pushya": swe.SE_SIDM_TRUE_PUSHYA,
+  "galactic-center-gil-brand": swe.SE_SIDM_GALCENT_RGILBRAND,
+  "galactic-equator-iau1958": swe.SE_SIDM_GALEQU_IAU1958,
+  "galactic-equator": swe.SE_SIDM_GALEQU_TRUE,
+  "galactic-equator-mid-mula": swe.SE_SIDM_GALEQU_MULA,
+  "skydram": swe.SE_SIDM_GALALIGN_MARDYKS,
+  "true-mula": swe.SE_SIDM_TRUE_MULA,
+  "dhruva-galactic-center-mula": swe.SE_SIDM_GALCENT_MULA_WILHELM,
+  "aryabhata-522": swe.SE_SIDM_ARYABHATA_522,
+  "babylonian-britton": swe.SE_SIDM_BABYL_BRITTON,
+  "vedic-sheoran": swe.SE_SIDM_TRUE_SHEORAN,
+  "galactic-center-cochrane": swe.SE_SIDM_GALCENT_COCHRANE,
+  "galactic-equator-fiorenza": swe.SE_SIDM_GALEQU_FIORENZA,
+  "vettius-valens": swe.SE_SIDM_VALENS_MOON,
+  lahiri: swe.SE_SIDM_LAHIRI,
 };
 
 const BODIES = [
@@ -339,6 +378,14 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
     siderealFlag,
     longitudeOffset,
   });
+  const mandiSunDegree = calculateMaandiSunDegree({
+    date: input.date,
+    time: input.time,
+    timezone: input.timezone,
+    latitude: input.lat,
+    longitude: input.lng,
+    sunLongitude: sun.longitude,
+  });
   const makeUpagraha = (id: "gulika" | "mandi", name: "Gulika" | "Mandi", symbol: "Gu" | "Ma", longitude: number) => {
     const equatorial = swe.swe_cotrans(
       [normalizeDegrees(longitude + ayanamsaDegrees), 0, 1],
@@ -355,7 +402,7 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
     });
   };
   const gulika = makeUpagraha("gulika", "Gulika", "Gu", upagrahas.gulikaLongitude);
-  const mandi = makeUpagraha("mandi", "Mandi", "Ma", upagrahas.mandiLongitude);
+  const mandi = makeUpagraha("mandi", "Mandi", "Ma", mandiSunDegree);
   const chartPoints = [
     { ...partOfFortune, house: ((partOfFortune.sign - ascSign + 12) % 12) + 1 },
     { ...gulika, house: ((gulika.sign - ascSign + 12) % 12) + 1 },

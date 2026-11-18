@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateGulikaMandi, gulikaSegment } from "./upagrahas";
+import { calculateGulikaMandi, calculateMaandiSunDegree, gulikaSegment } from "./upagrahas";
 
 describe("Gulika segment", () => {
   it("uses Saturn's weekday segment during daytime", () => {
@@ -27,5 +27,18 @@ describe("Gulika segment", () => {
 
     expect(result.isDaytime).toBe(false);
     expect(result.weekday).toBe(3);
+  });
+
+  it("matches Jamakkol method 5 at 2026-11-19 00:35:01 Mumbai", () => {
+    const mandi = calculateMaandiSunDegree({
+      date: "2026-11-19",
+      time: "00:35:01",
+      timezone: "Asia/Kolkata",
+      latitude: 19.0228787,
+      longitude: 72.8386057,
+      sunLongitude: 212.2412938,
+    });
+
+    expect(mandi).toBeCloseTo(188.2412938, 6);
   });
 });

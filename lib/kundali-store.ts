@@ -140,7 +140,7 @@ export const useKundaliStore = create<KundaliState>((set) => ({
   varga: 9,
   decimalDegrees: false,
   nodeType: "true",
-  ayanamsa: "lahiri",
+  ayanamsa: "true-citra",
   zodiacMode: "sidereal",
   customAyanamsaDegrees: 0,
   language: "initials",
