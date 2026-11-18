@@ -1015,14 +1015,12 @@ export function SvgChart({
         const anchor = northCuspAnchor(cusp);
         const x = anchor.x + 10;
         const y = anchor.y + 10;
-        const width = Math.min(92, Math.max(48, cusp.label.length * 4.5));
         return (
           <g key={`cusp-line-${cusp.house}`}>
             <title>House {cusp.house} starts in {cusp.sign}</title>
             <line x1={anchor.tick[0][0] + 10} y1={anchor.tick[0][1] + 10} x2={anchor.tick[1][0] + 10} y2={anchor.tick[1][1] + 10} stroke="hsl(var(--champagne-gold))" strokeWidth="1.5" />
             <g transform={`translate(${x} ${y}) rotate(${anchor.angle})`}>
-              <rect x={-width / 2} y="-6" width={width} height="12" rx="3" fill="#FDE047" fillOpacity="0.9" />
-              <text x="0" y="3" fill="#0f172a" fontSize="7" fontWeight="700" textAnchor="middle" fontFamily="Segoe UI Symbol, Noto Sans Symbols 2, DejaVu Sans, sans-serif">{cusp.label}</text>
+              <text x="0" y="3" fill="hsl(var(--foreground))" stroke="hsl(var(--card))" strokeWidth="3" paintOrder="stroke" fontSize="7" fontWeight="700" textAnchor="middle" fontFamily="Segoe UI Symbol, Noto Sans Symbols 2, DejaVu Sans, sans-serif">{cusp.label}</text>
             </g>
           </g>
         );

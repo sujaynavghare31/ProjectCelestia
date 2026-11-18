@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { BirthProfile } from "@/lib/kundali-store";
 import type { EphemerisResponse } from "@/lib/kundali-types";
 import {
   COLORS,
   jamakkol,
-  SOUTH_INDIAN_GRID,
+  renderJamakkolChart,
   type JamakkolResult,
   type Point,
 } from "@/lib/astro/jamakkol-engine";
@@ -70,54 +70,11 @@ function pointStyle(point: Point) {
   return COLORS[point.category];
 }
 
-function PointLines({ points, category }: { points: string[]; category: keyof typeof categoryLabels }) {
-  if (!points.length) return null;
-  return (
-    <div className="mt-1 space-y-0.5 text-[10px] leading-tight sm:text-[11px]" style={{ color: COLORS[category].text }}>
-      <p className="font-semibold">{categoryLabels[category]}</p>
-      {points.map((point) => <p key={point} className="truncate">{point}</p>)}
-    </div>
-  );
-}
-
 function JamakkolChart({ result }: { result: JamakkolResult }) {
+  const svg = renderJamakkolChart(result, { size: 620 });
   return (
     <div className="mx-auto w-full max-w-[620px]">
-      <div className="grid aspect-square grid-cols-4 grid-rows-4 overflow-hidden rounded-xl border-2 border-[#4A1D6B] bg-card">
-        {SOUTH_INDIAN_GRID.flatMap((row, rowIndex) => row.map((signIndex, columnIndex) => {
-          const isCenter = signIndex === null;
-          if (isCenter && !(rowIndex === 1 && columnIndex === 1)) return null;
-          if (isCenter) {
-            return (
-              <div key="center" className="col-span-2 row-span-2 flex min-w-0 flex-col items-center justify-center bg-muted/20 p-2 text-center sm:p-4">
-                <p className="text-xs font-semibold text-foreground sm:text-sm">Jamakkol Prasannam</p>
-                <p className="mt-1 text-[10px] text-muted-foreground sm:text-xs">{result.input.date} · {result.input.time}</p>
-                <p className="mt-2 text-[10px] font-semibold text-foreground sm:text-xs">{result.jamam.weekday} · {result.jamam.half} Jamam #{result.jamam.number}</p>
-                <p className="text-[10px] text-muted-foreground sm:text-xs">{result.jamam.start}–{result.jamam.end} · Lord {result.jamam.lord}</p>
-                <div className="mt-3 space-y-1 text-[10px] sm:text-xs">
-                  <p style={{ color: COLORS.points.text }}>Udayam · {result.udayam.degree}</p>
-                  <p style={{ color: COLORS.points.text }}>Aarudam · {result.aarudam.degree}</p>
-                  <p style={{ color: COLORS.points.text }}>Kavippu · {result.kavippu.degree}</p>
-                </div>
-              </div>
-            );
-          }
-          const box = result.boxes[signIndex];
-          return (
-            <div
-              key={signIndex}
-              className="min-w-0 border border-[#4A1D6B]/40 bg-card p-1.5 sm:p-2"
-              style={{ gridColumn: columnIndex + 1, gridRow: rowIndex + 1 }}
-              aria-label={`${box.sign}. Jama: ${box.jama.join(", ") || "none"}. Gochara: ${box.gochara.join(", ") || "none"}. Points: ${box.points.join(", ") || "none"}.`}
-            >
-              <p className="truncate text-[10px] font-bold text-foreground sm:text-xs">{box.sign}</p>
-              <PointLines points={box.jama} category="jama" />
-              <PointLines points={box.gochara} category="gochara" />
-              <PointLines points={box.points} category="points" />
-            </div>
-          );
-        }))}
-      </div>
+      <div className="aspect-square w-full overflow-hidden" dangerouslySetInnerHTML={{ __html: svg }} />
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground" aria-label="Jamakkol chart legend">
         {(["jama", "gochara", "points"] as const).map((category) => (
           <span key={category} className="inline-flex items-center gap-1.5">
@@ -182,8 +139,17 @@ function PanchangCard({ result }: { result: JamakkolResult }) {
 
 export default function JamakkolTab({ profile, data, chartMode }: Props) {
   const [live, setLive] = useState(false);
+  const [liveTick, setLiveTick] = useState(0);
+
+  useEffect(() => {
+    if (!live) return;
+    const interval = window.setInterval(() => setLiveTick((tick) => tick + 1), 30_000);
+    return () => window.clearInterval(interval);
+  }, [live]);
+
   const active = useMemo(() => {
     if (!data) return null;
+    void liveTick;
     const dateTime = chartMode === "transit" ? localNow(profile.timezone) : { date: profile.date, time: profile.time };
     const planets = Object.fromEntries(data.planets.map((planet) => [planet.name, planet.longitude]));
     const required = ["Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
@@ -194,11 +160,13 @@ export default function JamakkolTab({ profile, data, chartMode }: Props) {
       tz: timezoneOffset(dateTime.date, dateTime.time, profile.timezone),
       lat: profile.lat,
       lon: profile.lng,
+      place: profile.city,
+      ascendant: data.ascendant.longitude,
       ayanamsa: data.ayanamsa.degrees,
       planets: planets as { Mars: number; Mercury: number; Jupiter: number; Venus: number; Saturn: number; Sun?: number; Moon?: number; Rahu?: number },
       retrograde: Object.fromEntries(data.planets.filter((planet) => ["Mars", "Mercury", "Jupiter", "Venus", "Saturn"].includes(planet.name)).map((planet) => [planet.name, planet.motion === "R"])),
     });
-  }, [chartMode, data, profile]);
+  }, [chartMode, data, liveTick, profile]);
 
   if (!active) return <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">Jamakkol needs a completed planetary calculation. Submit the chart details and try again.</div>;
 

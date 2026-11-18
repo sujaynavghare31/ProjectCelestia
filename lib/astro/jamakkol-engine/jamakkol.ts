@@ -96,8 +96,10 @@ export const meanRahuTropical = (dJ: number) => mod(125.0445 - 0.0529538 * dJ, 3
 export interface JamakkolInput {
   date: string;              // "YYYY-MM-DD" local date of the question
   time: string;              // "HH:MM[:SS]" local time
-  tz: number;                // hours east of GMT (IST 5.5)
-  lat: number; lon: number;  // N+, E+
+  tz?: number;               // hours east of GMT (default 5.5 IST)
+  lat?: number; lon?: number; // N+, E+ (default Mumbai)
+  place?: string;
+  ascendant?: number | null;
   sunriseOverride?: string | null;  // "HH:MM[:SS]" – optional, to match a panchang
   sunsetOverride?: string | null;
   ayanamsa?: number | null;  // optional; default mean Lahiri polynomial
@@ -108,7 +110,27 @@ export interface JamakkolInput {
 export type Category = "points" | "jama" | "gochara";
 export interface Point { name: string; short: string; category: Category; longitude: number; signIndex: number; sign: string; degree: string; nakshatraPada: string; label: string; exalted?: boolean; retrograde?: boolean }
 
-export function jamakkol(inp: JamakkolInput) {
+export const DEFAULT_LOCATION = { place: "Mumbai, Maharashtra, India", lat: 19.076, lon: 72.8777, tz: 5.5 };
+export const CITIES = [
+  { place: "Mumbai", lat: 19.076, lon: 72.8777, tz: 5.5 },
+  { place: "Delhi", lat: 28.6139, lon: 77.209, tz: 5.5 },
+  { place: "Delhi Cantonment", lat: 28.59613, lon: 77.15874, tz: 5.5 },
+  { place: "Chennai", lat: 13.0827, lon: 80.2707, tz: 5.5 },
+  { place: "Bengaluru", lat: 12.9716, lon: 77.5946, tz: 5.5 },
+  { place: "Hyderabad", lat: 17.385, lon: 78.4867, tz: 5.5 },
+  { place: "Kolkata", lat: 22.5726, lon: 88.3639, tz: 5.5 },
+  { place: "Pune", lat: 18.5204, lon: 73.8567, tz: 5.5 },
+];
+
+export function jamakkol(input: JamakkolInput) {
+  const usingDefault = input.lat === undefined || input.lon === undefined;
+  const inp = {
+    ...input,
+    lat: input.lat ?? DEFAULT_LOCATION.lat,
+    lon: input.lon ?? DEFAULT_LOCATION.lon,
+    tz: input.tz ?? DEFAULT_LOCATION.tz,
+    place: input.place ?? (usingDefault ? DEFAULT_LOCATION.place : undefined),
+  };
   const QT = hmsToFrac(inp.time.length === 5 ? inp.time + ":00" : inp.time);
   const today = sunriseSunset(inp.date, inp.lat, inp.lon, inp.tz);
   const shift = (iso: string, n: number) => { const [y, m, d] = iso.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); };
@@ -158,8 +180,11 @@ export function jamakkol(inp: JamakkolInput) {
     .forEach(([n, s, l, r]) => points.push(mk(n, s, "gochara", mod(l, 360), { retrograde: r })));
 
   // chart boxes
+  const udSign = Math.floor(udayam / 30);
   const boxes = SIGNS.map((sign, i) => ({
     signIndex: i, sign,
+    house: mod(i - udSign, 12) + 1,
+    asc: inp.ascendant != null && Math.floor(mod(inp.ascendant, 360) / 30) === i,
     jama: points.filter((p) => p.category === "jama" && p.signIndex === i).map((p) => p.label),
     gochara: points.filter((p) => p.category === "gochara" && p.signIndex === i).map((p) => p.label),
     points: points.filter((p) => p.category === "points" && p.signIndex === i).map((p) => p.label),
@@ -192,6 +217,7 @@ export function jamakkol(inp: JamakkolInput) {
 
   return {
     input: inp,
+    ascendant: inp.ascendant != null ? mk("Ascendant", "ASC", "points", mod(inp.ascendant, 360)) : null,
     jamam: { weekday: WEEKDAYS[jwd], half, number: jamamNo, lord, minutesIntoHalf: el, start: fracToHM(jStart), end: fracToHM(jStart + 90 / 1440) },
     sun: { sunrise: SR, sunset: SS, previousSunset: SSY, nextSunrise: SRN },
     udayam: points[0], aarudam: points[1], kavippu: points[2],

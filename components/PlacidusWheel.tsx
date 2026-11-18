@@ -334,12 +334,12 @@ function PlacidusWheel({
                 <text
                   x={outer.x}
                   y={outer.y + 3}
-                  fill={preferences.cuspLabelStyle === "line" ? "#0f172a" : "hsl(var(--foreground))"}
+                  fill="hsl(var(--foreground))"
                   fontSize="9"
                   fontWeight="600"
                   textAnchor="middle"
-                  stroke={preferences.cuspLabelStyle === "line" ? "#FDE047" : "hsl(var(--card))"}
-                  strokeWidth={preferences.cuspLabelStyle === "line" ? "7" : "3"}
+                  stroke="hsl(var(--card))"
+                  strokeWidth="3"
                   strokeLinecap="round"
                   paintOrder="stroke"
                   fontFamily={preferences.cuspLabelSignStyle === "glyph" ? "Segoe UI Symbol, Noto Sans Symbols 2, DejaVu Sans, sans-serif" : undefined}

@@ -126,7 +126,7 @@ export default function KPAstrology({ profile, language, viewPreferences, ChartR
 
   useEffect(() => { void load(); }, [profile.date, profile.time, profile.lat, profile.lng, profile.timezone]);
 
-  const kpPreferences = useMemo(() => ({ ...viewPreferences, showBhavaCusps: true }), [viewPreferences]);
+  const kpPreferences = useMemo(() => ({ ...viewPreferences, showBhavaCusps: false }), [viewPreferences]);
   const planets = data?.planets.filter((planet) => ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu"].includes(planet.name)) ?? [];
   const ownedHouses = (lord: string) => data?.houseCusps.filter((cusp) => cusp.kp?.signLord === lord).map((cusp) => cusp.house) ?? [];
   const houseSignificators = useMemo(() => planets.map((planet) => {
@@ -156,7 +156,7 @@ export default function KPAstrology({ profile, language, viewPreferences, ChartR
         <div>
           <div className="flex items-center gap-2 text-[#C05A3A]"><Sparkles className="size-4" /><span className="text-xs font-semibold uppercase tracking-[0.18em]">Krishnamurti Paddhati</span></div>
           <h2 className="mt-2 text-2xl font-semibold tracking-tight text-stone-900">KP Astrology</h2>
-          <p className="mt-1 text-sm text-stone-500">KP Ayanamsa · Placidus cusps · exact sub-lord analysis</p>
+          <p className="mt-1 text-sm text-stone-500">KP Ayanamsa · Indian chart cusps · exact sub-lord analysis</p>
         </div>
         <button type="button" onClick={() => void load()} disabled={loading} className="inline-flex h-9 items-center gap-2 rounded-lg bg-[#C05A3A] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#A84930] disabled:opacity-60"><RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} /> Refresh KP data</button>
       </header>
@@ -174,14 +174,14 @@ export default function KPAstrology({ profile, language, viewPreferences, ChartR
           <TabsContent value="base" className="space-y-4">
             <div className="grid gap-4 lg:grid-cols-2">
               <div className="rounded-xl border border-stone-200 bg-white p-3 shadow-sm"><h3 className="mb-2 text-sm font-semibold text-stone-800">Rasi chart · KP sidereal</h3><div className="relative isolate aspect-square min-h-0 w-full overflow-hidden rounded-lg"><ChartRenderer style="diamond" ascendant={data.ascendant} planets={planets} points={[]} houseCusps={data.houseCusps} varga={1} language={language} preferences={kpPreferences} /></div></div>
-              <div className="rounded-xl border border-stone-200 bg-white p-3 shadow-sm"><h3 className="mb-2 text-sm font-semibold text-stone-800">KP Bhava Chalit · Placidus</h3><div className="relative isolate aspect-square min-h-0 w-full overflow-hidden rounded-lg"><ChartRenderer style="placidus" ascendant={data.ascendant} planets={data.bhavChalitPlanets.filter((planet) => planets.some(({ id }) => id === planet.id))} points={[]} houseCusps={data.houseCusps} varga={1} houseBasedPlacement language={language} preferences={kpPreferences} /></div></div>
+              <div className="rounded-xl border border-stone-200 bg-white p-3 shadow-sm"><h3 className="mb-2 text-sm font-semibold text-stone-800">KP Bhava Chalit · South Indian</h3><div className="relative isolate aspect-square min-h-0 w-full overflow-hidden rounded-lg"><ChartRenderer style="south" ascendant={data.ascendant} planets={data.bhavChalitPlanets.filter((planet) => planets.some(({ id }) => id === planet.id))} points={[]} houseCusps={data.houseCusps} varga={1} houseBasedPlacement language={language} preferences={kpPreferences} /></div></div>
             </div>
             <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white shadow-sm">
               <h3 className="border-b border-stone-200 bg-stone-100 px-4 py-3 text-sm font-semibold text-stone-800">Planetary KP details</h3>
               <table className="w-full min-w-[800px] text-left text-xs"><thead><tr className="border-b border-stone-200 text-[10px] uppercase tracking-wider text-stone-500">{["Planet", "Longitude", "R/D", "Sign lord", "Star lord", "Sub lord", "Sub-sub lord"].map((heading) => <th key={heading} className="px-3 py-2 font-semibold">{heading}</th>)}</tr></thead><tbody>{planets.map((planet) => <tr key={planet.id} className="border-b border-stone-100 last:border-0"><td className={`px-3 py-2.5 font-semibold ${PLANET_COLORS[planet.name] ?? "text-stone-800"}`}>{planet.name}</td><td className="px-3 py-2.5 font-mono">{longitude(planet.longitude)} <span className="text-stone-400">({degree(planet.longitude)})</span></td><td className="px-3 py-2.5 font-semibold">{planet.motion}</td><td className="px-3 py-2.5"><LordBadge lord={planet.kp?.signLord ?? "—"} /></td><td className="px-3 py-2.5"><LordBadge lord={planet.kp?.starLord ?? "—"} /></td><td className="px-3 py-2.5"><LordBadge lord={planet.kp?.subLord ?? "—"} /></td><td className="px-3 py-2.5"><LordBadge lord={planet.kp?.subSubLord ?? "—"} /></td></tr>)}</tbody></table>
             </div>
             <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white shadow-sm">
-              <h3 className="border-b border-stone-200 bg-stone-100 px-4 py-3 text-sm font-semibold text-stone-800">House cusp table · Placidus</h3>
+              <h3 className="border-b border-stone-200 bg-stone-100 px-4 py-3 text-sm font-semibold text-stone-800">House cusp table · Vedic cusps</h3>
               <table className="w-full min-w-[680px] text-left text-xs"><thead><tr className="border-b border-stone-200 text-[10px] uppercase tracking-wider text-stone-500">{["Cusp", "Longitude", "Sign lord", "Star lord", "Sub lord", "Sub-sub lord"].map((heading) => <th key={heading} className="px-3 py-2 font-semibold">{heading}</th>)}</tr></thead><tbody>{data.houseCusps.map((cusp, index) => <tr key={cusp.house} className={index % 2 ? "bg-stone-50" : ""}><td className="px-3 py-2.5 font-semibold text-stone-700">Cusp {cusp.house}</td><td className="px-3 py-2.5 font-mono">{longitude(cusp.longitude)} <span className="text-stone-400">({degree(cusp.longitude)})</span></td><td className="px-3 py-2.5"><LordBadge lord={cusp.kp?.signLord ?? "—"} /></td><td className="px-3 py-2.5"><LordBadge lord={cusp.kp?.starLord ?? "—"} /></td><td className="px-3 py-2.5"><LordBadge lord={cusp.kp?.subLord ?? "—"} /></td><td className="px-3 py-2.5"><LordBadge lord={cusp.kp?.subSubLord ?? "—"} /></td></tr>)}</tbody></table>
             </div>
           </TabsContent>
