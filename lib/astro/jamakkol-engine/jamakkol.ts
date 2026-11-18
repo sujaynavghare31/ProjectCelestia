@@ -29,13 +29,14 @@ const RAHU_PART = [8, 2, 7, 5, 6, 4, 3], YAMA_PART = [5, 4, 3, 2, 1, 7, 6], GULI
 const VEEDI = [1, 0, 0, 0, 0, 1, 1, 2, 2, 2, 2, 1];
 /** South-Indian layout: sign index per grid cell, null = centre. */
 export const SOUTH_INDIAN_GRID: (number | null)[][] = [[11, 0, 1, 2], [10, null, null, 3], [9, null, null, 4], [8, 7, 6, 5]];
-/** Suggested colours (same as the Excel chart). */
+/** Chart category colors. */
 export const COLORS = {
-  jama: { text: "#C2410C", bg: "#FFF4E6" },     // orange
-  gochara: { text: "#1D4ED8", bg: "#EEF4FF" },  // blue
-  points: { text: "#047857", bg: "#ECFDF5" },   // green: Udayam / Aarudam / Kavippu
-  sign: { text: "#6B7280", bg: "#F3F4F6" },
-  border: "#4A1D6B",
+  jama: { text: "#963D5D", bg: "#F8EAF0" },
+  gochara: { text: "#176B68", bg: "#E6F2EF" },
+  upagraha: { text: "#654D91", bg: "#F0EBF7" },
+  points: { text: "#8B5E12", bg: "#F8F0D9" },
+  sign: { text: "#526A63", bg: "#EEF2ED" },
+  border: "#3D685F",
 };
 
 // ----------------------------- helpers -----------------------------
@@ -106,8 +107,9 @@ export interface JamakkolInput {
   /** Sidereal planets from the portal's Swiss Ephemeris. Sun / Moon / Rahu are calculated if omitted (≈0.01° / ≈1′ / mean node). */
   planets: { Sun?: number; Moon?: number; Mars: number; Mercury: number; Jupiter: number; Venus: number; Saturn: number; Rahu?: number };
   retrograde?: Partial<Record<"Mars" | "Mercury" | "Jupiter" | "Venus" | "Saturn", boolean>>;
+  mandiLongitude?: number | null;
 }
-export type Category = "points" | "jama" | "gochara";
+export type Category = "points" | "jama" | "gochara" | "upagraha";
 export interface Point { name: string; short: string; category: Category; longitude: number; signIndex: number; sign: string; degree: string; nakshatraPada: string; label: string; exalted?: boolean; retrograde?: boolean }
 
 export const DEFAULT_LOCATION = { place: "Mumbai, Maharashtra, India", lat: 19.076, lon: 72.8777, tz: 5.5 };
@@ -169,6 +171,7 @@ export function jamakkol(input: JamakkolInput) {
     return { name, short, category, longitude: lon, signIndex: s, sign: SIGNS[s], degree: dms(lon), nakshatraPada: nakshatraPada(lon), label: `${short} ${degMin(lon)}${flag}`, ...extra };
   };
   const points: Point[] = [mk("Udayam", "Udayam", "points", udayam), mk("Aarudam", "Aarudam", "points", aarudam), mk("Kavippu", "Kavippu", "points", kavippu)];
+  if (inp.mandiLongitude != null) points.push(mk("Mandi", "md", "upagraha", mod(inp.mandiLongitude, 360)));
   JAMA_ORDER.forEach((j, k) => {
     const lon = mod(360 - el * 0.5 - 45 * (k - li), 360);
     points.push(mk(`Jama ${j}`, JAMA_SHORT[k], "jama", lon, { exalted: Math.floor(lon / 30) === JAMA_EXALT[k] }));
@@ -187,6 +190,7 @@ export function jamakkol(input: JamakkolInput) {
     asc: inp.ascendant != null && Math.floor(mod(inp.ascendant, 360) / 30) === i,
     jama: points.filter((p) => p.category === "jama" && p.signIndex === i).map((p) => p.label),
     gochara: points.filter((p) => p.category === "gochara" && p.signIndex === i).map((p) => p.label),
+    upagraha: points.filter((p) => p.category === "upagraha" && p.signIndex === i).map((p) => p.label),
     points: points.filter((p) => p.category === "points" && p.signIndex === i).map((p) => p.label),
   }));
 

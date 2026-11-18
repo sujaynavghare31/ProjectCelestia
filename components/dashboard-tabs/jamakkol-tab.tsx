@@ -20,6 +20,7 @@ type Props = {
 const categoryLabels = {
   jama: "Jama",
   gochara: "Gochara",
+  upagraha: "Upagraha",
   points: "Udayam · Aarudam · Kavippu",
 } as const;
 
@@ -76,7 +77,7 @@ function JamakkolChart({ result }: { result: JamakkolResult }) {
     <div className="mx-auto w-full max-w-[620px]">
       <div className="aspect-square w-full overflow-hidden" dangerouslySetInnerHTML={{ __html: svg }} />
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground" aria-label="Jamakkol chart legend">
-        {(["jama", "gochara", "points"] as const).map((category) => (
+        {(["jama", "gochara", "upagraha", "points"] as const).map((category) => (
           <span key={category} className="inline-flex items-center gap-1.5">
             <span className="size-2 rounded-full" style={{ backgroundColor: COLORS[category].text }} />
             {categoryLabels[category]}
@@ -165,6 +166,7 @@ export default function JamakkolTab({ profile, data, chartMode }: Props) {
       ayanamsa: data.ayanamsa.degrees,
       planets: planets as { Mars: number; Mercury: number; Jupiter: number; Venus: number; Saturn: number; Sun?: number; Moon?: number; Rahu?: number },
       retrograde: Object.fromEntries(data.planets.filter((planet) => ["Mars", "Mercury", "Jupiter", "Venus", "Saturn"].includes(planet.name)).map((planet) => [planet.name, planet.motion === "R"])),
+      mandiLongitude: data.points.find((point) => point.name === "Mandi")?.longitude,
     });
   }, [chartMode, data, liveTick, profile]);
 

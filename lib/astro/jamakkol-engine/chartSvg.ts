@@ -1,17 +1,26 @@
-import type { JamakkolResult, Point } from "./jamakkol";
+import { COLORS, type JamakkolResult, type Point } from "./jamakkol";
 
 const ABBR = ["Ari", "Tau", "Gem", "Can", "Leo", "Vir", "Lib", "Sco", "Sag", "Cap", "Aqu", "Pis"];
 const GRID: (number | null)[][] = [[11, 0, 1, 2], [10, null, null, 3], [9, null, null, 4], [8, 7, 6, 5]];
+const CHART_COLORS = {
+  canvas: "#F7F2E8",
+  surface: "#FFFCF5",
+  house: "#955643",
+  heading: "#3D6158",
+};
 const SHORT: Record<string, string> = {
   Udayam: "UD", Aarudam: "AR", Kavippu: "KV", Sun: "SU", Moon: "MO", Mars: "MA",
-  Mercury: "ME", Jupiter: "JU", Venus: "VE", Saturn: "SA", Rahu: "RA", Ketu: "KE", Ascendant: "ASC",
+  Mercury: "ME", Jupiter: "JU", Venus: "VE", Saturn: "SA", Rahu: "RA", Ketu: "KE", Ascendant: "ASC", Mandi: "md",
 };
-
+const JAMA_BORDER_NAMES: Record<string, string> = {
+  Sun: "J.SU", Mars: "J.MA", Jupiter: "J.JU", Mercury: "J.ME",
+  Venus: "J.VE", Saturn: "J.SA", Moon: "J.MO", "Pambu (Rahu)": "J.SN",
+};
 const escapeXml = (value: string) => value.replace(/[&<>]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[character]!);
-const degMin = (longitude: number) => {
-  const degree = Math.floor(longitude % 30);
-  const minutes = Math.floor(((longitude % 30) - degree) * 60);
-  return `${degree}°${String(minutes).padStart(2, "0")}′`;
+const absoluteDegMin = (longitude: number) => {
+  const degree = Math.floor(longitude);
+  const minutes = Math.floor((longitude - degree) * 60);
+  return `${degree}° ${String(minutes).padStart(2, "0")}′`;
 };
 const degSec = (longitude: number) => {
   let totalSeconds = Math.round(longitude * 3600);
@@ -39,8 +48,8 @@ export function renderJamakkolChart(result: JamakkolResult, options: JamakkolCha
   const y = (row: number) => band + row * cell;
   const parts = [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${chartSize + band * 2} ${chartSize + band * 2}" width="${size}" height="${size}" role="img" aria-label="Jamakkol South Indian chart">`,
-    `<rect width="${chartSize + band * 2}" height="${chartSize + band * 2}" fill="#FFFDD0" stroke="#1E3A8A" stroke-width="2"/>`,
-    `<rect x="${band}" y="${band}" width="${chartSize}" height="${chartSize}" fill="#FFFFFF" stroke="#1E3A8A" stroke-width="2"/>`,
+    `<rect width="${chartSize + band * 2}" height="${chartSize + band * 2}" fill="${CHART_COLORS.canvas}" stroke="${COLORS.border}" stroke-width="2"/>`,
+    `<rect x="${band}" y="${band}" width="${chartSize}" height="${chartSize}" fill="${CHART_COLORS.surface}" stroke="${COLORS.border}" stroke-width="2"/>`,
   ];
 
   GRID.forEach((row, rowIndex) => row.forEach((signIndex, columnIndex) => {
@@ -48,18 +57,20 @@ export function renderJamakkolChart(result: JamakkolResult, options: JamakkolCha
     const boxX = x(columnIndex);
     const boxY = y(rowIndex);
     const box = result.boxes[signIndex];
-    parts.push(`<rect x="${boxX}" y="${boxY}" width="${cell}" height="${cell}" fill="none" stroke="#1E3A8A" stroke-width="1.2"/>`);
-    parts.push(`<text x="${boxX + 6}" y="${boxY + 15}" fill="#A3A9C9" font-size="12">${ABBR[signIndex]}</text>`);
-    parts.push(`<text x="${boxX + cell - 8}" y="${boxY + cell - 8}" fill="#E0866E" font-size="12" text-anchor="end">${box.house}</text>`);
-    if (box.asc) parts.push(`<text x="${boxX + cell - 6}" y="${boxY + 16}" fill="#1E3A8A" font-size="12" font-weight="700" text-anchor="end">ASC</text>`);
+    parts.push(`<rect x="${boxX}" y="${boxY}" width="${cell}" height="${cell}" fill="none" stroke="${COLORS.border}" stroke-width="1.2"/>`);
+    parts.push(`<text x="${boxX + 6}" y="${boxY + 15}" fill="${COLORS.sign.text}" font-size="12">${ABBR[signIndex]}</text>`);
+    parts.push(`<text x="${boxX + cell - 8}" y="${boxY + cell - 8}" fill="${CHART_COLORS.house}" font-size="12" text-anchor="end">${box.house}</text>`);
+    if (box.asc) parts.push(`<text x="${boxX + cell - 6}" y="${boxY + 16}" fill="${COLORS.border}" font-size="12" font-weight="700" text-anchor="end">ASC</text>`);
     const points = result.points.filter((point) => point.category === "points" && point.signIndex === signIndex);
+    const upagrahas = result.points.filter((point) => point.category === "upagraha" && point.signIndex === signIndex);
     const gochara = result.gochara.filter((point) => point.signIndex === signIndex);
     const lines: Array<{ text: string; color: string }> = [];
-    if (points.length) lines.push({ text: points.map((point) => SHORT[point.name] ?? point.short).join("   "), color: "#C2410C" });
+    if (points.length) lines.push({ text: points.map((point) => SHORT[point.name] ?? point.short).join("   "), color: COLORS.points.text });
     if (gochara.length) lines.push({
       text: gochara.map((point) => point.retrograde ? `(${SHORT[point.name] ?? point.short})` : SHORT[point.name] ?? point.short).join("   "),
-      color: "#16A34A",
+      color: COLORS.gochara.text,
     });
+    if (upagrahas.length) lines.push({ text: upagrahas.map((point) => SHORT[point.name] ?? point.short).join("   "), color: COLORS.upagraha.text });
     const lineHeight = 24;
     const startY = boxY + cell / 2 - ((lines.length - 1) * lineHeight) / 2 + 6;
     lines.forEach((line, index) => parts.push(`<text x="${boxX + cell / 2}" y="${startY + index * lineHeight}" fill="${line.color}" font-size="19" font-weight="700" text-anchor="middle">${escapeXml(line.text)}</text>`));
@@ -80,7 +91,7 @@ export function renderJamakkolChart(result: JamakkolResult, options: JamakkolCha
     result.input.place ?? "",
     `${(result.input.lat ?? 0).toFixed(5)} / ${(result.input.lon ?? 0).toFixed(5)}`,
   ];
-  heading.forEach((text, index) => text && parts.push(`<text x="${centerX}" y="${titleY + index * 15}" fill="#6B7AB8" font-size="12" font-weight="700" text-anchor="middle">${escapeXml(text)}</text>`));
+  heading.forEach((text, index) => text && parts.push(`<text x="${centerX}" y="${titleY + index * 15}" fill="${CHART_COLORS.heading}" font-size="12" font-weight="700" text-anchor="middle">${escapeXml(text)}</text>`));
 
   const tablePoints: Point[] = result.points.filter((point) => point.category !== "jama");
   if (result.ascendant) tablePoints.push(result.ascendant);
@@ -90,22 +101,27 @@ export function renderJamakkolChart(result: JamakkolResult, options: JamakkolCha
   tablePoints.forEach((point, index) => {
     const columnX = index < half ? centerX - 148 : centerX + 8;
     const rowY = tableY + (index % half) * 18;
-    parts.push(`<text x="${columnX}" y="${rowY}" fill="#6B7AB8" font-size="13" font-weight="700">${SHORT[point.name] ?? point.short}</text>`);
-    parts.push(`<text x="${columnX + 36}" y="${rowY}" fill="#6B7AB8" font-size="12.5" font-weight="700" font-family="Consolas,Menlo,monospace">${degSec(point.longitude)}</text>`);
+    parts.push(`<text x="${columnX}" y="${rowY}" fill="${CHART_COLORS.heading}" font-size="13" font-weight="700">${SHORT[point.name] ?? point.short}</text>`);
+    parts.push(`<text x="${columnX + 36}" y="${rowY}" fill="${CHART_COLORS.heading}" font-size="12.5" font-weight="700" font-family="Consolas,Menlo,monospace">${degSec(point.longitude)}</text>`);
   });
 
+  const signCells = new Map<number, { row: number; column: number }>();
+  GRID.forEach((row, rowIndex) => row.forEach((signIndex, columnIndex) => {
+    if (signIndex !== null) signCells.set(signIndex, { row: rowIndex, column: columnIndex });
+  }));
   const bandTop = 22;
   result.jamaGrahas.forEach((point) => {
-    const index = result.jamaGrahas.indexOf(point);
-    const jamaNames = ["J.SU", "J.MA", "J.JU", "J.ME", "J.VE", "J.SA", "J.MO", "J.SN"];
-    const top = index < 2;
-    const right = index >= 2 && index < 4;
-    const bottom = index >= 4 && index < 6;
-    const left = index >= 6;
-    if (top) parts.push(`<text x="${band + chartSize / 2 + (index === 0 ? -180 : 180)}" y="${bandTop}" fill="#1E3A8A" font-size="12" font-weight="700" text-anchor="middle">${jamaNames[index]} ${degMin(point.longitude)} ↓</text>`);
-    if (right) parts.push(`<text transform="translate(${chartSize + band + 20},${band + chartSize / 2 + (index === 2 ? -180 : 180)}) rotate(90)" fill="#1E3A8A" font-size="12" font-weight="700" text-anchor="middle">${jamaNames[index]} ${degMin(point.longitude)} ↑</text>`);
-    if (bottom) parts.push(`<text x="${band + chartSize / 2 + (index === 4 ? -180 : 180)}" y="${band + chartSize + 24}" fill="#1E3A8A" font-size="12" font-weight="700" text-anchor="middle">${jamaNames[index]} ${degMin(point.longitude)} →</text>`);
-    if (left) parts.push(`<text transform="translate(18,${band + chartSize / 2 + (index === 6 ? -180 : 180)}) rotate(-90)" fill="#1E3A8A" font-size="12" font-weight="700" text-anchor="middle">${jamaNames[index]} ${degMin(point.longitude)} ←</text>`);
+    const cellPosition = signCells.get(point.signIndex);
+    if (!cellPosition) return;
+    const { row, column } = cellPosition;
+    const centerX = x(column) + cell / 2;
+    const centerY = y(row) + cell / 2;
+    const name = JAMA_BORDER_NAMES[point.name.replace("Jama ", "")] ?? point.short;
+    const label = `${name} ${absoluteDegMin(point.longitude)}`;
+    if (row === 0) parts.push(`<text x="${centerX}" y="${bandTop}" fill="${COLORS.jama.text}" font-size="12" font-weight="700" text-anchor="middle">${label} ←</text>`);
+    if (row === 3) parts.push(`<text x="${centerX}" y="${band + chartSize + 24}" fill="${COLORS.jama.text}" font-size="12" font-weight="700" text-anchor="middle">${label} →</text>`);
+    if (column === 3) parts.push(`<text transform="translate(${chartSize + band + 20},${centerY}) rotate(90)" fill="${COLORS.jama.text}" font-size="12" font-weight="700" text-anchor="middle">${label} ←</text>`);
+    if (column === 0) parts.push(`<text transform="translate(18,${centerY}) rotate(-90)" fill="${COLORS.jama.text}" font-size="12" font-weight="700" text-anchor="middle">${label} ←</text>`);
   });
 
   parts.push("</svg>");

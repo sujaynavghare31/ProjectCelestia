@@ -50,6 +50,7 @@ const loadMedicalTab = () => import("@/components/dashboard-tabs/medical-tab");
 const loadTransitCalendarTab = () => import("@/components/dashboard-tabs/transit-calendar-tab");
 const loadMidpointsTab = () => import("@/components/dashboard-tabs/midpoints-tab");
 const loadJamakkolTab = () => import("@/components/dashboard-tabs/jamakkol-tab");
+const loadShodashvargaTab = () => import("@/components/dashboard-tabs/shodashvarga-tab");
 const loadCarterCuspsPanel = () => import("@/components/dashboard-tabs/carter-cusps-panel");
 const DashaTab = lazy(loadDashaTab);
 const ElementModalityTab = lazy(loadElementModalityTab);
@@ -62,6 +63,7 @@ const TransitCalendarTab = dynamic(loadTransitCalendarTab, {
 });
 const MidpointsTab = lazy(loadMidpointsTab);
 const JamakkolTab = lazy(loadJamakkolTab);
+const ShodashvargaTab = lazy(loadShodashvargaTab);
 const CarterCuspsPanel = lazy(loadCarterCuspsPanel);
 
 const DIVISIONAL_CHARTS = {
@@ -118,6 +120,8 @@ const AUXILIARY_CHARTS: ChartOption[] = [
   { id: "D45", label: "D45 · Akshavedamsha", description: "Paternal & Maternal Legacy", group: "Divisional" },
   { id: "D60", label: "D60 · Shashtiamsha", description: "Past Life Karma", group: "Divisional" },
 ];
+const SHODASHVARGA_IDS = new Set(["D1", "D2", "D3", "D4", "D7", "D9", "D10", "D12", "D16", "D20", "D24", "D27", "D30", "D40", "D45", "D60"]);
+const SHODASHVARGA_CHARTS = AUXILIARY_CHARTS.filter((chart) => SHODASHVARGA_IDS.has(chart.id));
 const SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
 function degreeToDms(value: number) {
   const totalSeconds = Math.round(value * 3600);
@@ -1239,11 +1243,12 @@ type AuxiliaryType = "divisional" | "transit" | "solar" | "tajika" | "progressio
 type DashaSystem = "vimshottari" | "chara" | "ashtottari" | "yogini" | "kalachakra";
 type DashaSeed = "moon" | "ascendant" | "sun" | "ascendant-lord";
 type DashaLagnaMode = "natural" | "maha-lord" | "antar-lord";
-type DashboardTab = "core" | "kp" | "dasha" | "element-modality" | "aspects" | "midpoints" | "ashtakavarga" | "medical" | "transit-calendar" | "jamakkol";
+type DashboardTab = "core" | "kp" | "dasha" | "element-modality" | "aspects" | "midpoints" | "ashtakavarga" | "medical" | "transit-calendar" | "jamakkol" | "shodashvarga";
 
 // All existing astrology views remain available; strength modules are now grouped with Ashtakavarga.
 const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
   { id: "core", label: "Core Dashboard" },
+  { id: "shodashvarga", label: "16 Kundalis" },
   { id: "kp", label: "KP Astrology" },
   { id: "dasha", label: "Dasha Systems" },
   { id: "element-modality", label: "Element & Modality" },
@@ -1271,6 +1276,7 @@ function preloadDashboardTab(tab: DashboardTab) {
     medical: loadMedicalTab,
     "transit-calendar": loadTransitCalendarTab,
     jamakkol: loadJamakkolTab,
+    shodashvarga: loadShodashvargaTab,
   };
   if (tab === "core") return;
   void loaders[tab]().catch((error: unknown) => {
@@ -2470,6 +2476,24 @@ export function KundaliDashboard() {
               profile={submittedProfile ?? profile}
               data={chartMode === "transit" ? transitData : data}
               chartMode={chartMode}
+            />
+          </Suspense>
+        )}
+        {dashboardTab === "shodashvarga" && (
+          <Suspense fallback={<SecondaryTabSkeleton />}>
+            <ShodashvargaTab
+              data={displayData}
+              charts={SHODASHVARGA_CHARTS}
+              chartMode={chartMode}
+              chartStyle={chartStyle}
+              referenceHouse={referenceHouseNumber}
+              language={language}
+              preferences={viewPreferences}
+              overlay={chartMode === "birth" && overlayTransits ? transitData?.planets : undefined}
+              showTransitLabels={chartMode === "transit" && overlayTransits}
+              loading={displayLoading}
+              error={displayError}
+              ChartRenderer={SvgChart}
             />
           </Suspense>
         )}
