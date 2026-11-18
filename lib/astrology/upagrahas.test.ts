@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { gulikaSegment } from "./upagrahas";
+import { calculateGulikaMandi, gulikaSegment } from "./upagrahas";
 
 describe("Gulika segment", () => {
   it("uses Saturn's weekday segment during daytime", () => {
@@ -12,5 +12,20 @@ describe("Gulika segment", () => {
 
   it("rejects invalid weekday indices", () => {
     expect(() => gulikaSegment(7, true)).toThrow(RangeError);
+  });
+
+  it("keeps post-midnight before sunrise in the previous Vedic day", () => {
+    const result = calculateGulikaMandi({
+      date: "2026-11-19",
+      time: "00:33:36",
+      timezone: "Asia/Kolkata",
+      latitude: 19.02288,
+      longitude: 72.83861,
+      siderealFlag: 2,
+      longitudeOffset: -24.147,
+    });
+
+    expect(result.isDaytime).toBe(false);
+    expect(result.weekday).toBe(3);
   });
 });

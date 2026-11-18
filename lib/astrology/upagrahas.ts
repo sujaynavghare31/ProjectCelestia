@@ -80,26 +80,30 @@ export function calculateGulikaMandi({
   longitudeOffset: number;
 }) {
   const birthUtc = localDateTimeToUtc(date, time, timezone);
-  let sunrise = solarEvent(date, timezone, latitude, longitude, "rise");
-  let sunset = solarEvent(date, timezone, latitude, longitude, "set");
-  let isDaytime = birthUtc >= sunrise.utc && birthUtc < sunset.utc;
+  const todaySunrise = solarEvent(date, timezone, latitude, longitude, "rise");
+  const todaySunset = solarEvent(date, timezone, latitude, longitude, "set");
+  let intervalStart: Date;
+  let intervalEnd: Date;
+  let weekdayDate: string;
+  let isDaytime: boolean;
 
-  if (birthUtc < sunrise.utc) {
+  if (birthUtc < todaySunrise.utc) {
     const previousDate = shiftLocalDate(date, -1);
-    sunrise = solarEvent(date, timezone, latitude, longitude, "rise");
-    sunset = solarEvent(previousDate, timezone, latitude, longitude, "set");
+    intervalStart = solarEvent(previousDate, timezone, latitude, longitude, "set").utc;
+    intervalEnd = todaySunrise.utc;
+    weekdayDate = previousDate;
     isDaytime = false;
-  } else if (birthUtc >= sunset.utc) {
-    sunrise = solarEvent(shiftLocalDate(date, 1), timezone, latitude, longitude, "rise");
-    sunset = solarEvent(date, timezone, latitude, longitude, "set");
+  } else if (birthUtc < todaySunset.utc) {
+    intervalStart = todaySunrise.utc;
+    intervalEnd = todaySunset.utc;
+    weekdayDate = date;
+    isDaytime = true;
+  } else {
+    intervalStart = todaySunset.utc;
+    intervalEnd = solarEvent(shiftLocalDate(date, 1), timezone, latitude, longitude, "rise").utc;
+    weekdayDate = date;
     isDaytime = false;
   }
-
-  const intervalStart = isDaytime ? solarEvent(date, timezone, latitude, longitude, "rise").utc : sunset.utc;
-  const intervalEnd = isDaytime ? solarEvent(date, timezone, latitude, longitude, "set").utc : sunrise.utc;
-  const weekdayDate = isDaytime || birthUtc >= solarEvent(date, timezone, latitude, longitude, "set").utc
-    ? date
-    : shiftLocalDate(date, -1);
   const weekday = new Date(`${weekdayDate}T00:00:00Z`).getUTCDay();
   const segmentDuration = (intervalEnd.getTime() - intervalStart.getTime()) / 8;
   if (!(segmentDuration > 0)) throw new Error("Solar day/night interval is invalid for upagraha calculation.");

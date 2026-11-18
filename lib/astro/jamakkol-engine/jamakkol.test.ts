@@ -38,7 +38,7 @@ describe("Jamakkol outer grahas", () => {
       "J.SN 16° 11′ ←",
       "J.MO 61° 11′ ←",
       "J.SA 106° 11′ ←",
-      "J.VE 151° 11′ →",
+      "J.VE 151° 11′ ←",
       "J.ME 196° 11′ →",
       "J.JU 241° 11′ →",
       "J.MA 286° 11′ ←",
@@ -85,7 +85,7 @@ describe("Jamakkol outer grahas", () => {
       expect(point.signIndex).toBe(Math.floor(expectedLongitudes[index] / 30));
     });
     expect(result.aarudam.longitude).toBe(308.5);
-    expect(result.kavippu.longitude).toBeCloseTo(68.14841726701167, 6);
+    expect(result.kavippu.longitude).toBeCloseTo(141.5, 6);
 
     const svg = renderJamakkolChart(result);
     for (const label of [
@@ -106,6 +106,39 @@ describe("Jamakkol outer grahas", () => {
     expect(svg).toContain(`fill="${PLANET_COLORS.Sun}"`);
     expect(svg).toContain(`fill="${PLANET_COLORS.Mars}"`);
     expect(svg).toContain(`fill="${PLANET_COLORS.Rahu}"`);
+  });
+
+  it("matches Kavippu and outer Jama results after midnight", () => {
+    const result = jamakkol({
+      date: "2026-11-19",
+      time: "00:35:01",
+      tz: 5.5,
+      lat: 19.02288,
+      lon: 72.83861,
+      place: "Mumbai",
+      planets: {
+        Sun: 212 + 14 / 60,
+        Moon: 316 + 41 / 60,
+        Mars: 122 + 46 / 60,
+        Mercury: 192 + 58 / 60,
+        Jupiter: 121 + 52 / 60,
+        Venus: 179 + 5 / 60,
+        Saturn: 344 + 9 / 60,
+        Rahu: 300 + 55 / 60,
+      },
+      mandiLongitude: 189 + 14 / 60,
+    });
+
+    expect(result.aarudam.longitude).toBeCloseTo(210.1, 1);
+    expect(result.kavippu.signIndex).toBe(8);
+    expect(result.kavippu.longitude).toBeCloseTo(269 + 54 / 60, 0);
+    expect(result.points.find((point) => point.name === "Mandi")?.longitude).toBeCloseTo(189 + 14 / 60, 6);
+
+    const svg = renderJamakkolChart(result);
+    expect(svg.match(/J\.SN /g)?.length).toBe(1);
+    expect(svg.match(/J\.SA /g)?.length).toBe(1);
+    expect(svg.match(/J\.ME /g)?.length).toBe(1);
+    expect(svg.match(/J\.MA /g)?.length).toBe(1);
   });
 
   it("moves Jama planets across sign boundaries instead of pinning them to fixed signs", () => {

@@ -25,8 +25,8 @@ export const JAMA_SHORT = ["Su", "Ma", "Ju", "Me", "Ve", "Sa", "Mo", "Pa"];
 export const JAMA_EXALT = [0, 9, 3, 5, 11, 6, 1, 1];
 const HORA_ORDER = ["Sun", "Venus", "Mercury", "Moon", "Saturn", "Jupiter", "Mars"];
 const RAHU_PART = [8, 2, 7, 5, 6, 4, 3], YAMA_PART = [5, 4, 3, 2, 1, 7, 6], GULIKA_PART = [7, 6, 5, 4, 3, 2, 1];
-/** Kavippu veedi (0 Mesha, 1 Rishaba, 2 Mithuna) by the Sun's sidereal sign. */
-const VEEDI = [0, 0, 1, 1, 2, 2, 0, 0, 1, 1, 2, 2];
+/** Kavippu Veedhi offset by the Sun's sidereal sign. */
+const VEEDHI_OFFSET = [90, 90, 120, 120, 150, 150, 90, 90, 120, 120, 150, 150];
 /** South-Indian layout: sign index per grid cell, null = centre. */
 export const SOUTH_INDIAN_GRID: (number | null)[][] = [[11, 0, 1, 2], [10, null, null, 3], [9, null, null, 4], [8, 7, 6, 5]];
 /** Chart category colors. */
@@ -234,9 +234,11 @@ export function jamakkol(input: JamakkolInput) {
   const clockMinutes = (totalMinutes % 60 + 60) % 60;
   const aarudam = mod(Math.round(clockMinutes * 6 * 1e6) / 1e6, 360); // 6° per minute in the current clock hour
   const sunSign = Math.floor(sun / 30);
-  const veedhiStart = VEEDI[sunSign] * 30;
-  const kavN = mod(VEEDI[sunSign] - Math.floor(aarudam / 30), 12) + 1;
-  const kavippu = mod(udayam + veedhiStart - aarudam, 360);
+  const udSignStart = Math.floor(udayam / 30) * 30;
+  const veedhiOffset = VEEDHI_OFFSET[sunSign];
+  const kavippu = mod(udSignStart + veedhiOffset - aarudam, 360);
+  const kavippuCount = mod(Math.floor(veedhiOffset / 30) - Math.floor(aarudam / 30), 12) + 1;
+  const veediSign = veedhiOffset === 90 ? "Mesha Veedhi" : veedhiOffset === 120 ? "Rishabha Veedhi" : "Mithuna Veedhi";
 
   const mk = (name: string, short: string, category: Category, lon: number, extra: Partial<Point> = {}): Point => {
     const s = Math.floor(lon / 30);
@@ -298,7 +300,7 @@ export function jamakkol(input: JamakkolInput) {
     jamam: { weekday: WEEKDAYS[jwd], half, number: jamamNo, lord, minutesIntoHalf: el, start: fracToHM(jStart), end: fracToHM(jStart + 90 / 1440) },
     sun: { sunrise: SR, sunset: SS, previousSunset: SSY, nextSunrise: SRN },
     udayam: points[0], aarudam: points[1], kavippu: points[2],
-    kavippuCount: kavN, veediSign: SIGNS[VEEDI[sunSign]],
+    kavippuCount, veediSign,
     jamaGrahas: points.filter((p) => p.category === "jama"),
     gochara: points.filter((p) => p.category === "gochara"),
     exaltedJama: points.filter((p) => p.category === "jama" && p.exalted).map((p) => p.name.replace("Jama ", "")),

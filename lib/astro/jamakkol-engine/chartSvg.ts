@@ -130,14 +130,18 @@ export function renderJamakkolChart(result: JamakkolResult, options: JamakkolCha
     const { row, column } = cellPosition;
     const centerX = x(column) + cell / 2;
     const centerY = y(row) + cell / 2;
+    const edge = displaySignIndex <= 2 ? "top"
+      : displaySignIndex <= 5 ? "right"
+        : displaySignIndex <= 8 ? "bottom"
+          : "left";
     points.forEach((point, index) => {
       const name = JAMA_BORDER_NAMES[point.name.replace("Jama ", "")] ?? point.short;
       const label = `${name} ${absoluteDegMin(point.longitude)}`;
       const color = colorForPoint(point);
-      if (row === 0) parts.push(`<text x="${centerX}" y="${bandTop + index * 14}" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} ←</text>`);
-      if (row === 3) parts.push(`<text x="${centerX}" y="${band + chartSize + 24 + index * 14}" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} →</text>`);
-      if (column === 3) parts.push(`<text transform="translate(${chartSize + band + 20 + index * 14},${centerY}) rotate(90)" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} ←</text>`);
-      if (column === 0) parts.push(`<text transform="translate(${18 - index * 14},${centerY}) rotate(-90)" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} ←</text>`);
+      if (edge === "top") parts.push(`<text x="${centerX}" y="${bandTop + index * 14}" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} ←</text>`);
+      if (edge === "bottom") parts.push(`<text x="${centerX}" y="${band + chartSize + 24 + index * 14}" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} →</text>`);
+      if (edge === "right") parts.push(`<text transform="translate(${chartSize + band + 20 + index * 14},${centerY}) rotate(90)" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} ←</text>`);
+      if (edge === "left") parts.push(`<text transform="translate(${18 - index * 14},${centerY}) rotate(-90)" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} ←</text>`);
     });
   });
 
