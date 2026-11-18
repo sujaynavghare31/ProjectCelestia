@@ -2,6 +2,55 @@ import { SignIn, SignUp } from "@clerk/nextjs";
 import Link from "next/link";
 import { isLocalClerkFallback } from "@/lib/clerk-config";
 
+const clerkAppearance = {
+  variables: {
+    colorPrimary: "#C05A3A",
+    colorText: "#292524",
+    colorTextSecondary: "#78716c",
+    colorBackground: "#FDFBF7",
+    colorInputBackground: "#FFFFFF",
+    colorInputText: "#292524",
+    colorBorder: "transparent",
+    colorDanger: "#ef4444",
+    fontFamily: "var(--font-sans)",
+    borderRadius: "0.5rem",
+  },
+  elements: {
+    rootBox: "w-full max-w-full",
+    cardBox: "w-full max-w-full border-0 bg-transparent p-0 shadow-none",
+    card: "w-full border-0 bg-transparent p-0 shadow-none",
+    header: "hidden",
+    headerTitle: "hidden",
+    headerSubtitle: "hidden",
+    footer: "hidden",
+    footerAction: "hidden",
+    main: "gap-5",
+    form: "gap-4",
+    formFieldRow: "gap-4",
+    formFieldLabel: "mb-1 text-xs font-medium text-stone-700",
+    formFieldInput:
+      "h-10 w-full rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-800 outline-none transition-colors focus:border-[#C05A3A] focus:ring-1 focus:ring-[#C05A3A]",
+    formFieldInputShowPasswordButton:
+      "text-stone-500 hover:text-[#C05A3A]",
+    formFieldErrorText: "mt-1 text-xs text-red-500",
+    formButtonPrimary:
+      "mt-2 h-10 w-full rounded-lg border-0 bg-[#C05A3A] px-4 py-2 text-sm font-medium text-white shadow-none transition-colors hover:bg-[#A84C30] active:bg-[#903F25]",
+    socialButtonsPlacement: "top",
+    socialButtonsBlockButton:
+      "h-10 w-full rounded-lg border border-stone-200 bg-stone-100 px-3 text-sm font-medium text-stone-800 shadow-none transition-colors hover:bg-stone-200",
+    socialButtonsBlockButtonText: "text-sm font-medium text-stone-800",
+    dividerRow: "my-2",
+    dividerLine: "border-stone-200",
+    dividerText: "px-3 text-xs uppercase tracking-wider text-stone-400",
+    identityPreview: "rounded-lg border border-stone-200 bg-stone-50",
+    identityPreviewText: "text-sm text-stone-700",
+    identityPreviewEditButton: "text-[#C05A3A]",
+    identityPreviewEditButtonIcon: "text-[#C05A3A]",
+    formResendCodeLink: "text-[#C05A3A] hover:text-[#903F25]",
+    footerActionLink: "text-[#C05A3A] hover:text-[#903F25]",
+  },
+};
+
 export default async function LoginPage({
   searchParams,
 }: {
@@ -39,9 +88,9 @@ export default async function LoginPage({
           </p>
         </div>
         {isSignUp ? (
-          <SignUp routing="hash" fallbackRedirectUrl={safeCallbackUrl} />
+          <SignUp routing="hash" fallbackRedirectUrl={safeCallbackUrl} appearance={clerkAppearance} />
         ) : (
-          <SignIn routing="hash" fallbackRedirectUrl={safeCallbackUrl} />
+          <SignIn routing="hash" fallbackRedirectUrl={safeCallbackUrl} appearance={clerkAppearance} />
         )}
         <p className="mt-5 text-center text-sm text-muted-foreground">
           {isSignUp ? "Already have an account?" : "New to Project Celestia?"}{" "}

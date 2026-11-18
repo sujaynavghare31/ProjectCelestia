@@ -2,7 +2,7 @@
 
 import { memo } from "react";
 import { formatInTimeZone } from "date-fns-tz";
-import type { PanchangDay, PanchangQuality, PanchangSlot } from "@/lib/astrology/panchang/PanchangEngine";
+import type { PanchangDay, PanchangHoraSlot, PanchangQuality, PanchangSlot } from "@/lib/astrology/panchang/PanchangEngine";
 
 const qualityStyles: Record<PanchangQuality, string> = {
   auspicious: "bg-emerald-50 text-emerald-900 dark:bg-emerald-900/25 dark:text-emerald-100",
@@ -40,6 +40,35 @@ function ChoghadiyaGroup({
             </div>
             <p className="mt-1 truncate text-[10px] tabular-nums opacity-80" title={`${formatTime(slot.start, timezone)} – ${formatTime(slot.end, timezone)}`}>
               {formatTime(slot.start, timezone)} – {formatTime(slot.end, timezone)}
+            </p>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+function HoraGroup({
+  title,
+  horas,
+  timezone,
+}: {
+  title: string;
+  horas: PanchangHoraSlot[];
+  timezone: string;
+}) {
+  return (
+    <div>
+      <h3 className="mb-2 text-xs font-semibold text-foreground">{title}</h3>
+      <ol className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4">
+        {horas.map((hora) => (
+          <li key={`${title}-${hora.index}`} className="min-w-0 rounded-lg border border-border bg-muted/40 px-2.5 py-2">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-[10px] text-muted-foreground">Hora {hora.index}</span>
+              <span className="truncate text-xs font-semibold text-card-foreground">{hora.planet}</span>
+            </div>
+            <p className="mt-1 truncate text-[10px] tabular-nums text-muted-foreground">
+              {formatTime(hora.start, timezone)} – {formatTime(hora.end, timezone)}
             </p>
           </li>
         ))}
@@ -103,6 +132,17 @@ function PanchangInsightsView({ data }: { data: PanchangDay }) {
         <div className="grid gap-5 xl:grid-cols-2">
           <ChoghadiyaGroup title="Day" slots={data.choghadiya.day} timezone={data.timezone} />
           <ChoghadiyaGroup title="Night" slots={data.choghadiya.night} timezone={data.timezone} />
+        </div>
+      </section>
+
+      <section aria-label="Planetary hora periods" className="rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
+        <div className="mb-4">
+          <h2 className="text-sm font-semibold">Hora (planetary hours)</h2>
+          <p className="mt-1 text-[11px] text-muted-foreground">Twelve equal periods from sunrise to sunset and twelve from sunset to next sunrise; durations follow the local day and night.</p>
+        </div>
+        <div className="grid gap-5 xl:grid-cols-2">
+          <HoraGroup title="Day" horas={data.hora.day} timezone={data.timezone} />
+          <HoraGroup title="Night" horas={data.hora.night} timezone={data.timezone} />
         </div>
       </section>
 

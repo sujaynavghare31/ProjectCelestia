@@ -2,6 +2,7 @@
 
 import type { CelestialLanguage, PlanetPosition } from "@/lib/kundali-types";
 import { planetName, signName } from "@/lib/astrology/localization";
+import { findAspectPatterns, findWesternAspect, WESTERN_ASPECTS } from "@/lib/astrology/aspect-patterns";
 
 const SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
 const SHORT_SIGNS = ["Ari", "Tau", "Gem", "Can", "Leo", "Vir", "Lib", "Sco", "Sag", "Cap", "Aqu", "Pis"];
@@ -52,27 +53,6 @@ function AspectMatrix({ planets, ascendant, language, useSignIcons }: { planets:
   );
 }
 
-const WESTERN_ASPECTS = [
-  { name: "Conjunction", angle: 0, orb: 8, symbol: "☌", color: "text-violet-700 dark:text-violet-300" },
-  { name: "Semi-sextile", angle: 30, orb: 2, symbol: "⚺", color: "text-slate-600 dark:text-slate-400" },
-  { name: "Sextile", angle: 60, orb: 5, symbol: "⚹", color: "text-cyan-700 dark:text-cyan-300" },
-  { name: "Square", angle: 90, orb: 6, symbol: "□", color: "text-rose-700 dark:text-rose-300" },
-  { name: "Trine", angle: 120, orb: 6, symbol: "△", color: "text-emerald-700 dark:text-emerald-300" },
-  { name: "Sesquiquadrate", angle: 135, orb: 2.5, symbol: "⚼", color: "text-rose-700 dark:text-rose-300" },
-  { name: "Quincunx", angle: 150, orb: 3, symbol: "⚻", color: "text-amber-700 dark:text-amber-300" },
-  { name: "Opposition", angle: 180, orb: 8, symbol: "☍", color: "text-violet-700 dark:text-violet-300" },
-] as const;
-
-function findWesternAspect(first: PlanetPosition, second: PlanetPosition) {
-  const rawDifference = Math.abs(first.longitude - second.longitude) % 360;
-  const separation = Math.min(rawDifference, 360 - rawDifference);
-  const candidates = WESTERN_ASPECTS
-    .map((aspect) => ({ aspect, orb: Math.abs(separation - aspect.angle) }))
-    .filter(({ aspect, orb }) => orb <= aspect.orb)
-    .sort((a, b) => a.orb - b.orb);
-  return candidates[0] ?? null;
-}
-
 function WesternAspectGrid({
   planets,
   language,
@@ -111,6 +91,30 @@ function WesternAspectGrid({
   );
 }
 
+function AspectPatterns({ planets, language }: { planets: PlanetPosition[]; language: CelestialLanguage }) {
+  const patterns = findAspectPatterns(planets);
+  return (
+    <section className="min-w-0 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm sm:p-5 xl:col-span-2" aria-labelledby="aspect-patterns-heading">
+      <header className="mb-4"><h3 id="aspect-patterns-heading" className="text-sm font-semibold">Aspect Patterns</h3></header>
+      {patterns.length ? (
+        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {patterns.map((pattern, index) => (
+            <li key={`${pattern.type}-${pattern.planets.join("-")}-${index}`} className="rounded-lg border border-border p-3">
+              <h4 className="text-sm font-semibold">{pattern.type}</h4>
+              <p className="mt-1 text-sm text-muted-foreground">{pattern.planets.map((name) => planetName(name, language)).join(" · ")}</p>
+              {pattern.apex && <p className="mt-1 text-xs text-muted-foreground">Apex: {planetName(pattern.apex, language)}</p>}
+              <p className="mt-1 text-xs text-muted-foreground">Widest orb: {pattern.orb.toFixed(1)}°</p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-muted-foreground">No T-squares, Yods, Mystic Rectangles, or Grand Squares found in this chart.</p>
+      )}
+      <p className="mt-3 text-xs text-muted-foreground">Patterns use the same aspect orbs as the Western aspect grid.</p>
+    </section>
+  );
+}
+
 export default function AspectsTab({
   data,
   language,
@@ -134,6 +138,7 @@ export default function AspectsTab({
         <header className="mb-4"><h3 id="western-aspects-heading" className="text-sm font-semibold">Western Drishti &amp; Aspects</h3></header>
         <WesternAspectGrid planets={data.planets} language={language} />
       </section>
+      <AspectPatterns planets={data.planets} language={language} />
     </div>
   );
 }

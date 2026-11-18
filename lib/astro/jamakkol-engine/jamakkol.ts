@@ -38,6 +38,17 @@ export const COLORS = {
   sign: { text: "#526A63", bg: "#EEF2ED" },
   border: "#3D685F",
 };
+export const PLANET_COLORS = {
+  Sun: "#B45309",
+  Moon: "#64748B",
+  Mars: "#B91C1C",
+  Mercury: "#047857",
+  Jupiter: "#A16207",
+  Venus: "#BE185D",
+  Saturn: "#4338CA",
+  Rahu: "#6D28D9",
+  Ketu: "#C2410C",
+} as const;
 
 // ----------------------------- helpers -----------------------------
 const RAD = Math.PI / 180;
@@ -111,6 +122,13 @@ export interface JamakkolInput {
 }
 export type Category = "points" | "jama" | "gochara" | "upagraha";
 export interface Point { name: string; short: string; category: Category; longitude: number; signIndex: number; sign: string; degree: string; nakshatraPada: string; label: string; exalted?: boolean; retrograde?: boolean }
+
+export function colorForPoint(point: Pick<Point, "category" | "name">) {
+  const name = point.name.startsWith("Jama ") ? point.name.slice(5) : point.name;
+  const planetName = name === "Pambu (Rahu)" ? "Rahu" : name;
+  const planetColor = Object.entries(PLANET_COLORS).find(([planet]) => planet === planetName)?.[1];
+  return planetColor ?? COLORS[point.category].text;
+}
 
 export const DEFAULT_LOCATION = { place: "Mumbai, Maharashtra, India", lat: 19.076, lon: 72.8777, tz: 5.5 };
 export const CITIES = [

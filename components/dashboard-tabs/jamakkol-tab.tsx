@@ -5,7 +5,9 @@ import type { BirthProfile } from "@/lib/kundali-store";
 import type { EphemerisResponse } from "@/lib/kundali-types";
 import {
   COLORS,
+  colorForPoint,
   jamakkol,
+  PLANET_COLORS,
   renderJamakkolChart,
   type JamakkolResult,
   type Point,
@@ -67,22 +69,20 @@ function localNow(timezone: string) {
   };
 }
 
-function pointStyle(point: Point) {
-  return COLORS[point.category];
-}
-
 function JamakkolChart({ result }: { result: JamakkolResult }) {
   const svg = renderJamakkolChart(result, { size: 620 });
   return (
     <div className="mx-auto w-full max-w-[620px]">
       <div className="aspect-square w-full overflow-hidden" dangerouslySetInnerHTML={{ __html: svg }} />
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground" aria-label="Jamakkol chart legend">
-        {(["jama", "gochara", "upagraha", "points"] as const).map((category) => (
-          <span key={category} className="inline-flex items-center gap-1.5">
-            <span className="size-2 rounded-full" style={{ backgroundColor: COLORS[category].text }} />
-            {categoryLabels[category]}
+        {Object.entries(PLANET_COLORS).map(([planet, color]) => (
+          <span key={planet} className="inline-flex items-center gap-1.5">
+            <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
+            {planet}
           </span>
         ))}
+        <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ backgroundColor: COLORS.points.text }} />Udayam · Aarudam · Kavippu</span>
+        <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ backgroundColor: COLORS.upagraha.text }} />Mandi</span>
         <span>↑ exalted · (R) retrograde</span>
       </div>
     </div>
@@ -100,7 +100,7 @@ function PositionsTable({ result }: { result: JamakkolResult }) {
           {result.points.map((point) => (
             <tr key={`${point.category}-${point.name}`}>
               <th scope="row" className="whitespace-nowrap px-3 py-2 font-semibold">{point.name}</th>
-              <td className="px-3 py-2 font-medium" style={{ color: pointStyle(point).text }}>{categoryLabels[point.category]}</td>
+              <td className="px-3 py-2 font-medium" style={{ color: colorForPoint(point) }}>{categoryLabels[point.category]}</td>
               <td className="whitespace-nowrap px-3 py-2">{point.sign}</td>
               <td className="whitespace-nowrap px-3 py-2 font-mono">{point.degree}{point.retrograde ? " (R)" : point.exalted ? " ↑" : ""}</td>
               <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">{point.nakshatraPada}</td>

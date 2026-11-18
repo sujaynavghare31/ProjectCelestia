@@ -27,7 +27,7 @@ describe("calculatePanchang", () => {
     expect(result.timeline.end).toBe(result.solarEvents.nextSunrise);
     expect(result.panchangAtSunrise.weekday).toBe("Friday");
     expect(result.timeline.tracks.map(({ key }) => key)).toEqual([
-      "tithi", "nakshatra", "yoga", "karana", "muhurta",
+      "tithi", "nakshatra", "yoga", "karana", "muhurta", "hora",
     ]);
 
     for (const track of result.timeline.tracks) {
@@ -71,6 +71,20 @@ describe("calculatePanchang", () => {
     expect(result.choghadiya.day.at(-1)?.end).toBe(result.solarEvents.sunset);
     expect(result.choghadiya.night[0].start).toBe(result.solarEvents.sunset);
     expect(result.choghadiya.night.at(-1)?.end).toBe(result.solarEvents.nextSunrise);
+    expect(result.hora.day).toHaveLength(12);
+    expect(result.hora.night).toHaveLength(12);
+    expect(result.hora.day.map(({ planet }) => planet)).toEqual([
+      "Venus", "Mercury", "Moon", "Saturn", "Jupiter", "Mars",
+      "Sun", "Venus", "Mercury", "Moon", "Saturn", "Jupiter",
+    ]);
+    expect(result.hora.night.map(({ planet }) => planet)).toEqual([
+      "Mars", "Sun", "Venus", "Mercury", "Moon", "Saturn",
+      "Jupiter", "Mars", "Sun", "Venus", "Mercury", "Moon",
+    ]);
+    expect(result.hora.day[0].start).toBe(result.solarEvents.sunrise);
+    expect(result.hora.day.at(-1)?.end).toBe(result.solarEvents.sunset);
+    expect(result.hora.night[0].start).toBe(result.solarEvents.sunset);
+    expect(result.hora.night.at(-1)?.end).toBe(result.solarEvents.nextSunrise);
     expect(result.tarabalam.grid).toHaveLength(9);
     expect(result.tarabalam.grid.every(({ janmaNakshatras }) =>
       janmaNakshatras.length === 27 && janmaNakshatras.filter(({ selected }) => selected).length === 3
@@ -82,6 +96,22 @@ describe("calculatePanchang", () => {
     expect(result.timeline.end).toBe(result.solarEvents.nextSunrise);
     expect(sunrise).toBeLessThan(sunset);
     expect(sunset).toBeLessThan(nextSunrise);
+  });
+
+  it("starts each planetary-hour sequence with the local weekday's lord", () => {
+    const dates = [
+      ["2026-11-09", "Moon"],
+      ["2026-11-10", "Mars"],
+      ["2026-11-11", "Mercury"],
+      ["2026-11-12", "Jupiter"],
+      ["2026-11-13", "Venus"],
+      ["2026-11-14", "Saturn"],
+      ["2026-11-15", "Sun"],
+    ] as const;
+
+    for (const [date, lord] of dates) {
+      expect(calculatePanchang({ ...mumbai, date }).hora.day[0].planet).toBe(lord);
+    }
   });
 
   it("calculates local event and muhurta windows with explicit unavailable states", () => {

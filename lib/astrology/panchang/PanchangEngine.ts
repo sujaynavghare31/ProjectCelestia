@@ -59,6 +59,8 @@ const CHOGHADIYA_QUALITY: PanchangQuality[] = [
 const CHOGHADIYA_DAY_START = [0, 3, 6, 2, 5, 1, 4];
 const CHOGHADIYA_NIGHT_SEQUENCE = [0, 5, 3, 1, 6, 4, 2];
 const CHOGHADIYA_NIGHT_START = [1, 3, 5, 0, 2, 4, 6];
+const HORA_PLANETS = ["Saturn", "Jupiter", "Mars", "Sun", "Venus", "Mercury", "Moon"];
+const WEEKDAY_LORDS = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
 const STRONG_CHANDRABALAM_HOUSES = new Set([1, 3, 6, 7, 10, 11]);
 const MOVABLE_KARANAS = ["Bava", "Balava", "Kaulava", "Taitila", "Garaja", "Vanija", "Vishti"];
 
@@ -108,6 +110,11 @@ export interface PanchangSlot extends PanchangTimingWindow {
   quality: PanchangQuality;
 }
 
+export interface PanchangHoraSlot extends PanchangTimingWindow {
+  index: number;
+  planet: string;
+}
+
 export interface PanchangTiming {
   name: string;
   windows: PanchangTimingWindow[];
@@ -154,6 +161,10 @@ export interface PanchangDay {
     day: PanchangSlot[];
     night: PanchangSlot[];
   };
+  hora: {
+    day: PanchangHoraSlot[];
+    night: PanchangHoraSlot[];
+  };
   tarabalam: {
     transitNakshatra: string;
     grid: Array<{
@@ -188,7 +199,7 @@ export interface PanchangDay {
     start: string;
     end: string;
     tracks: Array<{
-      key: "tithi" | "nakshatra" | "yoga" | "karana" | "muhurta";
+      key: "tithi" | "nakshatra" | "yoga" | "karana" | "muhurta" | "hora";
       label: string;
       segments: PanchangSegment[];
     }>;
@@ -656,6 +667,27 @@ function choghadiyaSlots(start: number, end: number, weekday: number, isNight: b
   });
 }
 
+function horaSlots(start: number, end: number, weekday: number, isNight: boolean): PanchangHoraSlot[] {
+  const duration = (end - start) / 12;
+  const weekdayLord = HORA_PLANETS.indexOf(WEEKDAY_LORDS[weekday]);
+  const firstPlanet = (weekdayLord + (isNight ? 12 : 0)) % HORA_PLANETS.length;
+  return Array.from({ length: 12 }, (_, slot) => ({
+    index: slot + 1,
+    planet: HORA_PLANETS[(firstPlanet + slot) % HORA_PLANETS.length],
+    start: new Date(Math.round(start + slot * duration)).toISOString(),
+    end: new Date(Math.round(start + (slot + 1) * duration)).toISOString(),
+  }));
+}
+
+function horaSegments(day: PanchangHoraSlot[], night: PanchangHoraSlot[]): PanchangSegment[] {
+  return [...day, ...night].map((hora, index) => ({
+    index,
+    name: hora.planet,
+    start: hora.start,
+    end: hora.end,
+  }));
+}
+
 function calculateAnandadiYoga(weekday: number, nakshatra: number) {
   const nakshatraWithAbhijit = nakshatra < 21 ? nakshatra : nakshatra + 1;
   const index = (nakshatraWithAbhijit - 4 * weekday + 28) % 28;
@@ -823,6 +855,10 @@ export function calculatePanchang(input: PanchangCalculationInput): PanchangDay 
   const weekday = weekdayAt(sunriseDate, timezone);
   const weekdayNumber = isoWeekday(date);
   const weekdayIndex = weekdayNumber % 7;
+  const hora = {
+    day: horaSlots(sunrise, sunset, weekdayIndex, false),
+    night: horaSlots(sunset, nextSunrise, weekdayIndex, true),
+  };
   const timings = calculateTimings({
     weekday: weekdayNumber,
     weekdayIndex,
@@ -897,6 +933,7 @@ export function calculatePanchang(input: PanchangCalculationInput): PanchangDay 
       day: choghadiyaSlots(sunrise, sunset, weekdayIndex, false),
       night: choghadiyaSlots(sunset, nextSunrise, weekdayIndex, true),
     },
+    hora,
     tarabalam: calculateTarabalam(indicesAtSunrise.nakshatra),
     chandrabalam: calculateChandrabalam(astronomy.moonSignIndex),
     lagnaTransitions: lagnaTransitions.map(({ sign, start, end, panchakaRahita: isRahita }) => ({
@@ -919,6 +956,7 @@ export function calculatePanchang(input: PanchangCalculationInput): PanchangDay 
       tracks: [
         ...limbTracks,
         { key: "muhurta", label: "Muhurta", segments: muhurtaSegments },
+        { key: "hora", label: "Hora", segments: horaSegments(hora.day, hora.night) },
       ],
     },
     timings: timings.timings,

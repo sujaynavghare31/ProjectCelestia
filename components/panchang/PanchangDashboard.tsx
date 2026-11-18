@@ -132,7 +132,7 @@ function ActivePanchangSummary({ data }: { data: PanchangDay }) {
   const activeAt = isLive && now
     ? `Now · ${formatInTimeZone(now, data.timezone, "h:mm a")}`
     : "At selected sunrise";
-  const activeValues = ["tithi", "nakshatra", "yoga", "karana"].map((key) => {
+  const activeValues = ["tithi", "nakshatra", "yoga", "karana", "hora"].map((key) => {
     const track = data.timeline.tracks.find((candidate) => candidate.key === key);
     const segment = track?.segments.find((candidate) => {
       const segmentStart = Date.parse(candidate.start);
@@ -160,11 +160,11 @@ function ActivePanchangSummary({ data }: { data: PanchangDay }) {
       <div className="flex flex-wrap items-end justify-between gap-2 border-b border-border/70 px-4 py-3 sm:px-5">
         <div>
           <h2 className="text-sm font-semibold">Active Panchang</h2>
-          <p className="mt-1 text-[11px] text-muted-foreground">Tithi, Nakshatra, Yoga, and Karana follow the selected Vedic day.</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">Tithi, Nakshatra, Yoga, Karana, and Hora follow the selected Vedic day.</p>
         </div>
         <span className="rounded-full bg-accent px-2.5 py-1 text-[10px] font-semibold text-accent-foreground">{activeAt}</span>
       </div>
-      <dl className="grid grid-cols-2 divide-x divide-y divide-border/70 sm:grid-cols-3 lg:grid-cols-5 lg:divide-y-0">
+      <dl className="grid grid-cols-2 divide-x divide-y divide-border/70 sm:grid-cols-3 lg:grid-cols-7 lg:divide-y-0">
         {summaryItems.map(({ label, value, detail }) => (
           <div key={label} className="min-w-0 px-4 py-4">
             <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
