@@ -165,10 +165,10 @@ export default function KPAstrology({ profile, language, viewPreferences, ChartR
       {loading && <LoadingRows count={8} />}
       {!loading && data && (
         <Tabs defaultValue="base" className="space-y-4">
-          <TabsList className="grid h-auto w-full grid-cols-3 gap-1 rounded-xl bg-stone-100 p-1">
-            <TabsTrigger value="base" className="text-xs">Base charts & tables</TabsTrigger>
-            <TabsTrigger value="significators" className="text-xs">Significators</TabsTrigger>
-            <TabsTrigger value="ruling" className="text-xs">Ruling planets & horary</TabsTrigger>
+          <TabsList aria-label="KP analysis sections" className="grid h-auto w-full grid-cols-1 gap-2 rounded-xl border border-stone-200 bg-white p-2 shadow-sm sm:grid-cols-3">
+            <TabsTrigger value="base" className="h-10 justify-center rounded-lg px-3 text-xs text-stone-600 after:hidden data-[state=active]:bg-[#C05A3A] data-[state=active]:text-white data-[state=active]:shadow-sm sm:text-sm">Base charts & tables</TabsTrigger>
+            <TabsTrigger value="significators" className="h-10 justify-center rounded-lg px-3 text-xs text-stone-600 after:hidden data-[state=active]:bg-[#C05A3A] data-[state=active]:text-white data-[state=active]:shadow-sm sm:text-sm">Significators</TabsTrigger>
+            <TabsTrigger value="ruling" className="h-10 justify-center rounded-lg px-3 text-xs text-stone-600 after:hidden data-[state=active]:bg-[#C05A3A] data-[state=active]:text-white data-[state=active]:shadow-sm sm:text-sm">Ruling planets & horary</TabsTrigger>
           </TabsList>
 
           <TabsContent value="base" className="space-y-4">
