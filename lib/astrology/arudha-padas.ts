@@ -68,11 +68,13 @@ export function getStrongerLord(
 }
 
 export function applyArudhaException(houseSign: number, padaSign: number) {
-  const relativeHouse = ((normalizeSign(padaSign) - normalizeSign(houseSign) + 12) % 12) + 1;
-  if (relativeHouse === 1 || relativeHouse === 7) {
-    return normalizeSign(normalizeSign(padaSign) + 9);
+  const padaSignIndex = normalizeSign(padaSign);
+  const houseSignIndex = normalizeSign(houseSign);
+  const padaOffsetFromHouse = (padaSignIndex - houseSignIndex + 12) % 12;
+  if (padaOffsetFromHouse === 0 || padaOffsetFromHouse === 6) {
+    return normalizeSign(padaSignIndex + 9);
   }
-  return normalizeSign(padaSign);
+  return padaSignIndex;
 }
 
 export function calculateArudhaPadas(chartData: ArudhaChartData): ArudhaPada[] {
@@ -91,10 +93,9 @@ export function calculateArudhaPadas(chartData: ArudhaChartData): ArudhaPada[] {
       throw new Error(`Planet placement missing for Arudha lord ${signLord}.`);
     }
     const lordSign = normalizeSign(lordPlacement);
-    const distance = ((lordSign - houseSign + 12) % 12) + 1;
-    let padaSign = normalizeSign(lordSign + distance);
-
-    padaSign = applyArudhaException(houseSign, padaSign);
+    const steps = (lordSign - houseSign + 12) % 12;
+    const rawPadaSign = (lordSign + steps) % 12;
+    const padaSign = applyArudhaException(houseSign, rawPadaSign);
 
     return {
       house: houseIndex + 1,
