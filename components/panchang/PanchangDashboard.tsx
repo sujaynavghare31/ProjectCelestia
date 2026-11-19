@@ -164,7 +164,7 @@ function ActivePanchangSummary({ data }: { data: PanchangDay }) {
         </div>
         <span className="rounded-full bg-accent px-2.5 py-1 text-[10px] font-semibold text-accent-foreground">{activeAt}</span>
       </div>
-      <dl className="grid grid-cols-2 divide-x divide-y divide-border/70 sm:grid-cols-3 lg:grid-cols-7 lg:divide-y-0">
+      <dl className="grid grid-cols-1 divide-y divide-border/70 md:grid-cols-3 md:divide-x md:divide-y-0 lg:grid-cols-7">
         {summaryItems.map(({ label, value, detail }) => (
           <div key={label} className="min-w-0 px-4 py-4">
             <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
@@ -356,7 +356,7 @@ export default function PanchangDashboard() {
 
       {loading && (
         <div role="status" aria-label="Loading Panchang" className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 4 }, (_, index) => <div key={index} className="h-24 animate-pulse rounded-xl border border-border bg-card" />)}
           </div>
           <div className="h-64 animate-pulse rounded-xl border border-border bg-card" />
@@ -367,7 +367,7 @@ export default function PanchangDashboard() {
         <>
           <ActivePanchangSummary data={data} />
 
-          <section aria-label="Solar and lunar events" className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">
+          <section aria-label="Solar and lunar events" className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
             {solarEvents.map(({ label, value, Icon, tone }) => (
               <article key={label} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
                 <div className="flex items-center justify-between gap-2">
@@ -381,7 +381,7 @@ export default function PanchangDashboard() {
 
           <PanchangTimeline data={data} />
 
-          <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid gap-4 lg:grid-cols-2">
             <TimingTable
               title="Inauspicious timings"
               timings={data.timings.inauspicious}

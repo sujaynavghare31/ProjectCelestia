@@ -65,7 +65,7 @@ export default function MidpointsTab({
           <p className="mt-1 text-xs text-muted-foreground">Sidereal midpoints, hard-aspect activations, and midpoint trees.</p>
         </header>
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <label className="flex min-w-0 flex-col gap-1 text-xs font-medium">
             Aspect mode
             <select aria-label="Midpoint aspect mode" value={preferences.mode} onChange={(event) => update("mode", event.target.value as MidpointMode)} className={CONTROL_CLASS}>
@@ -166,7 +166,7 @@ export default function MidpointsTab({
               {trees.length
                 ? <ul className="divide-y divide-border rounded-lg border border-border">
                   {trees.map((tree) => (
-                    <li key={tree.short} className="grid gap-1 px-3 py-2 text-xs sm:grid-cols-[minmax(110px,160px)_1fr]">
+                    <li key={tree.short} className="grid gap-1 px-3 py-2 text-xs md:grid-cols-[minmax(110px,160px)_1fr]">
                       <span className="font-semibold">{tree.point}</span>
                       <span className="min-w-0 text-muted-foreground">{tree.list || "No midpoint activations"}</span>
                     </li>

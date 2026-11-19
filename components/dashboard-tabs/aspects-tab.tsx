@@ -97,7 +97,7 @@ function AspectPatterns({ planets, language }: { planets: PlanetPosition[]; lang
     <section className="min-w-0 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm sm:p-5 xl:col-span-2" aria-labelledby="aspect-patterns-heading">
       <header className="mb-4"><h3 id="aspect-patterns-heading" className="text-sm font-semibold">Aspect Patterns</h3></header>
       {patterns.length ? (
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {patterns.map((pattern, index) => (
             <li key={`${pattern.type}-${pattern.planets.join("-")}-${index}`} className="rounded-lg border border-border p-3">
               <h4 className="text-sm font-semibold">{pattern.type}</h4>
@@ -129,7 +129,7 @@ export default function AspectsTab({
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-2">
+    <div className="grid gap-4 lg:grid-cols-2">
       <section className="min-w-0 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm sm:p-5" aria-labelledby="indian-aspects-heading">
         <header className="mb-4"><h3 id="indian-aspects-heading" className="text-sm font-semibold">Indian Drishti</h3></header>
         <AspectMatrix planets={data.planets} ascendant={data.ascendant} language={language} useSignIcons={useSignIcons} />

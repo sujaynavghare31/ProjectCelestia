@@ -249,7 +249,7 @@ function KundaliYogasTable({ planets }: { planets: PlanetPosition[] }) {
         <h2 className="text-lg font-medium text-foreground">Kundali Yogas</h2>
         <p className="text-sm text-muted-foreground">Calculated planetary combinations and doshas</p>
       </div>
-      <div className="grid grid-cols-1 divide-y divide-border border border-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+      <div className="grid grid-cols-1 divide-y divide-border border border-border md:grid-cols-2 md:divide-x md:divide-y-0">
         {yogas.length ? yogas.map((yoga) => (
           <div key={yoga.name} className={`flex items-center gap-2 p-4 ${yoga.present ? "bg-emerald-500/5" : ""}`}>
             {yoga.present ? <Check className="mt-0.5 size-4 shrink-0 text-emerald-500" /> : <X className="mt-0.5 size-4 shrink-0 text-muted-foreground/50" />}

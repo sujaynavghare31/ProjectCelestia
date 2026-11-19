@@ -35,7 +35,7 @@ export default function DashaSummaryCards({
 }) {
   const labels = LEVEL_LABELS[system];
   return (
-    <section aria-label="Active Dasha periods" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+    <section aria-label="Active Dasha periods" className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
       {labels.map((label, index) => {
         const period = activePath[index];
         const style = CARD_STYLE[period?.lord ?? ""] ?? "bg-muted text-foreground";

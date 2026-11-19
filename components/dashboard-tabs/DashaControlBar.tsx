@@ -36,7 +36,7 @@ export default function DashaControlBar({
   onLagnaModeChange: (value: DashaLagnaMode) => void;
 }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[1.1fr_1.1fr_0.9fr]">
+    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-[1.1fr_1.1fr_0.9fr]">
       <label className="grid min-w-0 gap-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
         Dasha seed
         <select

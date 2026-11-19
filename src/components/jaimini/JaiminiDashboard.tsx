@@ -170,7 +170,7 @@ export default function JaiminiDashboard({ profile, data, asOfDate }: Props) {
         </div>
       </header>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(420px,0.8fr)_1.2fr]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(360px,0.8fr)_1.2fr]">
         <SouthChart lagna={result.lagna} planets={data.planets} result={result} />
         <div className="grid gap-4 md:grid-cols-2">
           <section className="rounded-xl border border-border bg-card p-4">
@@ -183,7 +183,7 @@ export default function JaiminiDashboard({ profile, data, asOfDate }: Props) {
           </section>
           <section className="rounded-xl border border-border bg-card p-4 md:col-span-2">
             <h2 className="text-sm font-semibold">Current dashas</h2>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">{Object.entries(result.dashas).map(([key,d])=>{
+            <div className="mt-3 grid gap-2 md:grid-cols-2 lg:grid-cols-3">{Object.entries(result.dashas).map(([key,d])=>{
               const md=d.periods.find((p)=>p.isCurrent);
               const ad=d.antardashas&&md?findCurrentAD(d,d.periods.indexOf(md),parseLocalMs(asOf,"12:00:00",profile.timezone)):undefined;
               return <button key={key} type="button" onClick={()=>setDashaKey(key)} className="rounded-lg border border-primary/20 bg-accent/40 px-3 py-2 text-left text-xs"><span className="block text-muted-foreground">{DASHA_LABELS[key]}</span><strong>{md?SIGN_NAMES[md.sign]:"—"}{ad?` · ${SIGN_NAMES[ad.sign]}`:""}</strong><span className="mt-1 block text-[11px] text-muted-foreground">{md?`MD ends ${formatDate(md.end,asOfTimezone)}`:"No active period"}</span></button>;
@@ -192,10 +192,10 @@ export default function JaiminiDashboard({ profile, data, asOfDate }: Props) {
         </div>
       </div>
 
-      <nav className="flex w-full gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1" aria-label="Jaimini analysis sections">
+      <nav className="no-scrollbar flex w-full snap-x snap-mandatory gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1" aria-label="Jaimini analysis sections">
         {[
           ["dashas","Dashas"],["arudha","Arudha"],["karakamsha","Karakamsha"],["lagnas","Special Lagnas"],["upagrahas","Upagrahas"],["yogas","Yogas"],["argala","Argala"],["strength","Strength"],["aspects","Aspects"],["karakas","Karakas"],["dispositors","Dispositors"],["sutras","Sutras"],
-        ].map(([id,label])=>{ const active=dashaKey===`section-${id}`; return <a key={id} href={`#jaimini-${id}`} onClick={()=>setDashaKey(`section-${id}`)} className={`shrink-0 rounded-lg px-3 py-2 text-xs font-medium ${active?"bg-accent text-accent-foreground":"text-muted-foreground hover:bg-muted"}`}>{label}</a>; })}
+        ].map(([id,label])=>{ const active=dashaKey===`section-${id}`; return <a key={id} href={`#jaimini-${id}`} onClick={()=>setDashaKey(`section-${id}`)} className={`shrink-0 snap-start rounded-lg px-3 py-2 text-xs font-medium ${active?"bg-accent text-accent-foreground":"text-muted-foreground hover:bg-muted"}`}>{label}</a>; })}
       </nav>
 
       <section id="jaimini-dashas" className="rounded-xl border border-border bg-card p-4">
@@ -216,7 +216,7 @@ export default function JaiminiDashboard({ profile, data, asOfDate }: Props) {
         <section id="jaimini-upagrahas" className="rounded-xl border border-border bg-card p-4"><h2 className="text-sm font-semibold">Upagrahas</h2><dl className="mt-3 grid gap-2 text-xs">{Object.entries(result.sunUpagrahas).map(([name,v])=><div key={name} className="flex justify-between"><dt className="capitalize text-muted-foreground">{name}</dt><dd className="font-mono">{signDms(v)}</dd></div>)}</dl><div className="mt-4 border-t border-border pt-3">{result.timeUpagrahas.map((u)=><p key={u.name} className="flex justify-between py-1 text-xs"><span>{u.name}</span><strong>{signDms(u.longitude)}</strong></p>)}</div></section>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <section id="jaimini-strength" className="overflow-x-auto rounded-xl border border-border bg-card p-4"><h2 className="text-sm font-semibold">Rashi strength</h2><table className="mt-3 w-full min-w-[620px] text-left text-xs"><thead className="text-[10px] uppercase text-muted-foreground"><tr><th className="py-2">Sign</th><th>Planets</th><th>Lord</th><th>Nature</th><th>Score</th><th>Rank</th></tr></thead><tbody className="divide-y divide-border">{result.signStrengthTable.map((r)=><tr key={r.sign}><th className="py-2">{SIGN_NAMES[r.sign]}</th><td>{r.planets.map((p)=>PLANET_SHORT[p]).join(" ")||"—"}</td><td>{PLANET_SHORT[r.lord]}</td><td>{r.nature}</td><td className="font-mono">{r.score.toFixed(1)}</td><td>{r.rank}</td></tr>)}</tbody></table></section>
         <section id="jaimini-aspects" className="overflow-x-auto rounded-xl border border-border bg-card p-4"><h2 className="text-sm font-semibold">Jaimini sign aspects</h2><table className="mt-3 text-center text-[10px]"><tbody>{result.aspects.signMatrix.map((row,a)=><tr key={a}><th className="sticky left-0 bg-card px-1">{SIGN_SHORT[a]}</th>{row.map((cell,b)=><td key={b} className={`size-6 border border-border ${cell?"bg-accent text-accent-foreground":""}`}>{cell?"•":""}</td>)}</tr>)}</tbody></table></section>
       </div>
@@ -226,7 +226,7 @@ export default function JaiminiDashboard({ profile, data, asOfDate }: Props) {
         <section id="jaimini-dispositors" className="rounded-xl border border-border bg-card p-4"><h2 className="text-sm font-semibold">Dispositors</h2><dl className="mt-3 grid grid-cols-2 gap-2 text-xs">{result.dispositors.map((d)=><div key={d.planet} className="flex justify-between rounded-lg bg-muted/40 px-3 py-2"><dt>{PLANET_NAMES[d.planet]}</dt><dd>{d.finalDispositor==="Cycle"? "Cycle":PLANET_NAMES[d.finalDispositor]}{d.mutualExchange?" · Exchange":""}</dd></div>)}</dl></section>
       </div>
 
-      <section id="jaimini-sutras" className="rounded-xl border border-border bg-card p-4"><h2 className="text-sm font-semibold">Jaimini sutras</h2><ol className="mt-3 grid gap-2 text-xs sm:grid-cols-2">{[
+      <section id="jaimini-sutras" className="rounded-xl border border-border bg-card p-4"><h2 className="text-sm font-semibold">Jaimini sutras</h2><ol className="mt-3 grid gap-2 text-xs md:grid-cols-2">{[
         "Atmakaraka’s navamsa sign is the Karakamsha.",
         "Movable signs aspect fixed signs except adjacent signs; fixed aspect movable except adjacent; dual signs aspect dual signs.",
         "Argala arises from the 2nd, 4th, 5th and 11th houses and is obstructed by the 12th, 10th, 9th and 3rd.",

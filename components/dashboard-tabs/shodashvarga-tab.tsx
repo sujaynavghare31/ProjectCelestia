@@ -80,7 +80,7 @@ export default function ShodashvargaTab({
           {chartMode === "transit" ? "Transit" : "Birth chart"} · {data.input.date} {data.input.time} · Compare all sixteen divisional charts.
         </p>
       </header>
-      <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-4">
         {charts.map((chart) => {
           const varga = Number(chart.id.slice(1));
           return (

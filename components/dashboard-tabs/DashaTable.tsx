@@ -75,7 +75,7 @@ export default function DashaTable({
         <table className="w-full min-w-[680px] border-collapse text-left text-xs">
           <thead className="sticky top-0 z-10 bg-muted text-[10px] uppercase tracking-wide text-muted-foreground shadow-sm">
             <tr>
-              <th scope="col" className="w-[36%] px-3 py-2.5 font-semibold">Period</th>
+              <th scope="col" className="sticky left-0 z-20 w-[36%] bg-muted px-3 py-2.5 font-semibold">Period</th>
               <th scope="col" className="px-3 py-2.5 font-semibold">Start</th>
               <th scope="col" className="px-3 py-2.5 font-semibold">End</th>
               <th scope="col" className="w-24 px-3 py-2.5 text-right font-semibold">Duration</th>
@@ -98,7 +98,7 @@ export default function DashaTable({
                   aria-current={isCurrent ? "date" : undefined}
                   className={`border-t border-border/70 transition-colors ${isCurrent ? "bg-amber-50 text-amber-950 dark:bg-amber-900/20 dark:text-amber-100" : `${nestedShade} hover:bg-muted/60`}`}
                 >
-                  <td className="px-3 py-2">
+                  <td className={`sticky left-0 z-[1] px-3 py-2 ${isCurrent ? "bg-amber-50 dark:bg-amber-900/20" : nestedShade || "bg-card"}`}>
                     <div className="flex min-w-0 items-center gap-1.5" style={{ paddingInlineStart: `${depth * 18}px` }}>
                       {hasChildren ? (
                         <button

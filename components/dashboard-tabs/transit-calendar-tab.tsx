@@ -160,7 +160,7 @@ export default function TransitCalendarTab({ natalPlanets }: { natalPlanets: Pla
       </div>
       {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
       {loading ? <TransitCalendarLoader year={year} city={profile.city || "Mumbai"} ayanamsa={ayanamsa} /> : (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
           {MONTH_NAMES.map((_, month) => <MonthlyCard key={month} month={month} events={events.filter((event) => getMonth(event.date) === month)} sample={samples.find((item) => getMonth(item.date) === month)} />)}
         </div>
       )}

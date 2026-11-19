@@ -42,7 +42,6 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { Switch } from "@/components/ui/switch";
 
 const loadDashaTab = () => import("@/components/dashboard-tabs/DashaDashboard");
-const loadElementModalityTab = () => import("@/components/dashboard-tabs/element-modality-tab");
 const loadAspectsTab = () => import("@/components/dashboard-tabs/aspects-tab");
 const loadAshtakavargaTab = () => import("@/components/dashboard-tabs/ashtakavarga-tab");
 const loadStrengthAnalysisTab = () => import("@/components/dashboard-tabs/strength-analysis-tab");
@@ -54,7 +53,6 @@ const loadShodashvargaTab = () => import("@/components/dashboard-tabs/shodashvar
 const loadCarterCuspsPanel = () => import("@/components/dashboard-tabs/carter-cusps-panel");
 const loadJaiminiDashboard = () => import("@/src/components/jaimini/JaiminiDashboard");
 const DashaTab = lazy(loadDashaTab);
-const ElementModalityTab = lazy(loadElementModalityTab);
 const AspectsTab = lazy(loadAspectsTab);
 const AshtakavargaTab = lazy(loadAshtakavargaTab);
 const StrengthAnalysisTab = lazy(loadStrengthAnalysisTab);
@@ -283,7 +281,7 @@ function BirthTimeAdjuster({ onAdjust }: { onAdjust: (seconds: number) => void }
       <span className="px-1 text-[10px] font-semibold text-muted-foreground" title="Birth time rectification">BTR</span>
       <div className="flex h-full items-center gap-1">
         {adjustments.map(({ seconds, label, description }) => (
-          <button key={seconds} type="button" onClick={() => onAdjust(seconds)} className="h-10 rounded-md px-2 text-[10px] font-semibold tabular-nums text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40" aria-label={description} title={description}>
+          <button key={seconds} type="button" onClick={() => onAdjust(seconds)} className="h-11 rounded-md px-2 text-[10px] font-semibold tabular-nums text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:h-10" aria-label={description} title={description}>
             {label}
           </button>
         ))}
@@ -395,7 +393,7 @@ function ChartSettingsDrawer({
     }));
   };
   const renderPreferenceOptions = (options: PreferenceOption[]) => (
-    <div className="grid gap-2 sm:grid-cols-2">
+    <div className="grid gap-2 md:grid-cols-2">
       {options.map(({ key, label, description, disabledFor }) => {
         const unavailable = disabledFor?.includes(chartStyle) ?? false;
         const helperText = unavailable
@@ -432,9 +430,15 @@ function ChartSettingsDrawer({
         role="dialog"
         aria-modal="true"
         aria-labelledby="chart-settings-title"
-        className="flex h-full w-full max-w-xl flex-col border-l border-border bg-background text-foreground shadow-2xl"
+        className="flex h-full w-full flex-col border-l border-border bg-background text-foreground shadow-2xl sm:max-w-md xl:max-w-xl"
+        style={{
+          paddingTop: "max(1rem, env(safe-area-inset-top, 0px))",
+          paddingRight: "max(1rem, env(safe-area-inset-right, 0px))",
+          paddingBottom: "max(1rem, env(safe-area-inset-bottom, 0px))",
+          paddingLeft: "max(1rem, env(safe-area-inset-left, 0px))",
+        }}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+        <header className="flex items-start justify-between gap-4 border-b border-border px-1 py-4 sm:px-2 sm:py-5">
           <div>
             <h2 id="chart-settings-title" className="text-base font-semibold">Chart Settings</h2>
             <p className="mt-1 text-sm text-muted-foreground">Tune calculations and chart labels.</p>
@@ -444,18 +448,18 @@ function ChartSettingsDrawer({
             type="button"
             aria-label="Close chart settings"
             onClick={onClose}
-            className="grid size-9 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            className="grid size-11 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:size-9"
           >
             <X className="size-4" />
           </button>
         </header>
-        <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-6 py-6">
+        <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-1 py-5 sm:px-2 sm:py-6">
           <section aria-labelledby="general-settings-title">
             <h3 id="general-settings-title" className="border-b border-border pb-2 text-sm font-semibold">Core calculations</h3>
             <div className="mt-4 space-y-5">
               <fieldset>
                 <legend className="mb-2 text-xs font-medium text-foreground">Zodiac system</legend>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                   {([
                     ["sidereal", "Sidereal · Nirayana", "Uses an ayanamsa offset."],
                     ["tropical", "Tropical · Sayana", "Uses the seasonal zodiac."],
@@ -477,14 +481,14 @@ function ChartSettingsDrawer({
                   ))}
                 </div>
               </fieldset>
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2">
                 <label className="block text-xs font-medium text-foreground">
                   House cusp system
                   <Select
                     value={draft.houseSystem}
                     onValueChange={(value) => setDraft((current) => ({ ...current, houseSystem: value as HouseSystem }))}
                   >
-                    <SelectTrigger aria-label="House cusp system" className="mt-1.5 h-10 w-full">
+                    <SelectTrigger aria-label="House cusp system" className="mt-1.5 h-11 w-full md:h-10">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="z-[110] !bg-card !text-foreground shadow-md">
@@ -500,7 +504,7 @@ function ChartSettingsDrawer({
                     onValueChange={(value) => setDraft((current) => ({ ...current, ayanamsa: value }))}
                     disabled={draft.zodiacMode === "tropical"}
                   >
-                    <SelectTrigger aria-label="Ayanamsa" className="mt-1.5 h-10 w-full">
+                    <SelectTrigger aria-label="Ayanamsa" className="mt-1.5 h-11 w-full md:h-10">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="z-[110] !bg-card !text-foreground shadow-md">
@@ -558,7 +562,7 @@ function ChartSettingsDrawer({
                     onValueChange={(value) => setDraft((current) => ({ ...current, language: value as CelestialLanguage }))}
                     disabled={draft.viewPreferences.usePlanetIcons}
                   >
-                    <SelectTrigger aria-label="Chart language" className="mt-1.5 h-10 w-full">
+                    <SelectTrigger aria-label="Chart language" className="mt-1.5 h-11 w-full md:h-10">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent className="z-[110] !bg-card !text-foreground shadow-md">
@@ -582,7 +586,7 @@ function ChartSettingsDrawer({
                     max="360"
                     value={draft.customAyanamsaDegrees}
                     onChange={(event) => setDraft((current) => ({ ...current, customAyanamsaDegrees: Number(event.target.value) }))}
-                    className={`${CONTROL_CLASS} mt-1.5 h-10 w-full text-sm`}
+                    className={`${CONTROL_CLASS} mt-1.5 h-11 w-full text-sm md:h-10`}
                   />
                 </label>
               )}
@@ -602,7 +606,7 @@ function ChartSettingsDrawer({
                   <select
                     value={draft.viewPreferences.cuspLabelSignStyle}
                     onChange={(event) => setPreference("cuspLabelSignStyle", event.target.value as ChartSettings["viewPreferences"]["cuspLabelSignStyle"])}
-                    className={`${CONTROL_CLASS} mt-1.5 h-10 w-full text-sm`}
+                    className={`${CONTROL_CLASS} mt-1.5 h-11 w-full text-sm md:h-10`}
                   >
                     <option value="short">Short · Vi</option>
                     <option value="full">Full · Virgo</option>
@@ -616,7 +620,7 @@ function ChartSettingsDrawer({
                   <select
                     value={draft.viewPreferences.cuspLabelDegreeFormat}
                     onChange={(event) => setPreference("cuspLabelDegreeFormat", event.target.value as ChartSettings["viewPreferences"]["cuspLabelDegreeFormat"])}
-                    className={`${CONTROL_CLASS} mt-1.5 h-10 w-full text-sm`}
+                    className={`${CONTROL_CLASS} mt-1.5 h-11 w-full text-sm md:h-10`}
                   >
                     <option value="dms">DMS · 22°47′10″</option>
                     <option value="dm">Degrees/minutes</option>
@@ -629,7 +633,7 @@ function ChartSettingsDrawer({
                   <select
                     value={draft.viewPreferences.cuspLabelStyle}
                     onChange={(event) => setPreference("cuspLabelStyle", event.target.value as ChartSettings["viewPreferences"]["cuspLabelStyle"])}
-                    className={`${CONTROL_CLASS} mt-1.5 h-10 w-full text-sm`}
+                    className={`${CONTROL_CLASS} mt-1.5 h-11 w-full text-sm md:h-10`}
                   >
                     <option value="line">On the line</option>
                     <option value="box">In the sign box</option>
@@ -687,11 +691,11 @@ function ChartSettingsDrawer({
             </section>
           )}
         </div>
-        <footer className="flex items-center justify-between gap-3 border-t border-border px-6 py-4">
+        <footer className="flex flex-col gap-3 border-t border-border px-1 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-2">
           <p className="text-xs text-muted-foreground">Your changes stay pending until applied.</p>
           <div className="flex shrink-0 gap-2">
-            <button type="button" onClick={onClose} className="h-9 rounded-lg border border-border px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">Cancel</button>
-            <button type="button" onClick={() => { onApply(draft); onClose(); }} className="h-9 rounded-lg bg-[#C64F30] px-3.5 text-xs font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40 focus-visible:ring-offset-2">Apply Changes</button>
+            <button type="button" onClick={onClose} className="min-h-11 flex-1 rounded-lg border border-border px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:min-h-9 sm:flex-none">Cancel</button>
+            <button type="button" onClick={() => { onApply(draft); onClose(); }} className="min-h-11 flex-1 rounded-lg bg-[#C64F30] px-3.5 text-xs font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40 focus-visible:ring-offset-2 sm:min-h-9 sm:flex-none">Apply Changes</button>
           </div>
         </footer>
       </aside>
@@ -1219,7 +1223,7 @@ function PlanetTable({
     <div className="overflow-x-auto">
       <table className="w-full min-w-[690px] text-left text-xs">
         <thead className="sticky top-0 bg-card text-xs uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))]">
-          <tr>{["Graha", "Jaimini karaka", "Sign", "Nakshatra", "Pada", "Longitude", "Motion", "Declination", "Dignity", "STATES (AVASTHAS)"].map((heading) => <th key={heading} className="whitespace-nowrap px-1.5 py-2 font-medium">{heading}</th>)}</tr>
+          <tr>{["Graha", "Jaimini karaka", "Sign", "Nakshatra", "Pada", "Longitude", "Motion", "Declination", "Dignity", "STATES (AVASTHAS)"].map((heading, index) => <th key={heading} className={`${index === 0 ? "sticky left-0 z-20 bg-card" : ""} whitespace-nowrap px-1.5 py-2 font-medium`}>{heading}</th>)}</tr>
         </thead>
         <tbody className="divide-y divide-slate-200 dark:divide-slate-800/50">
           {rows.map((position) => {
@@ -1229,7 +1233,7 @@ function PlanetTable({
             const detailedAvastha = data.avasthaReport?.planets.find((report) => report.planet === position.name);
             return (
               <tr key={position.id} className={`bg-transparent text-[hsl(var(--foreground))] transition-colors hover:bg-[hsl(var(--border)/0.2)] ${isGoldPosition ? "text-[hsl(var(--champagne-gold))]" : ""}`}>
-                <td className="min-w-[108px] px-1.5 py-1.5 font-semibold">
+                <td className="sticky left-0 z-10 min-w-[108px] bg-card px-1.5 py-1.5 font-semibold">
                   <span className="block whitespace-nowrap">{preferences.usePlanetIcons && <PlanetMark name={position.name} label={position.symbol} enabled />} {planetName(position.name, language, position.name)}</span>
                   {(detailedAvastha?.isCombust || vargottama) && (
                     <div className="mt-0.5 flex flex-wrap items-center gap-1">
@@ -1283,7 +1287,7 @@ type AuxiliaryType = "divisional" | "transit" | "solar" | "tajika" | "progressio
 type DashaSystem = "vimshottari" | "chara" | "ashtottari" | "yogini" | "kalachakra";
 type DashaSeed = "moon" | "ascendant" | "sun" | "ascendant-lord";
 type DashaLagnaMode = "natural" | "maha-lord" | "antar-lord";
-type DashboardTab = "core" | "kp" | "jaimini" | "dasha" | "element-modality" | "aspects" | "midpoints" | "ashtakavarga" | "medical" | "transit-calendar" | "jamakkol" | "shodashvarga";
+type DashboardTab = "core" | "kp" | "jaimini" | "dasha" | "aspects" | "midpoints" | "ashtakavarga" | "medical" | "transit-calendar" | "jamakkol" | "shodashvarga";
 
 // All existing astrology views remain available; strength modules are now grouped with Ashtakavarga.
 const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
@@ -1292,7 +1296,6 @@ const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
   { id: "kp", label: "KP Astrology" },
   { id: "jaimini", label: "Jaimini" },
   { id: "dasha", label: "Dasha Systems" },
-  { id: "element-modality", label: "Element & Modality" },
   { id: "aspects", label: "Drishti & Aspects" },
   { id: "midpoints", label: "Midpoints" },
   { id: "ashtakavarga", label: "Ashtakavarga & Strength" },
@@ -1310,7 +1313,6 @@ function preloadDashboardTab(tab: DashboardTab) {
   if (tab === "kp") return;
   const loaders = {
     dasha: loadDashaTab,
-    "element-modality": loadElementModalityTab,
     aspects: loadAspectsTab,
     midpoints: loadMidpointsTab,
     ashtakavarga: () => Promise.all([loadAshtakavargaTab(), loadStrengthAnalysisTab()]),
@@ -1697,6 +1699,7 @@ export function KundaliDashboard() {
   const [data, setData] = useState<EphemerisResponse | null>(null);
   const [dashboardTab, setDashboardTab] = useState<DashboardTab>("core");
   const [submittedProfile, setSubmittedProfile] = useState<BirthProfile | null>(null);
+  const [profileCollapsed, setProfileCollapsed] = useState(false);
   const [transitData, setTransitData] = useState<EphemerisResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [transitLoading, setTransitLoading] = useState(false);
@@ -1821,6 +1824,7 @@ export function KundaliDashboard() {
     setUseCoordinates(false);
     initialProfileSubmitted.current = true;
     setSubmittedProfile({ ...draft, name: draft.name.trim() || "Birth chart" });
+    setProfileCollapsed(true);
     setChartMode("birth");
     setProfileActionMessage("Your chart details were restored. Choose Save chart to add them to your account.");
   }, [setProfile]);
@@ -2029,6 +2033,7 @@ export function KundaliDashboard() {
       return;
     }
     setSubmittedProfile({ ...profile, name: profile.name.trim() || "Birth chart" });
+    setProfileCollapsed(true);
     setChartMode("birth");
     setError(null);
   };
@@ -2165,6 +2170,7 @@ export function KundaliDashboard() {
     setLocationSearch(saved.city ?? "");
     setUseCoordinates(false);
     setSubmittedProfile({ ...nextProfile, name: nextProfile.name.trim() || "Birth chart" });
+    setProfileCollapsed(true);
     setChartMode("birth");
     setError(null);
     setProfileActionMessage(`Loaded ${saved.chartName || saved.fullName}.`);
@@ -2328,45 +2334,60 @@ export function KundaliDashboard() {
   const currentTransitLabel = transitData ? `${transitData.input.date} ${transitData.input.time}` : "—";
   return (
     <div id="kundali-dashboard" className="relative min-w-0 space-y-4 bg-background text-foreground">
-      <div className="mx-auto max-w-[1750px] space-y-4">
+      <div className="mx-auto w-full max-w-[1440px] space-y-4 2xl:max-w-[1600px]">
         <section aria-label="Birth chart controls" className="shrink-0 rounded-xl border border-border bg-card p-3 text-card-foreground shadow-sm">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 lg:hidden">
             <div id="chart-profile" className="flex items-center gap-2 scroll-mt-4">
               <span className="grid size-7 place-items-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300"><Orbit className="size-4" /></span>
               <p className="text-xs font-semibold">Chart profile</p>
             </div>
             <div className="flex items-center gap-1.5">
-              <button type="button" onClick={openSaveDialog} disabled={savingProfile || saveDialogLoading} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60">
+              <button type="button" onClick={openSaveDialog} disabled={savingProfile || saveDialogLoading} className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60">
                 <Save aria-hidden="true" className="size-3.5" />
                 {savingProfile ? "Saving…" : "Save chart"}
               </button>
-              <button type="button" onClick={toggleSavedProfiles} disabled={savedProfilesLoading} aria-expanded={savedProfilesOpen} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60">
+              <button type="button" onClick={toggleSavedProfiles} disabled={savedProfilesLoading} aria-expanded={savedProfilesOpen} className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60">
                 <FolderOpen aria-hidden="true" className="size-3.5" />
                 {savedProfilesOpen ? "Close saved" : "Load saved"}
               </button>
             </div>
           </div>
-          <form onSubmit={submitBirthChart} className="space-y-2">
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
+          {profileCollapsed && (
+            <div className="mb-2 flex min-h-11 items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-1.5 md:hidden">
+              <p className="min-w-0 flex-1 truncate text-sm font-medium" title={`${activeBirthProfile.name} · ${formatBirthDate(activeBirthProfile.date)} · ${activeBirthProfile.city}`}>
+                {activeBirthProfile.name} · {formatBirthDate(activeBirthProfile.date)} · {activeBirthProfile.city}
+              </p>
+              <button
+                type="button"
+                onClick={() => setProfileCollapsed(false)}
+                aria-label="Edit birth chart details"
+                className="inline-flex min-h-11 shrink-0 items-center rounded-lg px-3 text-xs font-semibold text-primary transition hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
+                Edit
+              </button>
+            </div>
+          )}
+          <form onSubmit={submitBirthChart} className={`${profileCollapsed ? "hidden md:block" : ""} space-y-2`}>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-8">
               <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">
                 Chart name
-                <input aria-label="Chart name" type="text" maxLength={100} value={profile.name === "Current transit" ? "" : profile.name} placeholder="Enter Jataka's name" onChange={(event) => setProfile({ name: event.target.value })} className={`${CONTROL_CLASS} mt-1 h-9 w-full text-sm placeholder:text-slate-600 dark:placeholder:text-slate-400`} />
+                <input aria-label="Chart name" type="text" maxLength={100} value={profile.name === "Current transit" ? "" : profile.name} placeholder="Enter Jataka's name" onChange={(event) => setProfile({ name: event.target.value })} className={`${CONTROL_CLASS} mt-1 h-11 w-full text-base placeholder:text-slate-600 dark:placeholder:text-slate-400 md:text-sm`} />
               </label>
               <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Gender
-                <select aria-label="Gender" value={profile.sex} onChange={(event) => setProfile({ sex: event.target.value as BirthProfile["sex"] })} className={`${CONTROL_CLASS} mt-1 h-9 w-full min-w-0 px-2 text-sm`}>
+                <select aria-label="Gender" value={profile.sex} onChange={(event) => setProfile({ sex: event.target.value as BirthProfile["sex"] })} className={`${CONTROL_CLASS} mt-1 h-11 w-full min-w-0 px-2 text-base md:text-sm`}>
                   <option value="not-applicable">Not specified</option>
                   <option value="male">Male</option>
                   <option value="female">Female</option>
                 </select>
               </label>
               <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Birth date
-                <input aria-label="Birth date" type="date" required value={profile.date} onChange={(event) => setProfile({ date: event.target.value })} className={`${CONTROL_CLASS} mt-1 h-9 w-full px-2 text-sm`} />
+                <input aria-label="Birth date" type="date" required value={profile.date} onChange={(event) => setProfile({ date: event.target.value })} className={`${CONTROL_CLASS} mt-1 h-11 w-full px-2 text-base md:text-sm`} />
               </label>
               <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Birth time
                 <input aria-label="Time of birth" type="time" step={1} value={profile.time} onChange={(event) => {
                   const time = event.target.value;
                   setProfile({ time: time ? (time.length === 5 ? `${time}:00` : time) : "" });
-                }} required className={`${CONTROL_CLASS} mt-1 h-9 w-full px-2 text-sm font-mono`} />
+                }} required className={`${CONTROL_CLASS} mt-1 h-11 w-full px-2 text-base font-mono md:text-sm`} />
               </label>
               <div className="relative min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300">
                 {!useCoordinates ? (
@@ -2374,9 +2395,9 @@ export function KundaliDashboard() {
                     <label htmlFor="birth-city-search">Birth city</label>
                     <span className="relative mt-1 block">
                       <MapPin className="pointer-events-none absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
-                      <input id="birth-city-search" aria-label="Birth city; search anywhere" type="search" maxLength={160} value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="Search city…" autoComplete="off" aria-autocomplete="list" aria-expanded={locationResults.length > 0} className={`${CONTROL_CLASS} h-9 w-full min-w-0 pl-8 pr-16 text-sm`} />
-                      {locationLoading && <Search className="absolute right-14 top-2.5 size-3.5 animate-pulse text-primary" />}
-                      <button type="button" onClick={useCurrentLocation} disabled={currentLocationLoading} title={currentLocationLoading ? "Finding current location" : "Use current location"} aria-label={currentLocationLoading ? "Finding current location" : "Use current location"} className="absolute right-8 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60">
+                      <input id="birth-city-search" aria-label="Birth city; search anywhere" type="search" maxLength={160} value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="Search city…" autoComplete="off" aria-autocomplete="list" aria-expanded={locationResults.length > 0} className={`${CONTROL_CLASS} h-11 w-full min-w-0 pl-8 pr-24 text-base md:text-sm lg:pr-16`} />
+                      {locationLoading && <Search className="absolute right-16 top-2.5 size-3.5 animate-pulse text-primary lg:right-14" />}
+                      <button type="button" onClick={useCurrentLocation} disabled={currentLocationLoading} title={currentLocationLoading ? "Finding current location" : "Use current location"} aria-label={currentLocationLoading ? "Finding current location" : "Use current location"} className="absolute right-11 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60 lg:right-8 lg:size-6">
                         {currentLocationLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <Crosshair className="size-3.5" />}
                       </button>
                       <button type="button" onClick={() => {
@@ -2384,7 +2405,7 @@ export function KundaliDashboard() {
                         if (Number.isFinite(profile.lng)) setLongitudeDraft(profile.lng.toFixed(2));
                         setUseCoordinates(true);
                         setLocationError(null);
-                      }} title="Enter birth coordinates" aria-label="Enter birth coordinates" className="absolute right-1 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"><MapPin className="size-3.5" /></button>
+                      }} title="Enter birth coordinates" aria-label="Enter birth coordinates" className="absolute right-0 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:right-1 lg:size-6"><MapPin className="size-3.5" /></button>
                     </span>
                     {locationError && <p role="status" className="absolute z-10 mt-1 rounded bg-rose-50 px-1 text-xs text-rose-800 dark:bg-rose-950/30 dark:text-rose-200">{locationError}</p>}
                     {locationResults.length > 0 && (
@@ -2394,34 +2415,42 @@ export function KundaliDashboard() {
                     )}
                   </>
                 ) : (
-                  <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_1.5rem] items-end gap-1">
+                  <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem] items-end gap-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_1.5rem]">
                     <label className="min-w-0 truncate">Latitude
                       <input aria-label="Latitude" type="text" inputMode="decimal" autoComplete="off" value={latitudeDraft} onChange={(event) => {
                         const value = limitCoordinatePrecision(event.target.value);
                         setLatitudeDraft(value);
                         setProfile({ lat: parseCoordinateDraft(value) });
-                      }} className={`${CONTROL_CLASS} mt-1 h-9 w-full min-w-0 px-1 text-xs font-mono tabular-nums`} placeholder="28.66" />
+                      }} className={`${CONTROL_CLASS} mt-1 h-11 w-full min-w-0 px-1 text-base font-mono tabular-nums md:text-sm`} placeholder="28.66" />
                     </label>
                     <label className="min-w-0 truncate">Longitude
                       <input aria-label="Longitude" type="text" inputMode="decimal" autoComplete="off" value={longitudeDraft} onChange={(event) => {
                         const value = limitCoordinatePrecision(event.target.value);
                         setLongitudeDraft(value);
                         setProfile({ lng: parseCoordinateDraft(value) });
-                      }} className={`${CONTROL_CLASS} mt-1 h-9 w-full min-w-0 px-1 text-xs font-mono tabular-nums`} placeholder="72.87" />
+                      }} className={`${CONTROL_CLASS} mt-1 h-11 w-full min-w-0 px-1 text-base font-mono tabular-nums md:text-sm`} placeholder="72.87" />
                     </label>
                     <button type="button" onClick={() => {
                       setUseCoordinates(false);
                       setLocationError(null);
-                    }} title="Search for a birth city" aria-label="Search for a birth city" className="grid size-9 place-items-center rounded-lg border border-input text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                    }} title="Search for a birth city" aria-label="Search for a birth city" className="grid size-11 place-items-center rounded-lg border border-input text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:size-9">
                       <MapPin className="size-3.5" />
                     </button>
                   </div>
                 )}
               </div>
-              <button type="submit" className="inline-flex h-9 w-full min-w-0 self-end items-center justify-center gap-1.5 rounded-lg bg-[#C64F30] px-1 text-xs font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40">
+              <button type="submit" className="inline-flex h-11 w-full min-w-0 self-end items-center justify-center gap-1.5 rounded-lg bg-[#C64F30] px-1 text-xs font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40">
                 Calculate chart
               </button>
-              <div className="-mx-3 -mb-3 mt-1 flex min-w-0 items-start gap-2 rounded-b-xl border-t border-border bg-muted/80 px-3 py-2 dark:bg-muted/50 sm:col-span-2 md:col-span-3 lg:col-span-6">
+              <button type="button" onClick={openSaveDialog} disabled={savingProfile || saveDialogLoading} className="hidden min-h-11 w-full self-end items-center justify-center gap-1 rounded-lg border border-border bg-background px-1 text-[11px] font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60 lg:inline-flex">
+                <Save aria-hidden="true" className="size-3.5 shrink-0" />
+                {savingProfile ? "Saving…" : "Save chart"}
+              </button>
+              <button type="button" onClick={toggleSavedProfiles} disabled={savedProfilesLoading} aria-expanded={savedProfilesOpen} className="hidden min-h-11 w-full self-end items-center justify-center gap-1 rounded-lg border border-border bg-background px-1 text-[11px] font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60 lg:inline-flex">
+                <FolderOpen aria-hidden="true" className="size-3.5 shrink-0" />
+                {savedProfilesOpen ? "Close saved" : "Load saved"}
+              </button>
+              <div className="-mx-3 -mb-3 mt-1 flex min-w-0 items-start gap-2 rounded-b-xl border-t border-border bg-muted/80 px-3 py-2 dark:bg-muted/50 md:col-span-2 lg:col-span-8">
                   <label htmlFor="chart-notes" className="sr-only">Chart notes</label>
                   <textarea
                     ref={notesInputRef}
@@ -2484,7 +2513,7 @@ export function KundaliDashboard() {
           onSave={confirmSaveProfile}
         />
 
-        <nav role="tablist" aria-label="Kundali analysis" className="flex w-full gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 shadow-sm">
+        <nav role="tablist" aria-label="Kundali analysis" className="no-scrollbar flex w-full snap-x snap-mandatory gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 shadow-sm lg:overflow-visible">
           {DASHBOARD_TABS.map(({ id, label }) => (
             <button
               key={id}
@@ -2496,7 +2525,7 @@ export function KundaliDashboard() {
               onClick={() => selectDashboardTab(id)}
               onMouseEnter={() => preloadDashboardTab(id)}
               onFocus={() => preloadDashboardTab(id)}
-              className={`min-h-9 shrink-0 rounded-lg px-3 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${dashboardTab === id ? "border border-primary/30 bg-accent text-accent-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+              className={`min-h-11 shrink-0 snap-start rounded-lg px-2 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 2xl:px-3 2xl:text-xs ${dashboardTab === id ? "border border-primary/30 bg-accent text-accent-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
             >
               {label}
             </button>
@@ -2563,11 +2592,6 @@ export function KundaliDashboard() {
             />
           </Suspense>
         )}
-        {dashboardTab === "element-modality" && (
-          <Suspense fallback={<SecondaryTabSkeleton />}>
-            <ElementModalityTab data={displayData} language={language} />
-          </Suspense>
-        )}
         {dashboardTab === "aspects" && (
           <Suspense fallback={<SecondaryTabSkeleton />}>
             <AspectsTab data={displayData} language={language} useSignIcons={viewPreferences.useSignIcons} />
@@ -2590,8 +2614,8 @@ export function KundaliDashboard() {
         <PanchangStrip date={displayData?.input.date ?? profile.date} planets={displayData?.planets ?? []} />
 
         {/* Core chart panels grow with their controls and charts; wide tables keep horizontal-only overflow. */}
-        <div id="kundali-charts" className="grid w-full grid-cols-1 items-stretch gap-4 scroll-mt-4 xl:grid-cols-2">
-          <div className="row-start-1 flex min-h-0 min-w-0 xl:col-start-1">
+        <div id="kundali-charts" className="grid w-full grid-cols-1 items-stretch gap-4 scroll-mt-4 lg:grid-cols-2 lg:gap-6">
+          <div className="row-start-1 flex min-h-0 min-w-0 lg:col-start-1">
             <section className="relative flex h-full min-h-0 w-full flex-col rounded-xl border border-border bg-card text-card-foreground shadow-sm" aria-label="Primary D1 chart">
               <ChartControls
                 chartMode={chartMode}
@@ -2633,7 +2657,7 @@ export function KundaliDashboard() {
             </section>
           </div>
 
-          <div className="order-2 flex min-h-0 min-w-0 xl:col-start-2 xl:row-start-1">
+          <div className="order-2 flex min-h-0 min-w-0 lg:col-start-2 lg:row-start-1">
             <section id="auxiliary-chart" className="relative flex h-full min-h-0 w-full flex-col rounded-xl border border-border bg-card text-card-foreground shadow-sm" aria-label="Auxiliary chart viewer">
               <div className="bg-muted/10 p-4 border-b border-border flex flex-col gap-3 xl:min-h-[300px]">
               <div className="grid flex-none grid-cols-1 gap-4 md:grid-cols-2">

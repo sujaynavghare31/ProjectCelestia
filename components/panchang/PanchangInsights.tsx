@@ -31,7 +31,7 @@ function ChoghadiyaGroup({
   return (
     <div>
       <h3 className="mb-2 text-xs font-semibold text-foreground">{title}</h3>
-      <ol className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+      <ol className="grid grid-cols-1 gap-1.5 md:grid-cols-4">
         {slots.map((slot) => (
           <li key={`${title}-${slot.index}-${slot.start}`} className={`min-w-0 rounded-lg px-2.5 py-2 ${qualityStyles[slot.quality]}`}>
             <div className="flex items-center justify-between gap-1">
@@ -60,7 +60,7 @@ function HoraGroup({
   return (
     <div>
       <h3 className="mb-2 text-xs font-semibold text-foreground">{title}</h3>
-      <ol className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 lg:grid-cols-4">
+      <ol className="grid grid-cols-1 gap-1.5 md:grid-cols-3 lg:grid-cols-4">
         {horas.map((hora) => (
           <li key={`${title}-${hora.index}`} className="min-w-0 rounded-lg border border-border bg-muted/40 px-2.5 py-2">
             <div className="flex items-center justify-between gap-1">
@@ -105,7 +105,7 @@ function PanchangInsightsView({ data }: { data: PanchangDay }) {
           </div>
           <p className="text-[10px] text-muted-foreground">{data.lunarSolar.convention}</p>
         </div>
-        <dl className="grid grid-cols-2 divide-x divide-y divide-border/70 sm:grid-cols-3 lg:grid-cols-4">
+        <dl className="grid grid-cols-1 divide-y divide-border/70 md:grid-cols-3 md:divide-x md:divide-y-0 lg:grid-cols-4">
           {solarSpecs.map(({ label, value }) => (
             <div key={label} className="min-w-0 px-4 py-3">
               <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
@@ -129,7 +129,7 @@ function PanchangInsightsView({ data }: { data: PanchangDay }) {
           </div>
           <QualityLabel quality={data.anandadiYoga.quality} />
         </div>
-        <div className="grid gap-5 xl:grid-cols-2">
+        <div className="grid gap-5 lg:grid-cols-2">
           <ChoghadiyaGroup title="Day" slots={data.choghadiya.day} timezone={data.timezone} />
           <ChoghadiyaGroup title="Night" slots={data.choghadiya.night} timezone={data.timezone} />
         </div>
@@ -140,13 +140,13 @@ function PanchangInsightsView({ data }: { data: PanchangDay }) {
           <h2 className="text-sm font-semibold">Hora (planetary hours)</h2>
           <p className="mt-1 text-[11px] text-muted-foreground">Twelve equal periods from sunrise to sunset and twelve from sunset to next sunrise; durations follow the local day and night.</p>
         </div>
-        <div className="grid gap-5 xl:grid-cols-2">
+        <div className="grid gap-5 lg:grid-cols-2">
           <HoraGroup title="Day" horas={data.hora.day} timezone={data.timezone} />
           <HoraGroup title="Night" horas={data.hora.night} timezone={data.timezone} />
         </div>
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
         <section aria-label="Tarabalam grid" className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-sm sm:p-5">
           <div className="mb-3">
             <h2 className="text-sm font-semibold">Tarabalam</h2>

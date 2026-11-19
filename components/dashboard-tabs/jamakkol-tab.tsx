@@ -58,7 +58,10 @@ function JamakkolChart({ result }: { result: JamakkolResult }) {
   const svg = renderJamakkolChart(result, { size: 620 });
   return (
     <div className="mx-auto w-full max-w-[620px]">
-      <div className="aspect-square w-full overflow-hidden" dangerouslySetInnerHTML={{ __html: svg }} />
+      <div
+        className="aspect-square w-full overflow-hidden [&>svg]:block [&>svg]:h-auto [&>svg]:w-full"
+        dangerouslySetInnerHTML={{ __html: svg }}
+      />
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground" aria-label="Jamakkol chart legend">
         {Object.entries(PLANET_COLORS).map(([planet, color]) => (
           <span key={planet} className="inline-flex items-center gap-1.5">
@@ -79,12 +82,12 @@ function PositionsTable({ result }: { result: JamakkolResult }) {
     <div className="overflow-x-auto rounded-xl border border-border">
       <table className="w-full min-w-[620px] text-left text-xs">
         <thead className="bg-muted/60 text-[10px] uppercase tracking-wide text-muted-foreground">
-          <tr><th scope="col" className="px-3 py-2">Point</th><th scope="col" className="px-3 py-2">Type</th><th scope="col" className="px-3 py-2">Sign</th><th scope="col" className="px-3 py-2">Degree</th><th scope="col" className="px-3 py-2">Nakshatra · Pada</th></tr>
+          <tr><th scope="col" className="sticky left-0 z-20 bg-muted/60 px-3 py-2">Point</th><th scope="col" className="px-3 py-2">Type</th><th scope="col" className="px-3 py-2">Sign</th><th scope="col" className="px-3 py-2">Degree</th><th scope="col" className="px-3 py-2">Nakshatra · Pada</th></tr>
         </thead>
         <tbody className="divide-y divide-border">
           {result.points.map((point) => (
             <tr key={`${point.category}-${point.name}`}>
-              <th scope="row" className="whitespace-nowrap px-3 py-2 font-semibold">{point.name}</th>
+              <th scope="row" className="sticky left-0 z-10 whitespace-nowrap bg-card px-3 py-2 font-semibold">{point.name}</th>
               <td className="px-3 py-2 font-medium" style={{ color: colorForPoint(point) }}>{categoryLabels[point.category]}</td>
               <td className="whitespace-nowrap px-3 py-2">{point.sign}</td>
               <td className="whitespace-nowrap px-3 py-2 font-mono">{point.degree}{point.retrograde ? " (R)" : point.exalted ? " ↑" : ""}</td>
@@ -129,14 +132,14 @@ function JamaGrahaTable({ date, time }: { date: string; time: string }) {
     <section className="rounded-xl border border-border bg-card p-4 shadow-sm" aria-labelledby="jama-grahas-title">
       <h3 id="jama-grahas-title" className="mb-3 text-sm font-semibold">Jama Grahas</h3>
       <div className="overflow-x-auto">
-        <table className="w-full text-left text-xs">
+        <table className="w-full min-w-[420px] text-left text-xs">
           <thead className="bg-muted/60 text-[10px] uppercase tracking-wide text-muted-foreground">
-            <tr><th className="px-3 py-2">Graha</th><th className="px-3 py-2">Sign (Tamil)</th><th className="px-3 py-2">Degree</th><th className="px-3 py-2">Exalted</th></tr>
+            <tr><th className="sticky left-0 z-20 bg-muted/60 px-3 py-2">Graha</th><th className="px-3 py-2">Sign (Tamil)</th><th className="px-3 py-2">Degree</th><th className="px-3 py-2">Exalted</th></tr>
           </thead>
           <tbody className="divide-y divide-border">
             {result.grahas.map((graha) => (
               <tr key={graha.short}>
-                <th scope="row" className="px-3 py-2 font-semibold">{graha.name}</th>
+                <th scope="row" className="sticky left-0 z-10 bg-card px-3 py-2 font-semibold">{graha.name}</th>
                 <td className="px-3 py-2">{graha.sign}</td>
                 <td className="px-3 py-2 font-mono">{formatJama(graha.longitude)}</td>
                 <td className="px-3 py-2">{graha.exalted ? "✓" : ""}</td>
@@ -243,7 +246,7 @@ export default function JamakkolTab({ profile, data, chartMode, transitDate, tra
       <p className="text-xs font-medium text-muted-foreground">{calculatedFor}</p>
       <section className="rounded-xl border border-border bg-card p-3 shadow-sm sm:p-5"><JamakkolChart result={active} /></section>
       <JamaGrahaTable date={jamaDateTime.date} time={jamaDateTime.time} />
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:gap-6">
         <section className="rounded-xl border border-border bg-card p-4 shadow-sm" aria-labelledby="jamakkol-positions-title"><h3 id="jamakkol-positions-title" className="mb-3 text-sm font-semibold">Positions</h3><PositionsTable result={active} /></section>
         <div className="space-y-4"><PanchangCard result={active} /><section className="rounded-xl border border-border bg-card p-4 text-xs shadow-sm"><p><span className="font-semibold">Exalted Jama grahas:</span> {active.exaltedJama.join(", ") || "None"}</p><p className="mt-2"><span className="font-semibold">Kavippu:</span> {active.veediSign} · count {active.kavippuCount}</p></section></div>
       </div>
