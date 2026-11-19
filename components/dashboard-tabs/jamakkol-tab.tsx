@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useKundaliStore } from "@/lib/kundali-store";
 import type { BirthProfile } from "@/lib/kundali-store";
 import type { EphemerisResponse } from "@/lib/kundali-types";
 import {
@@ -167,6 +168,12 @@ function JamaGrahaTable({ date, time }: { date: string; time: string }) {
 
 export default function JamakkolTab({ profile, data, chartMode }: Props) {
   const [liveTick, setLiveTick] = useState(0);
+  const [jamaData, setJamaData] = useState<EphemerisResponse | null>(null);
+  const [jamaError, setJamaError] = useState<string | null>(null);
+  const ayanamsa = useKundaliStore((state) => state.ayanamsa);
+  const zodiacMode = useKundaliStore((state) => state.zodiacMode);
+  const customAyanamsaDegrees = useKundaliStore((state) => state.customAyanamsaDegrees);
+  const nodeType = useKundaliStore((state) => state.nodeType);
   const [jamaMode, setJamaMode] = useState<"now" | "custom">("now");
   const [jamaLocation, setJamaLocation] = useState({
     place: profile.city || "Mumbai",
@@ -183,13 +190,50 @@ export default function JamakkolTab({ profile, data, chartMode }: Props) {
     return () => window.clearInterval(interval);
   }, [jamaMode]);
 
+  const jamaDateTime = jamaMode === "now"
+    ? jamaLocalNow(jamaLocation.timeZone)
+    : { date: jamaCustomDate, time: jamaCustomTime };
+
+  useEffect(() => {
+    let isMounted = true;
+    const timeout = window.setTimeout(async () => {
+      setJamaError(null);
+      try {
+        const response = await fetch("/api/ephemeris", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date: jamaDateTime.date,
+            time: jamaDateTime.time,
+            lat: jamaLocation.latitude,
+            lng: jamaLocation.longitude,
+            timezone: jamaLocation.timeZone,
+            ayanamsa,
+            zodiacMode,
+            customAyanamsaDegrees,
+            nodeType,
+          }),
+        });
+        const result = await response.json() as EphemerisResponse | { error: string };
+        if (!isMounted) return;
+        if (!response.ok || "error" in result) throw new Error("error" in result ? result.error : "Unable to calculate Jamakkol positions.");
+        setJamaData(result);
+      } catch (error) {
+        if (isMounted) setJamaError(error instanceof Error ? error.message : "Unable to calculate Jamakkol positions.");
+      }
+    }, 100);
+    return () => {
+      isMounted = false;
+      window.clearTimeout(timeout);
+    };
+  }, [jamaDateTime.date, jamaDateTime.time, jamaLocation, ayanamsa, zodiacMode, customAyanamsaDegrees, nodeType, liveTick]);
+
   const active = useMemo(() => {
-    if (!data) return null;
+    const jamaEphemeris = jamaData ?? data;
+    if (!jamaEphemeris) return null;
     void liveTick;
-    const dateTime = jamaMode === "now"
-      ? jamaLocalNow(jamaLocation.timeZone)
-      : { date: jamaCustomDate, time: jamaCustomTime };
-    const planets = Object.fromEntries(data.planets.map((planet) => [planet.name, planet.longitude]));
+    const dateTime = jamaDateTime;
+    const planets = Object.fromEntries(jamaEphemeris.planets.map((planet) => [planet.name, planet.longitude]));
     const required = ["Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
     if (required.some((name) => typeof planets[name] !== "number")) return null;
     return jamakkol({
@@ -199,18 +243,15 @@ export default function JamakkolTab({ profile, data, chartMode }: Props) {
       lat: jamaLocation.latitude,
       lon: jamaLocation.longitude,
       place: jamaLocation.place,
-      ascendant: data.ascendant.longitude,
-      ayanamsa: data.ayanamsa.degrees,
+      ascendant: jamaEphemeris.ascendant.longitude,
+      ayanamsa: jamaEphemeris.ayanamsa.degrees,
       planets: planets as { Mars: number; Mercury: number; Jupiter: number; Venus: number; Saturn: number; Sun?: number; Moon?: number; Rahu?: number },
-      retrograde: Object.fromEntries(data.planets.filter((planet) => ["Mars", "Mercury", "Jupiter", "Venus", "Saturn"].includes(planet.name)).map((planet) => [planet.name, planet.motion === "R"])),
-      mandiLongitude: data.points.find((point) => point.name === "Mandi")?.longitude,
+      retrograde: Object.fromEntries(jamaEphemeris.planets.filter((planet) => ["Mars", "Mercury", "Jupiter", "Venus", "Saturn"].includes(planet.name)).map((planet) => [planet.name, planet.motion === "R"])),
+      mandiLongitude: jamaEphemeris.points.find((point) => point.name === "Mandi")?.longitude,
     });
-  }, [chartMode, data, liveTick, profile, jamaMode, jamaCustomDate, jamaCustomTime, jamaLocation]);
+  }, [chartMode, data, jamaData, liveTick, profile, jamaDateTime.date, jamaDateTime.time, jamaLocation]);
 
   if (!active) return <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">Jamakkol needs a completed planetary calculation. Submit the chart details and try again.</div>;
-  const jamaDateTime = jamaMode === "now"
-    ? jamaLocalNow(jamaLocation.timeZone)
-    : { date: jamaCustomDate, time: jamaCustomTime };
   const jamaCalculation = jamaGrahas(jamaDateTime.date, jamaDateTime.time);
   const [year, month, day] = jamaDateTime.date.split("-").map(Number);
   const monthName = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][month - 1];

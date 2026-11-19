@@ -28,6 +28,15 @@ describe("Jamakkol Jama grahas", () => {
     expect(result.grahas[2].longitude).toBe(0);
   });
 
+  it("matches the Thursday Night 22:07:28 Jama positions", () => {
+    const result = jamaGrahas("2026-11-19", "22:07:28");
+    expect(result).toMatchObject({ weekday: "Thursday", half: "Night", jamam: 3 });
+    const expected = [326.26666666666665, 281.26666666666665, 236.26666666666665, 191.26666666666665, 146.26666666666665, 101.26666666666665, 56.26666666666665, 11.26666666666665];
+    result.grahas.forEach((graha, index) => {
+      expect(graha.longitude).toBeCloseTo(expected[index], 10);
+    });
+  });
+
   it("formats degrees by truncating to minutes", () => {
     expect(formatJama(12.631)).toBe("Mesham 12°37′");
   });
