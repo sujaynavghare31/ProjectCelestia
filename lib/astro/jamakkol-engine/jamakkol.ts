@@ -50,8 +50,15 @@ export const PLANET_COLORS = {
   Ketu: "#C2410C",
 } as const;
 
+/** Fixed signs are reserved from the outer Jama ring: Taurus, Leo, Scorpio, Aquarius. */
+export const FIXED_OUTER_SIGN_INDEXES = [1, 4, 7, 10] as const;
+
 export function outerRingSignIndex(signIndex: number) {
-  return mod(signIndex, 12);
+  let displaySignIndex = mod(signIndex, 12);
+  while (FIXED_OUTER_SIGN_INDEXES.some((fixedIndex) => fixedIndex === displaySignIndex)) {
+    displaySignIndex = mod(displaySignIndex + 1, 12);
+  }
+  return displaySignIndex;
 }
 
 // ----------------------------- helpers -----------------------------
