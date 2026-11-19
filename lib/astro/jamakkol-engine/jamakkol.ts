@@ -52,13 +52,40 @@ export const PLANET_COLORS = {
 
 /** Fixed signs are reserved from the outer Jama ring: Taurus, Leo, Scorpio, Aquarius. */
 export const FIXED_OUTER_SIGN_INDEXES = [1, 4, 7, 10] as const;
+export const OUTER_SLOT_SIGNS = [0, 2, 3, 5, 6, 8, 9, 11] as const;
+const isFixed = (sign: number) => (FIXED_OUTER_SIGN_INDEXES as readonly number[]).includes(mod(sign, 12));
+export const OUTER_SLOTS: Record<number, { side: "top" | "right" | "bottom" | "left"; gx: number; gy: number; rotate: number; arrow: "←" | "→"; arrowBefore: boolean }> = {
+  0: { side: "top", gx: 1, gy: 0, rotate: 0, arrow: "←", arrowBefore: true },
+  2: { side: "top", gx: 3, gy: 0, rotate: 0, arrow: "←", arrowBefore: true },
+  3: { side: "right", gx: 3, gy: 1, rotate: 90, arrow: "→", arrowBefore: false },
+  5: { side: "right", gx: 3, gy: 3, rotate: 90, arrow: "→", arrowBefore: false },
+  6: { side: "bottom", gx: 2, gy: 3, rotate: 0, arrow: "→", arrowBefore: false },
+  8: { side: "bottom", gx: 0, gy: 3, rotate: 0, arrow: "→", arrowBefore: false },
+  9: { side: "left", gx: 0, gy: 2, rotate: -90, arrow: "←", arrowBefore: true },
+  11: { side: "left", gx: 0, gy: 0, rotate: -90, arrow: "←", arrowBefore: true },
+};
 
-export function outerRingSignIndex(signIndex: number) {
-  let displaySignIndex = mod(signIndex, 12);
-  while (FIXED_OUTER_SIGN_INDEXES.some((fixedIndex) => fixedIndex === displaySignIndex)) {
-    displaySignIndex = mod(displaySignIndex + 1, 12);
-  }
-  return displaySignIndex;
+export function outerRingSignIndex(signIndex: number, nextSlotTaken = false) {
+  const normalizedSign = mod(signIndex, 12);
+  if (!isFixed(normalizedSign)) return normalizedSign;
+  return nextSlotTaken ? mod(normalizedSign - 1, 12) : mod(normalizedSign + 1, 12);
+}
+
+export function outerRingSignIndexes(longitudes: number[]) {
+  const signs = longitudes.map((longitude) => Math.floor(norm360(longitude) / 30));
+  return signs.map((sign, index) => {
+    if (!isFixed(sign)) return sign;
+    const nextSlot = mod(sign + 1, 12);
+    const nextSlotTaken = signs.some((otherSign, otherIndex) => otherIndex !== index && otherSign === nextSlot);
+    return outerRingSignIndex(sign, nextSlotTaken);
+  });
+}
+
+export function outerLabel(short: string, longitude: number, displaySignIndex: number, exalted = false) {
+  const totalMinutes = Math.floor(norm360(longitude) * 60 + 1e-7);
+  const text = `${short} ${Math.floor(totalMinutes / 60)}° ${String(totalMinutes % 60).padStart(2, "0")}′${exalted ? " (Ex)" : ""}`;
+  const slot = OUTER_SLOTS[displaySignIndex];
+  return slot.arrowBefore ? `${slot.arrow} ${text}` : `${text} ${slot.arrow}`;
 }
 
 // ----------------------------- helpers -----------------------------
@@ -132,7 +159,7 @@ export interface JamakkolInput {
   mandiLongitude?: number | null;
 }
 export type Category = "points" | "jama" | "gochara" | "upagraha";
-export interface Point { name: string; short: string; category: Category; longitude: number; signIndex: number; sign: string; degree: string; nakshatraPada: string; label: string; exalted?: boolean; retrograde?: boolean }
+export interface Point { name: string; short: string; category: Category; longitude: number; signIndex: number; sign: string; degree: string; nakshatraPada: string; label: string; exalted?: boolean; retrograde?: boolean; displaySignIndex?: number; outerLabel?: string }
 
 export function colorForPoint(point: Pick<Point, "category" | "name">) {
   const name = point.name.startsWith("Jama ") ? point.name.slice(5) : point.name;
@@ -156,7 +183,15 @@ export const CITIES = [
 export function calculateOuterJamaGrahas(localDate: Date) {
   const date = `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, "0")}-${String(localDate.getDate()).padStart(2, "0")}`;
   const time = `${String(localDate.getHours()).padStart(2, "0")}:${String(localDate.getMinutes()).padStart(2, "0")}:${String(localDate.getSeconds()).padStart(2, "0")}`;
-  return jamaGrahas(date, time).grahas.map((graha) => ({ planet: graha.short, longitude: graha.longitude }));
+  const grahas = jamaGrahas(date, time).grahas;
+  const displaySignIndexes = outerRingSignIndexes(grahas.map((graha) => graha.longitude));
+  return grahas.map((graha, index) => ({
+    planet: graha.short,
+    longitude: graha.longitude,
+    signIndex: Math.floor(graha.longitude / 30),
+    displaySignIndex: displaySignIndexes[index],
+    label: outerLabel(graha.short, graha.longitude, displaySignIndexes[index], graha.exalted),
+  }));
 }
 
 export function jamakkol(input: JamakkolInput) {
@@ -228,9 +263,14 @@ export function jamakkol(input: JamakkolInput) {
   };
   const points: Point[] = [mk("Udayam", "Udayam", "points", udayam), mk("Aarudam", "Aarudam", "points", aarudam), mk("Kavippu", "Kavippu", "points", kavippu)];
   if (inp.mandiLongitude != null) points.push(mk("Mandi", "Mandi", "upagraha", mod(inp.mandiLongitude, 360)));
-  jama.grahas.forEach((graha) => {
+  const jamaDisplaySignIndexes = outerRingSignIndexes(jama.grahas.map((graha) => graha.longitude));
+  jama.grahas.forEach((graha, index) => {
     const name = graha.name === "Snake" ? "Pambu (Rahu)" : graha.name;
-    points.push(mk(`Jama ${name}`, graha.short, "jama", graha.longitude, { exalted: graha.exalted }));
+    points.push(mk(`Jama ${name}`, graha.short, "jama", graha.longitude, {
+      exalted: graha.exalted,
+      displaySignIndex: jamaDisplaySignIndexes[index],
+      outerLabel: outerLabel(graha.short, graha.longitude, jamaDisplaySignIndexes[index], graha.exalted),
+    }));
   });
   const R = inp.retrograde ?? {};
   ([["Sun", "Su", sun, false], ["Moon", "Mo", moon, false], ["Mars", "Ma", inp.planets.Mars, !!R.Mars], ["Mercury", "Me", inp.planets.Mercury, !!R.Mercury],
@@ -244,7 +284,8 @@ export function jamakkol(input: JamakkolInput) {
     signIndex: i, sign,
     house: mod(i - udSign, 12) + 1,
     asc: inp.ascendant != null && Math.floor(mod(inp.ascendant, 360) / 30) === i,
-    jama: points.filter((p) => p.category === "jama" && p.signIndex === i).map((p) => p.label),
+    jama: points.filter((p) => p.category === "jama" && p.displaySignIndex === i).map((p) => p.outerLabel ?? p.label),
+    outerSlot: OUTER_SLOTS[i] ?? null,
     gochara: points.filter((p) => p.category === "gochara" && p.signIndex === i).map((p) => p.label),
     upagraha: points.filter((p) => p.category === "upagraha" && p.signIndex === i).map((p) => p.label),
     points: points.filter((p) => p.category === "points" && p.signIndex === i).map((p) => p.label),

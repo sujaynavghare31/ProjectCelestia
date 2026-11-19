@@ -21,6 +21,57 @@ describe("Jamakkol outer grahas", () => {
       expect(point.longitude).toBeCloseTo(expected[index], 5);
     });
   });
+  it("matches the reference outer ring with collision-free slots at the exact input time", () => {
+    const result = jamakkol({
+      date: "2026-11-19",
+      time: "22:49:13",
+      tz: 5.5,
+      lat: 19.02288,
+      lon: 72.83861,
+      place: "Dadar, Mumbai",
+      planets: { Mars: 0, Mercury: 0, Jupiter: 0, Venus: 0, Saturn: 0 },
+    });
+
+    expect(result.jamaGrahas.map((point) => point.displaySignIndex)).toEqual([9, 8, 6, 5, 3, 2, 0, 11]);
+    const svg = renderJamakkolChart(result);
+    for (const label of [
+      "← J.MO 35° 23′",
+      "← J.SA 80° 23′",
+      "J.VE 125° 23′ →",
+      "J.ME 170° 23′ (Ex) →",
+      "J.JU 215° 23′ →",
+      "J.MA 260° 23′ →",
+      "← J.SU 305° 23′",
+      "← J.SN 350° 23′",
+    ]) {
+      expect(svg).toContain(label);
+    }
+  });
+  it("matches the 10:38:58 PM reference outer-ring positions with minute precision tolerance", () => {
+    const result = jamakkol({
+      date: "2026-11-19",
+      time: "22:38:58",
+      tz: 5.5,
+      lat: 19.02288,
+      lon: 72.83861,
+      place: "Mumbai",
+      planets: { Mars: 0, Mercury: 0, Jupiter: 0, Venus: 0, Saturn: 0 },
+    });
+
+    const svg = renderJamakkolChart(result);
+    for (const label of [
+      "J.SU 310° 31′",
+      "J.SN 355° 31′",
+      "J.MA 265° 31′",
+      "J.JU 220° 31′",
+      "J.ME 175° 31′",
+      "J.VE 130° 31′",
+      "J.SA 85° 31′",
+      "J.MO 40° 31′",
+    ]) {
+      expect(svg).toContain(label);
+    }
+  });
   it("keeps the Wednesday night Jamam #4 positions, renders them on their sign edges, and includes Maandi", () => {
     const result = jamakkol({
       date: "2026-11-18",
@@ -41,14 +92,14 @@ describe("Jamakkol outer grahas", () => {
 
     const svg = renderJamakkolChart(result);
     for (const label of [
-      "J.SN 16° 10′ ←",
-      "J.MO 61° 10′ ←",
-      "J.SA 106° 10′ ←",
-      "J.VE 151° 10′ ←",
-      "J.ME 196° 10′ →",
-      "J.JU 241° 10′ →",
-      "J.MA 286° 10′ ←",
-      "J.SU 331° 10′ ←",
+      "← J.SN 16° 11′",
+      "← J.MO 61° 11′",
+      "J.SA 106° 11′ →",
+      "J.VE 151° 11′ →",
+      "J.ME 196° 11′ →",
+      "J.JU 241° 11′ →",
+      "← J.MA 286° 11′",
+      "← J.SU 331° 11′",
     ]) {
       expect(svg).toContain(label);
     }
@@ -95,14 +146,14 @@ describe("Jamakkol outer grahas", () => {
 
     const svg = renderJamakkolChart(result);
     for (const label of [
-      "J.SN 4° 17′ ←",
-      "J.MO 49° 17′ ←",
-      "J.SA 94° 17′ ←",
-      "J.VE 139° 17′ ←",
+      "← J.SN 4° 17′",
+      "← J.MO 49° 17′",
+      "J.SA 94° 17′ →",
+      "J.VE 139° 17′ →",
       "J.ME 184° 17′ →",
       "J.JU 229° 17′ →",
-      "J.MA 274° 17′ ←",
-      "J.SU 319° 17′ ←",
+      "← J.MA 274° 17′",
+      "← J.SU 319° 17′",
       "UD - Udayam",
       "AR - Aarudam",
       "KV - Kavippu",

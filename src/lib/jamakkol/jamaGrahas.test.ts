@@ -37,8 +37,9 @@ describe("Jamakkol Jama grahas", () => {
     });
   });
 
-  it("formats degrees by truncating to minutes", () => {
+  it("floors degrees to the minute while tolerating floating-point noise", () => {
     expect(formatJama(12.631)).toBe("Mesham 12°37′");
+    expect(formatJama(40 + 31 / 60)).toBe("Rishabam 10°31′");
   });
 
   it("gets local Kolkata time from an instant", () => {

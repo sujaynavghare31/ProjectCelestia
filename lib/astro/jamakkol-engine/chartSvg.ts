@@ -1,4 +1,4 @@
-import { COLORS, colorForPoint, outerRingSignIndex, type JamakkolResult, type Point } from "./jamakkol";
+import { COLORS, colorForPoint, outerLabel as formatOuterLabel, OUTER_SLOTS, outerRingSignIndex, type JamakkolResult, type Point } from "./jamakkol";
 
 const ABBR = ["Ari", "Tau", "Gem", "Can", "Leo", "Vir", "Lib", "Sco", "Sag", "Cap", "Aqu", "Pis"];
 const GRID: (number | null)[][] = [[11, 0, 1, 2], [10, null, null, 3], [9, null, null, 4], [8, 7, 6, 5]];
@@ -23,11 +23,6 @@ const JAMA_BORDER_NAMES: Record<string, string> = {
   Venus: "J.VE", Saturn: "J.SA", Moon: "J.MO", "Pambu (Rahu)": "J.SN",
 };
 const escapeXml = (value: string) => value.replace(/[&<>]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[character]!);
-const absoluteDegMin = (longitude: number) => {
-  const degree = Math.floor(longitude);
-  const minutes = Math.floor((longitude - degree) * 60);
-  return `${degree}° ${String(minutes).padStart(2, "0")}′`;
-};
 const degSec = (longitude: number) => {
   let totalSeconds = Math.round(longitude * 3600);
   const degrees = Math.floor((totalSeconds / 3600) % 30);
@@ -119,29 +114,28 @@ export function renderJamakkolChart(result: JamakkolResult, options: JamakkolCha
   const bandTop = 22;
   const jamaBySign = new Map<number, Point[]>();
   result.jamaGrahas.forEach((point) => {
-    const displaySignIndex = outerRingSignIndex(point.signIndex);
+    const displaySignIndex = point.displaySignIndex ?? outerRingSignIndex(point.signIndex);
     const jamaPoints = jamaBySign.get(displaySignIndex) ?? [];
     jamaPoints.push(point);
     jamaBySign.set(displaySignIndex, jamaPoints);
   });
   jamaBySign.forEach((points, displaySignIndex) => {
     const cellPosition = signCells.get(displaySignIndex);
-    if (!cellPosition) return;
+    const slot = OUTER_SLOTS[displaySignIndex];
+    if (!cellPosition || !slot) return;
     const { row, column } = cellPosition;
     const centerX = x(column) + cell / 2;
     const centerY = y(row) + cell / 2;
-    const edge = displaySignIndex <= 2 ? "top"
-      : displaySignIndex <= 5 ? "right"
-        : displaySignIndex <= 8 ? "bottom"
-          : "left";
+    const edge = slot.side;
     points.forEach((point, index) => {
       const name = JAMA_BORDER_NAMES[point.name.replace("Jama ", "")] ?? point.short;
-      const label = `${name} ${absoluteDegMin(point.longitude)}${point.exalted ? " (Ex)" : ""}`;
+      const label = point.outerLabel?.replace(point.short, name) ??
+        formatOuterLabel(name, point.longitude, displaySignIndex, point.exalted);
       const color = colorForPoint(point);
-      if (edge === "top") parts.push(`<text x="${centerX}" y="${bandTop + index * 14}" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} ←</text>`);
-      if (edge === "bottom") parts.push(`<text x="${centerX}" y="${band + chartSize + 24 + index * 14}" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} →</text>`);
-      if (edge === "right") parts.push(`<text transform="translate(${chartSize + band + 20 + index * 14},${centerY}) rotate(90)" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} ←</text>`);
-      if (edge === "left") parts.push(`<text transform="translate(${18 - index * 14},${centerY}) rotate(-90)" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} ←</text>`);
+      if (edge === "top") parts.push(`<text x="${centerX}" y="${bandTop + index * 14}" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label}</text>`);
+      if (edge === "bottom") parts.push(`<text x="${centerX}" y="${band + chartSize + 24 + index * 14}" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label}</text>`);
+      if (edge === "right") parts.push(`<text transform="translate(${chartSize + band + 20 + index * 14},${centerY}) rotate(${slot.rotate})" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label}</text>`);
+      if (edge === "left") parts.push(`<text transform="translate(${18 - index * 14},${centerY}) rotate(${slot.rotate})" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label}</text>`);
     });
   });
 

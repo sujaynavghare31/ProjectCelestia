@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useKundaliStore } from "@/lib/kundali-store";
-import type { BirthProfile } from "@/lib/kundali-store";
+import { useKundaliStore, type BirthProfile } from "@/lib/kundali-store";
 import type { EphemerisResponse } from "@/lib/kundali-types";
 import {
   COLORS,
@@ -11,14 +10,16 @@ import {
   PLANET_COLORS,
   renderJamakkolChart,
   type JamakkolResult,
-  type Point,
 } from "@/lib/astro/jamakkol-engine";
-import { formatJama, jamaGrahas, localNow as jamaLocalNow } from "@/src/lib/jamakkol/jamaGrahas";
+import { formatJama, jamaGrahas } from "@/src/lib/jamakkol/jamaGrahas";
 
 type Props = {
   profile: BirthProfile;
   data: EphemerisResponse | null;
   chartMode: "transit" | "birth";
+  transitDate: string;
+  transitTime: string;
+  transitMode: "current" | "specific";
 };
 
 const categoryLabels = {
@@ -51,24 +52,6 @@ function timezoneOffset(date: string, time: string, timezone: string) {
     Number(values.second),
   );
   return (localAsUtc - instant.getTime()) / 3_600_000;
-}
-
-function localNow(timezone: string) {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date());
-  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
-  return {
-    date: `${values.year}-${values.month}-${values.day}`,
-    time: `${values.hour}:${values.minute}:${values.second}`,
-  };
 }
 
 function JamakkolChart({ result }: { result: JamakkolResult }) {
@@ -166,33 +149,20 @@ function JamaGrahaTable({ date, time }: { date: string; time: string }) {
   );
 }
 
-export default function JamakkolTab({ profile, data, chartMode }: Props) {
-  const [liveTick, setLiveTick] = useState(0);
+export default function JamakkolTab({ profile, data, chartMode, transitDate, transitTime, transitMode }: Props) {
   const [jamaData, setJamaData] = useState<EphemerisResponse | null>(null);
   const [jamaError, setJamaError] = useState<string | null>(null);
   const ayanamsa = useKundaliStore((state) => state.ayanamsa);
   const zodiacMode = useKundaliStore((state) => state.zodiacMode);
   const customAyanamsaDegrees = useKundaliStore((state) => state.customAyanamsaDegrees);
   const nodeType = useKundaliStore((state) => state.nodeType);
-  const [jamaMode, setJamaMode] = useState<"now" | "custom">("custom");
-  const [jamaLocation, setJamaLocation] = useState({
-    place: profile.city || "Mumbai",
-    latitude: profile.lat,
-    longitude: profile.lng,
-    timeZone: profile.timezone || "Asia/Kolkata",
-  });
-  const [jamaCustomDate, setJamaCustomDate] = useState(profile.date);
-  const [jamaCustomTime, setJamaCustomTime] = useState(profile.time);
-
-  useEffect(() => {
-    if (jamaMode !== "now") return;
-    const interval = window.setInterval(() => setLiveTick((tick) => tick + 1), 60_000);
-    return () => window.clearInterval(interval);
-  }, [jamaMode]);
-
-  const jamaDateTime = jamaMode === "now"
-    ? jamaLocalNow(jamaLocation.timeZone)
-    : { date: jamaCustomDate, time: jamaCustomTime };
+  const jamaDateTime = chartMode === "birth"
+    ? { date: profile.date, time: profile.time }
+    : transitMode === "specific"
+      ? { date: transitDate, time: transitTime }
+      : data
+        ? { date: data.input.date, time: data.input.time }
+        : { date: profile.date, time: profile.time };
 
   useEffect(() => {
     let isMounted = true;
@@ -205,9 +175,9 @@ export default function JamakkolTab({ profile, data, chartMode }: Props) {
           body: JSON.stringify({
             date: jamaDateTime.date,
             time: jamaDateTime.time,
-            lat: jamaLocation.latitude,
-            lng: jamaLocation.longitude,
-            timezone: jamaLocation.timeZone,
+            lat: profile.lat,
+            lng: profile.lng,
+            timezone: profile.timezone,
             ayanamsa,
             zodiacMode,
             customAyanamsaDegrees,
@@ -226,58 +196,49 @@ export default function JamakkolTab({ profile, data, chartMode }: Props) {
       isMounted = false;
       window.clearTimeout(timeout);
     };
-  }, [jamaDateTime.date, jamaDateTime.time, jamaLocation, ayanamsa, zodiacMode, customAyanamsaDegrees, nodeType, liveTick]);
+  }, [jamaDateTime.date, jamaDateTime.time, profile.lat, profile.lng, profile.timezone, ayanamsa, zodiacMode, customAyanamsaDegrees, nodeType]);
 
   const active = useMemo(() => {
-    const jamaEphemeris = jamaData ?? data;
+    const matchesInput = (ephemeris: EphemerisResponse | null) => ephemeris !== null &&
+      ephemeris.input.date === jamaDateTime.date &&
+      (ephemeris.input.time.length === 5 ? `${ephemeris.input.time}:00` : ephemeris.input.time) ===
+        (jamaDateTime.time.length === 5 ? `${jamaDateTime.time}:00` : jamaDateTime.time) &&
+      ephemeris.input.lat === profile.lat &&
+      ephemeris.input.lng === profile.lng &&
+      ephemeris.input.timezone === profile.timezone;
+    const jamaEphemeris = [jamaData, data].find(matchesInput);
     if (!jamaEphemeris) return null;
-    void liveTick;
-    const dateTime = jamaDateTime;
     const planets = Object.fromEntries(jamaEphemeris.planets.map((planet) => [planet.name, planet.longitude]));
     const required = ["Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
     if (required.some((name) => typeof planets[name] !== "number")) return null;
     return jamakkol({
-      date: dateTime.date,
-      time: dateTime.time,
-      tz: timezoneOffset(dateTime.date, dateTime.time, jamaLocation.timeZone),
-      lat: jamaLocation.latitude,
-      lon: jamaLocation.longitude,
-      place: jamaLocation.place,
+      date: jamaDateTime.date,
+      time: jamaDateTime.time,
+      tz: timezoneOffset(jamaDateTime.date, jamaDateTime.time, profile.timezone),
+      lat: profile.lat,
+      lon: profile.lng,
+      place: profile.city,
       ascendant: jamaEphemeris.ascendant.longitude,
       ayanamsa: jamaEphemeris.ayanamsa.degrees,
       planets: planets as { Mars: number; Mercury: number; Jupiter: number; Venus: number; Saturn: number; Sun?: number; Moon?: number; Rahu?: number },
       retrograde: Object.fromEntries(jamaEphemeris.planets.filter((planet) => ["Mars", "Mercury", "Jupiter", "Venus", "Saturn"].includes(planet.name)).map((planet) => [planet.name, planet.motion === "R"])),
       mandiLongitude: jamaEphemeris.points.find((point) => point.name === "Mandi")?.longitude,
     });
-  }, [chartMode, data, jamaData, liveTick, profile, jamaDateTime.date, jamaDateTime.time, jamaLocation]);
+  }, [data, jamaData, jamaDateTime.date, jamaDateTime.time, profile]);
 
-  if (!active) return <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">Jamakkol needs a completed planetary calculation. Submit the chart details and try again.</div>;
+  if (!active) return <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">{jamaError ?? "Jamakkol needs a completed planetary calculation. Submit the chart details and try again."}</div>;
   const jamaCalculation = jamaGrahas(jamaDateTime.date, jamaDateTime.time);
   const [year, month, day] = jamaDateTime.date.split("-").map(Number);
   const monthName = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][month - 1];
   const [hours, minutes, seconds = "00"] = jamaDateTime.time.split(":");
   const hour = Number(hours);
   const displayTime = `${String(((hour + 11) % 12) + 1).padStart(2, "0")}:${minutes}:${seconds} ${hour < 12 ? "AM" : "PM"}`;
-  const calculatedFor = `Calculated for: ${jamaCalculation.weekday}, ${String(day).padStart(2, "0")}-${monthName}-${year} ${displayTime} (${jamaLocation.place}, ${jamaLocation.timeZone}) — ${jamaCalculation.half} Jamam #${jamaCalculation.jamam}`;
+  const calculatedFor = `Calculated for: ${jamaCalculation.weekday}, ${String(day).padStart(2, "0")}-${monthName}-${year} ${displayTime} (${profile.city}, ${profile.timezone}) — ${jamaCalculation.half} Jamam #${jamaCalculation.jamam}`;
 
   return (
     <div className="space-y-4 pt-4">
       <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
-        <div><h2 className="text-base font-semibold">Jamakkol Prasannam</h2><p className="mt-1 text-xs text-muted-foreground">{profile.city} · {active.input.date} {active.input.time} · {active.input.tz >= 0 ? "+" : ""}{active.input.tz} UTC</p></div>
-      </section>
-      <section className="flex items-end gap-2 overflow-x-auto rounded-xl border border-border bg-card p-3 shadow-sm">
-        <label className="grid shrink-0 gap-1 text-xs">Mode
-          <select aria-label="Jamakkol time mode" value={jamaMode} onChange={(event) => setJamaMode(event.target.value as "now" | "custom")} className="h-9 w-24 rounded-md border border-input bg-background px-2">
-            <option value="custom">Custom</option>
-            <option value="now">Live</option>
-          </select>
-        </label>
-        <label className="grid shrink-0 gap-1 text-xs">Place<input value={jamaLocation.place} onChange={(event) => setJamaLocation((current) => ({ ...current, place: event.target.value }))} className="h-9 w-36 rounded-md border border-input bg-background px-2" /></label>
-        <label className="grid shrink-0 gap-1 text-xs">Latitude<input type="number" value={jamaLocation.latitude} onChange={(event) => setJamaLocation((current) => ({ ...current, latitude: Number(event.target.value) }))} className="h-9 w-28 rounded-md border border-input bg-background px-2" /></label>
-        <label className="grid shrink-0 gap-1 text-xs">Longitude<input type="number" value={jamaLocation.longitude} onChange={(event) => setJamaLocation((current) => ({ ...current, longitude: Number(event.target.value) }))} className="h-9 w-28 rounded-md border border-input bg-background px-2" /></label>
-        <label className="grid shrink-0 gap-1 text-xs">IANA time zone<input value={jamaLocation.timeZone} onChange={(event) => setJamaLocation((current) => ({ ...current, timeZone: event.target.value }))} className="h-9 w-36 rounded-md border border-input bg-background px-2" /></label>
-        <label className="grid shrink-0 gap-1 text-xs">Date<input type="date" value={jamaDateTime.date} onChange={(event) => setJamaCustomDate(event.target.value)} disabled={jamaMode === "now"} className="h-9 w-36 rounded-md border border-input bg-background px-2 disabled:opacity-70" /></label>
-        <label className="grid shrink-0 gap-1 text-xs">Time<input type="time" step="1" value={jamaDateTime.time} onChange={(event) => setJamaCustomTime(event.target.value)} disabled={jamaMode === "now"} className="h-9 w-32 rounded-md border border-input bg-background px-2 disabled:opacity-70" /></label>
+        <h2 className="text-base font-semibold">Jamakkol Prasannam</h2>
       </section>
       <p className="text-xs font-medium text-muted-foreground">{calculatedFor}</p>
       <section className="rounded-xl border border-border bg-card p-3 shadow-sm sm:p-5"><JamakkolChart result={active} /></section>

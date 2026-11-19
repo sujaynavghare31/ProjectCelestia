@@ -86,11 +86,9 @@ export function localNow(timeZone: string, now = new Date()) {
 }
 
 export function formatJama(longitude: number) {
-  const normalized = (((longitude % 360) + 360) % 360);
-  const signIndex = Math.floor(normalized / 30);
-  const degreeInSign = normalized - signIndex * 30;
-  const wholeMinutes = Math.floor(degreeInSign * 60);
-  const degrees = Math.floor(wholeMinutes / 60);
-  const minutes = wholeMinutes % 60;
+  const totalMinutes = Math.floor((((longitude % 360) + 360) % 360) * 60 + 1e-7) % (360 * 60);
+  const signIndex = Math.floor(totalMinutes / (30 * 60));
+  const degrees = Math.floor((totalMinutes % (30 * 60)) / 60);
+  const minutes = totalMinutes % 60;
   return `${JAMA_TAMIL_SIGNS[signIndex]} ${degrees}°${String(minutes).padStart(2, "0")}′`;
 }

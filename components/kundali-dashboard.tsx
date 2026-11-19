@@ -52,6 +52,7 @@ const loadMidpointsTab = () => import("@/components/dashboard-tabs/midpoints-tab
 const loadJamakkolTab = () => import("@/components/dashboard-tabs/jamakkol-tab");
 const loadShodashvargaTab = () => import("@/components/dashboard-tabs/shodashvarga-tab");
 const loadCarterCuspsPanel = () => import("@/components/dashboard-tabs/carter-cusps-panel");
+const loadJaiminiDashboard = () => import("@/src/components/jaimini/JaiminiDashboard");
 const DashaTab = lazy(loadDashaTab);
 const ElementModalityTab = lazy(loadElementModalityTab);
 const AspectsTab = lazy(loadAspectsTab);
@@ -65,6 +66,7 @@ const MidpointsTab = lazy(loadMidpointsTab);
 const JamakkolTab = lazy(loadJamakkolTab);
 const ShodashvargaTab = lazy(loadShodashvargaTab);
 const CarterCuspsPanel = lazy(loadCarterCuspsPanel);
+const JaiminiDashboard = lazy(loadJaiminiDashboard);
 
 const DIVISIONAL_CHARTS = {
   2: { name: "Hora", significance: "Wealth & Sustenance" },
@@ -1281,13 +1283,14 @@ type AuxiliaryType = "divisional" | "transit" | "solar" | "tajika" | "progressio
 type DashaSystem = "vimshottari" | "chara" | "ashtottari" | "yogini" | "kalachakra";
 type DashaSeed = "moon" | "ascendant" | "sun" | "ascendant-lord";
 type DashaLagnaMode = "natural" | "maha-lord" | "antar-lord";
-type DashboardTab = "core" | "kp" | "dasha" | "element-modality" | "aspects" | "midpoints" | "ashtakavarga" | "medical" | "transit-calendar" | "jamakkol" | "shodashvarga";
+type DashboardTab = "core" | "kp" | "jaimini" | "dasha" | "element-modality" | "aspects" | "midpoints" | "ashtakavarga" | "medical" | "transit-calendar" | "jamakkol" | "shodashvarga";
 
 // All existing astrology views remain available; strength modules are now grouped with Ashtakavarga.
 const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
   { id: "core", label: "Core Dashboard" },
   { id: "shodashvarga", label: "16 Kundalis" },
   { id: "kp", label: "KP Astrology" },
+  { id: "jaimini", label: "Jaimini" },
   { id: "dasha", label: "Dasha Systems" },
   { id: "element-modality", label: "Element & Modality" },
   { id: "aspects", label: "Drishti & Aspects" },
@@ -1315,6 +1318,7 @@ function preloadDashboardTab(tab: DashboardTab) {
     "transit-calendar": loadTransitCalendarTab,
     jamakkol: loadJamakkolTab,
     shodashvarga: loadShodashvargaTab,
+    jaimini: loadJaiminiDashboard,
   };
   if (tab === "core") return;
   void loaders[tab]().catch((error: unknown) => {
@@ -2508,12 +2512,23 @@ export function KundaliDashboard() {
             ChartRenderer={SvgChart}
           />
         )}
+        {dashboardTab === "jaimini" && (
+          <Suspense fallback={<SecondaryTabSkeleton />}>
+            <JaiminiDashboard
+              profile={submittedProfile ?? profile}
+              data={chartMode === "transit" ? transitData : data}
+            />
+          </Suspense>
+        )}
         {dashboardTab === "jamakkol" && (
           <Suspense fallback={<SecondaryTabSkeleton />}>
             <JamakkolTab
               profile={submittedProfile ?? profile}
               data={chartMode === "transit" ? transitData : data}
               chartMode={chartMode}
+              transitDate={transitDate}
+              transitTime={transitTime}
+              transitMode={transitMode}
             />
           </Suspense>
         )}
