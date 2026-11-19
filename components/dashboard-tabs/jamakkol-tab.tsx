@@ -174,7 +174,7 @@ export default function JamakkolTab({ profile, data, chartMode }: Props) {
   const zodiacMode = useKundaliStore((state) => state.zodiacMode);
   const customAyanamsaDegrees = useKundaliStore((state) => state.customAyanamsaDegrees);
   const nodeType = useKundaliStore((state) => state.nodeType);
-  const [jamaMode, setJamaMode] = useState<"now" | "custom">("now");
+  const [jamaMode, setJamaMode] = useState<"now" | "custom">("custom");
   const [jamaLocation, setJamaLocation] = useState({
     place: profile.city || "Mumbai",
     latitude: profile.lat,
@@ -264,19 +264,20 @@ export default function JamakkolTab({ profile, data, chartMode }: Props) {
     <div className="space-y-4 pt-4">
       <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
         <div><h2 className="text-base font-semibold">Jamakkol Prasannam</h2><p className="mt-1 text-xs text-muted-foreground">{profile.city} · {active.input.date} {active.input.time} · {active.input.tz >= 0 ? "+" : ""}{active.input.tz} UTC</p></div>
-        <div className="flex items-center gap-2">
-          <select aria-label="Jamakkol time mode" value={jamaMode} onChange={(event) => setJamaMode(event.target.value as "now" | "custom")} className="h-9 rounded-md border border-input bg-background px-2 text-xs">
-            <option value="now">Now</option>
-            <option value="custom">Custom</option>
-          </select>
-        </div>
       </section>
-      <section className="grid gap-2 rounded-xl border border-border bg-card p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-5">
-        <label className="grid gap-1 text-xs">Place<input value={jamaLocation.place} onChange={(event) => setJamaLocation((current) => ({ ...current, place: event.target.value }))} className="h-9 rounded-md border border-input bg-background px-2" /></label>
-        <label className="grid gap-1 text-xs">Latitude<input type="number" value={jamaLocation.latitude} onChange={(event) => setJamaLocation((current) => ({ ...current, latitude: Number(event.target.value) }))} className="h-9 rounded-md border border-input bg-background px-2" /></label>
-        <label className="grid gap-1 text-xs">Longitude<input type="number" value={jamaLocation.longitude} onChange={(event) => setJamaLocation((current) => ({ ...current, longitude: Number(event.target.value) }))} className="h-9 rounded-md border border-input bg-background px-2" /></label>
-        <label className="grid gap-1 text-xs">IANA time zone<input value={jamaLocation.timeZone} onChange={(event) => setJamaLocation((current) => ({ ...current, timeZone: event.target.value }))} className="h-9 rounded-md border border-input bg-background px-2" /></label>
-        {jamaMode === "custom" && <><label className="grid gap-1 text-xs">Date<input type="date" value={jamaCustomDate} onChange={(event) => setJamaCustomDate(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2" /></label><label className="grid gap-1 text-xs">Time<input type="time" step="1" value={jamaCustomTime} onChange={(event) => setJamaCustomTime(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2" /></label></>}
+      <section className="flex items-end gap-2 overflow-x-auto rounded-xl border border-border bg-card p-3 shadow-sm">
+        <label className="grid shrink-0 gap-1 text-xs">Mode
+          <select aria-label="Jamakkol time mode" value={jamaMode} onChange={(event) => setJamaMode(event.target.value as "now" | "custom")} className="h-9 w-24 rounded-md border border-input bg-background px-2">
+            <option value="custom">Custom</option>
+            <option value="now">Live</option>
+          </select>
+        </label>
+        <label className="grid shrink-0 gap-1 text-xs">Place<input value={jamaLocation.place} onChange={(event) => setJamaLocation((current) => ({ ...current, place: event.target.value }))} className="h-9 w-36 rounded-md border border-input bg-background px-2" /></label>
+        <label className="grid shrink-0 gap-1 text-xs">Latitude<input type="number" value={jamaLocation.latitude} onChange={(event) => setJamaLocation((current) => ({ ...current, latitude: Number(event.target.value) }))} className="h-9 w-28 rounded-md border border-input bg-background px-2" /></label>
+        <label className="grid shrink-0 gap-1 text-xs">Longitude<input type="number" value={jamaLocation.longitude} onChange={(event) => setJamaLocation((current) => ({ ...current, longitude: Number(event.target.value) }))} className="h-9 w-28 rounded-md border border-input bg-background px-2" /></label>
+        <label className="grid shrink-0 gap-1 text-xs">IANA time zone<input value={jamaLocation.timeZone} onChange={(event) => setJamaLocation((current) => ({ ...current, timeZone: event.target.value }))} className="h-9 w-36 rounded-md border border-input bg-background px-2" /></label>
+        <label className="grid shrink-0 gap-1 text-xs">Date<input type="date" value={jamaDateTime.date} onChange={(event) => setJamaCustomDate(event.target.value)} disabled={jamaMode === "now"} className="h-9 w-36 rounded-md border border-input bg-background px-2 disabled:opacity-70" /></label>
+        <label className="grid shrink-0 gap-1 text-xs">Time<input type="time" step="1" value={jamaDateTime.time} onChange={(event) => setJamaCustomTime(event.target.value)} disabled={jamaMode === "now"} className="h-9 w-32 rounded-md border border-input bg-background px-2 disabled:opacity-70" /></label>
       </section>
       <p className="text-xs font-medium text-muted-foreground">{calculatedFor}</p>
       <section className="rounded-xl border border-border bg-card p-3 shadow-sm sm:p-5"><JamakkolChart result={active} /></section>
