@@ -4,6 +4,8 @@
 // Pure TypeScript, no dependencies. Times are local; angles sidereal (Lahiri) degrees.
 // ---------------------------------------------------------------------------
 
+import { jamaGrahas, JAMA_SHORT as MODULE_JAMA_SHORT, JAMA_NAMES } from "../../../src/lib/jamakkol/jamaGrahas";
+
 export const SIGNS = ["Mesham (Aries)", "Rishabam (Taurus)", "Mithunam (Gemini)", "Kadagam (Cancer)", "Simmam (Leo)", "Kanni (Virgo)",
   "Thulam (Libra)", "Viruchigam (Scorpio)", "Dhanusu (Sagittarius)", "Makaram (Capricorn)", "Kumbam (Aquarius)", "Meenam (Pisces)"] as const;
 export const TAMIL_MONTHS = ["Chithirai", "Vaikasi", "Aani", "Aadi", "Aavani", "Purattasi", "Aippasi", "Karthigai", "Margazhi", "Thai", "Maasi", "Panguni"];
@@ -19,10 +21,8 @@ export const KARANAS = ["Kimstughna", ...Array.from({ length: 56 }, (_, i) => KA
 export const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const WEEKDAY_LORD = ["Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
 /** Fixed order of the 8 Jama grahas; each next one stands 45° behind the previous. */
-export const JAMA_ORDER = ["Sun", "Mars", "Jupiter", "Mercury", "Venus", "Saturn", "Moon", "Pambu (Rahu)"] as const;
-export const JAMA_SHORT = ["Su", "Ma", "Ju", "Me", "Ve", "Sa", "Mo", "Pa"];
-/** Exaltation sign index (0 = Aries) used for the "↑" flag. */
-export const JAMA_EXALT = [0, 9, 3, 5, 11, 6, 1, 1];
+export const JAMA_ORDER = [...JAMA_NAMES.map((name) => name === "Snake" ? "Pambu (Rahu)" : name)] as const;
+export const JAMA_SHORT = [...MODULE_JAMA_SHORT];
 const HORA_ORDER = ["Sun", "Venus", "Mercury", "Moon", "Saturn", "Jupiter", "Mars"];
 const RAHU_PART = [8, 2, 7, 5, 6, 4, 3], YAMA_PART = [5, 4, 3, 2, 1, 7, 6], GULIKA_PART = [7, 6, 5, 4, 3, 2, 1];
 /** Kavippu Veedhi offset by the Sun's sidereal sign. */
@@ -31,10 +31,10 @@ const VEEDHI_OFFSET = [90, 90, 120, 120, 150, 150, 90, 90, 120, 120, 150, 150];
 export const SOUTH_INDIAN_GRID: (number | null)[][] = [[11, 0, 1, 2], [10, null, null, 3], [9, null, null, 4], [8, 7, 6, 5]];
 /** Chart category colors. */
 export const COLORS = {
-  jama: { text: "#963D5D", bg: "#F8EAF0" },
-  gochara: { text: "#176B68", bg: "#E6F2EF" },
+  jama: { text: "#1E3A8A", bg: "#E8EDF8" },
+  gochara: { text: "#166534", bg: "#E6F2EF" },
   upagraha: { text: "#654D91", bg: "#F0EBF7" },
-  points: { text: "#8B5E12", bg: "#F8F0D9" },
+  points: { text: "#C2410C", bg: "#FFF0E6" },
   sign: { text: "#526A63", bg: "#EEF2ED" },
   border: "#3D685F",
 };
@@ -146,35 +146,10 @@ export const CITIES = [
   { place: "Pune", lat: 18.5204, lon: 73.8567, tz: 5.5 },
 ];
 
-export const JAMA_SEQUENCE = ["SU", "MA", "JU", "ME", "VE", "SA", "MO", "SN"] as const;
-export type JamaPlanet = (typeof JAMA_SEQUENCE)[number];
-export const WEEKDAY_JAMA_LORDS: readonly JamaPlanet[] = ["SU", "MO", "MA", "ME", "JU", "VE", "SA"];
-
 export function calculateOuterJamaGrahas(localDate: Date) {
-  const hours = localDate.getHours();
-  const minutes = localDate.getMinutes();
-  const seconds = localDate.getSeconds();
-  const totalMinutes = hours * 60 + minutes + seconds / 60;
-
-  let dayIndex = localDate.getDay();
-  if (hours < 6) dayIndex = (dayIndex + 6) % 7;
-  const dayLord = WEEKDAY_JAMA_LORDS[dayIndex];
-
-  let elapsedMinutes: number;
-  if (hours >= 6 && hours < 18) {
-    elapsedMinutes = totalMinutes - 360;
-  } else if (hours >= 18) {
-    elapsedMinutes = totalMinutes - 1080;
-  } else {
-    elapsedMinutes = totalMinutes + 360;
-  }
-
-  const lordLon = norm360(360 - elapsedMinutes * 0.5);
-  const lordIdx = JAMA_SEQUENCE.indexOf(dayLord);
-  return JAMA_SEQUENCE.map((planet, index) => {
-    const steps = (index - lordIdx + 8) % 8;
-    return { planet, longitude: norm360(lordLon - steps * 45) };
-  });
+  const date = `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, "0")}-${String(localDate.getDate()).padStart(2, "0")}`;
+  const time = `${String(localDate.getHours()).padStart(2, "0")}:${String(localDate.getMinutes()).padStart(2, "0")}:${String(localDate.getSeconds()).padStart(2, "0")}`;
+  return jamaGrahas(date, time).grahas.map((graha) => ({ planet: graha.short, longitude: graha.longitude }));
 }
 
 export function jamakkol(input: JamakkolInput) {
@@ -203,14 +178,13 @@ export function jamakkol(input: JamakkolInput) {
   const rahu = inp.planets.Rahu ?? mod(meanRahuTropical(dJ) - ayan, 360);
 
   // Jamakkol day starts at 06:00; jamam = 90 min; jama grahas move back 0.5°/min
-  const jwd = weekdayOf(inp.date, QT < 0.25 ? -1 : 0);
+  const jama = jamaGrahas(inp.date, inp.time);
+  const jwd = WEEKDAYS.indexOf(jama.weekday);
   const totalMinutes = QT * 1440;
-  const el = QT >= 0.25 && QT < 0.75 ? totalMinutes - 360
-    : QT >= 0.75 ? totalMinutes - 1080
-      : totalMinutes + 360;
-  const half: "Day" | "Night" = QT >= 0.25 && QT < 0.75 ? "Day" : "Night";
-  const jamamNo = Math.floor(el / 90) + 1;
-  const lord = WEEKDAY_LORD[jwd], li = JAMA_ORDER.indexOf(lord as (typeof JAMA_ORDER)[number]);
+  const el = jama.minutesElapsed;
+  const half = jama.half;
+  const jamamNo = jama.jamam;
+  const lord = WEEKDAY_LORD[jwd];
 
   // Udayam (equal division of actual day / night from the Sun longitude at the boundary)
   const sunAtBoundary = (iso: string, fraction: number) => {
@@ -247,9 +221,9 @@ export function jamakkol(input: JamakkolInput) {
   };
   const points: Point[] = [mk("Udayam", "Udayam", "points", udayam), mk("Aarudam", "Aarudam", "points", aarudam), mk("Kavippu", "Kavippu", "points", kavippu)];
   if (inp.mandiLongitude != null) points.push(mk("Mandi", "Mandi", "upagraha", mod(inp.mandiLongitude, 360)));
-  JAMA_ORDER.forEach((j, k) => {
-    const lon = mod(360 - el * 0.5 - 45 * (k - li), 360);
-    points.push(mk(`Jama ${j}`, JAMA_SHORT[k], "jama", lon, { exalted: Math.floor(lon / 30) === JAMA_EXALT[k] }));
+  jama.grahas.forEach((graha) => {
+    const name = graha.name === "Snake" ? "Pambu (Rahu)" : graha.name;
+    points.push(mk(`Jama ${name}`, graha.short, "jama", graha.longitude, { exalted: graha.exalted }));
   });
   const R = inp.retrograde ?? {};
   ([["Sun", "Su", sun, false], ["Moon", "Mo", moon, false], ["Mars", "Ma", inp.planets.Mars, !!R.Mars], ["Mercury", "Me", inp.planets.Mercury, !!R.Mercury],

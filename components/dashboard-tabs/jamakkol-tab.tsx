@@ -12,6 +12,7 @@ import {
   type JamakkolResult,
   type Point,
 } from "@/lib/astro/jamakkol-engine";
+import { formatJama, jamaGrahas, localNow as jamaLocalNow } from "@/src/lib/jamakkol/jamaGrahas";
 
 type Props = {
   profile: BirthProfile;
@@ -138,48 +139,107 @@ function PanchangCard({ result }: { result: JamakkolResult }) {
   );
 }
 
+function JamaGrahaTable({ date, time }: { date: string; time: string }) {
+  const result = jamaGrahas(date, time);
+  return (
+    <section className="rounded-xl border border-border bg-card p-4 shadow-sm" aria-labelledby="jama-grahas-title">
+      <h3 id="jama-grahas-title" className="mb-3 text-sm font-semibold">Jama Grahas</h3>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-muted/60 text-[10px] uppercase tracking-wide text-muted-foreground">
+            <tr><th className="px-3 py-2">Graha</th><th className="px-3 py-2">Sign (Tamil)</th><th className="px-3 py-2">Degree</th><th className="px-3 py-2">Exalted</th></tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {result.grahas.map((graha) => (
+              <tr key={graha.short}>
+                <th scope="row" className="px-3 py-2 font-semibold">{graha.name}</th>
+                <td className="px-3 py-2">{graha.sign}</td>
+                <td className="px-3 py-2 font-mono">{formatJama(graha.longitude)}</td>
+                <td className="px-3 py-2">{graha.exalted ? "✓" : ""}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 export default function JamakkolTab({ profile, data, chartMode }: Props) {
-  const [live, setLive] = useState(false);
   const [liveTick, setLiveTick] = useState(0);
+  const [jamaMode, setJamaMode] = useState<"now" | "custom">("now");
+  const [jamaLocation, setJamaLocation] = useState({
+    place: profile.city || "Mumbai",
+    latitude: profile.lat,
+    longitude: profile.lng,
+    timeZone: profile.timezone || "Asia/Kolkata",
+  });
+  const [jamaCustomDate, setJamaCustomDate] = useState(profile.date);
+  const [jamaCustomTime, setJamaCustomTime] = useState(profile.time);
 
   useEffect(() => {
-    if (!live) return;
-    const interval = window.setInterval(() => setLiveTick((tick) => tick + 1), 30_000);
+    if (jamaMode !== "now") return;
+    const interval = window.setInterval(() => setLiveTick((tick) => tick + 1), 60_000);
     return () => window.clearInterval(interval);
-  }, [live]);
+  }, [jamaMode]);
 
   const active = useMemo(() => {
     if (!data) return null;
     void liveTick;
-    const dateTime = chartMode === "transit" ? localNow(profile.timezone) : { date: profile.date, time: profile.time };
+    const dateTime = jamaMode === "now"
+      ? jamaLocalNow(jamaLocation.timeZone)
+      : { date: jamaCustomDate, time: jamaCustomTime };
     const planets = Object.fromEntries(data.planets.map((planet) => [planet.name, planet.longitude]));
     const required = ["Mars", "Mercury", "Jupiter", "Venus", "Saturn"];
     if (required.some((name) => typeof planets[name] !== "number")) return null;
     return jamakkol({
       date: dateTime.date,
       time: dateTime.time,
-      tz: timezoneOffset(dateTime.date, dateTime.time, profile.timezone),
-      lat: profile.lat,
-      lon: profile.lng,
-      place: profile.city,
+      tz: timezoneOffset(dateTime.date, dateTime.time, jamaLocation.timeZone),
+      lat: jamaLocation.latitude,
+      lon: jamaLocation.longitude,
+      place: jamaLocation.place,
       ascendant: data.ascendant.longitude,
       ayanamsa: data.ayanamsa.degrees,
       planets: planets as { Mars: number; Mercury: number; Jupiter: number; Venus: number; Saturn: number; Sun?: number; Moon?: number; Rahu?: number },
       retrograde: Object.fromEntries(data.planets.filter((planet) => ["Mars", "Mercury", "Jupiter", "Venus", "Saturn"].includes(planet.name)).map((planet) => [planet.name, planet.motion === "R"])),
       mandiLongitude: data.points.find((point) => point.name === "Mandi")?.longitude,
     });
-  }, [chartMode, data, liveTick, profile]);
+  }, [chartMode, data, liveTick, profile, jamaMode, jamaCustomDate, jamaCustomTime, jamaLocation]);
 
   if (!active) return <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">Jamakkol needs a completed planetary calculation. Submit the chart details and try again.</div>;
+  const jamaDateTime = jamaMode === "now"
+    ? jamaLocalNow(jamaLocation.timeZone)
+    : { date: jamaCustomDate, time: jamaCustomTime };
+  const jamaCalculation = jamaGrahas(jamaDateTime.date, jamaDateTime.time);
+  const [year, month, day] = jamaDateTime.date.split("-").map(Number);
+  const monthName = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][month - 1];
+  const [hours, minutes, seconds = "00"] = jamaDateTime.time.split(":");
+  const hour = Number(hours);
+  const displayTime = `${String(((hour + 11) % 12) + 1).padStart(2, "0")}:${minutes}:${seconds} ${hour < 12 ? "AM" : "PM"}`;
+  const calculatedFor = `Calculated for: ${jamaCalculation.weekday}, ${String(day).padStart(2, "0")}-${monthName}-${year} ${displayTime} (${jamaLocation.place}, ${jamaLocation.timeZone}) — ${jamaCalculation.half} Jamam #${jamaCalculation.jamam}`;
 
   return (
     <div className="space-y-4 pt-4">
       <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
         <div><h2 className="text-base font-semibold">Jamakkol Prasannam</h2><p className="mt-1 text-xs text-muted-foreground">{profile.city} · {active.input.date} {active.input.time} · {active.input.tz >= 0 ? "+" : ""}{active.input.tz} UTC</p></div>
-        <label className="inline-flex items-center gap-2 text-xs font-medium"><input type="checkbox" checked={live} onChange={(event) => setLive(event.target.checked)} className="size-4 accent-primary" /> Live updates</label>
+        <div className="flex items-center gap-2">
+          <select aria-label="Jamakkol time mode" value={jamaMode} onChange={(event) => setJamaMode(event.target.value as "now" | "custom")} className="h-9 rounded-md border border-input bg-background px-2 text-xs">
+            <option value="now">Now</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
       </section>
-      {live && <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-200">Live mode follows the portal&apos;s current transit calculation. Refresh the transit chart to recalculate planetary positions.</p>}
+      <section className="grid gap-2 rounded-xl border border-border bg-card p-3 shadow-sm sm:grid-cols-2 lg:grid-cols-5">
+        <label className="grid gap-1 text-xs">Place<input value={jamaLocation.place} onChange={(event) => setJamaLocation((current) => ({ ...current, place: event.target.value }))} className="h-9 rounded-md border border-input bg-background px-2" /></label>
+        <label className="grid gap-1 text-xs">Latitude<input type="number" value={jamaLocation.latitude} onChange={(event) => setJamaLocation((current) => ({ ...current, latitude: Number(event.target.value) }))} className="h-9 rounded-md border border-input bg-background px-2" /></label>
+        <label className="grid gap-1 text-xs">Longitude<input type="number" value={jamaLocation.longitude} onChange={(event) => setJamaLocation((current) => ({ ...current, longitude: Number(event.target.value) }))} className="h-9 rounded-md border border-input bg-background px-2" /></label>
+        <label className="grid gap-1 text-xs">IANA time zone<input value={jamaLocation.timeZone} onChange={(event) => setJamaLocation((current) => ({ ...current, timeZone: event.target.value }))} className="h-9 rounded-md border border-input bg-background px-2" /></label>
+        {jamaMode === "custom" && <><label className="grid gap-1 text-xs">Date<input type="date" value={jamaCustomDate} onChange={(event) => setJamaCustomDate(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2" /></label><label className="grid gap-1 text-xs">Time<input type="time" step="1" value={jamaCustomTime} onChange={(event) => setJamaCustomTime(event.target.value)} className="h-9 rounded-md border border-input bg-background px-2" /></label></>}
+      </section>
+      <p className="text-xs font-medium text-muted-foreground">{calculatedFor}</p>
       <section className="rounded-xl border border-border bg-card p-3 shadow-sm sm:p-5"><JamakkolChart result={active} /></section>
+      <JamaGrahaTable date={jamaDateTime.date} time={jamaDateTime.time} />
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
         <section className="rounded-xl border border-border bg-card p-4 shadow-sm" aria-labelledby="jamakkol-positions-title"><h3 id="jamakkol-positions-title" className="mb-3 text-sm font-semibold">Positions</h3><PositionsTable result={active} /></section>
         <div className="space-y-4"><PanchangCard result={active} /><section className="rounded-xl border border-border bg-card p-4 text-xs shadow-sm"><p><span className="font-semibold">Exalted Jama grahas:</span> {active.exaltedJama.join(", ") || "None"}</p><p className="mt-2"><span className="font-semibold">Kavippu:</span> {active.veediSign} · count {active.kavippuCount}</p></section></div>

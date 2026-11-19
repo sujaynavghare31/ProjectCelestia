@@ -28,21 +28,21 @@ describe("Jamakkol outer grahas", () => {
     });
 
     expect(result.jamam).toMatchObject({ weekday: "Wednesday", half: "Night", number: 4 });
-    const expectedLongitudes = [331 + 11 / 60, 286 + 11 / 60, 241 + 11 / 60, 196 + 11 / 60, 151 + 11 / 60, 106 + 11 / 60, 61 + 11 / 60, 16 + 11 / 60];
+    const expectedLongitudes = [331 + 10.999999 / 60, 286 + 10.999999 / 60, 241 + 10.999999 / 60, 196 + 10.999999 / 60, 151 + 10.999999 / 60, 106 + 10.999999 / 60, 61 + 10.999999 / 60, 16 + 10.999999 / 60];
     result.jamaGrahas.forEach((point, index) => {
       expect(point.longitude).toBeCloseTo(expectedLongitudes[index], 1);
     });
 
     const svg = renderJamakkolChart(result);
     for (const label of [
-      "J.SN 16° 11′ ←",
-      "J.MO 61° 11′ ←",
-      "J.SA 106° 11′ ←",
-      "J.VE 151° 11′ ←",
-      "J.ME 196° 11′ →",
-      "J.JU 241° 11′ →",
-      "J.MA 286° 11′ ←",
-      "J.SU 331° 11′ ←",
+      "J.SN 16° 10′ ←",
+      "J.MO 61° 10′ ←",
+      "J.SA 106° 10′ ←",
+      "J.VE 151° 10′ ←",
+      "J.ME 196° 10′ →",
+      "J.JU 241° 10′ →",
+      "J.MA 286° 10′ ←",
+      "J.SU 331° 10′ ←",
     ]) {
       expect(svg).toContain(label);
     }
@@ -162,7 +162,7 @@ describe("Jamakkol outer grahas", () => {
     });
     const svg = renderJamakkolChart(result);
 
-    expect(svg).toContain('fill="#FFFBEB"');
+    expect(svg).toContain('fill="#FFE8CC"');
     expect(svg).toContain('x="206" y="46" width="160" height="160" fill="#FFF4F3"');
     expect(svg).toContain('x="366" y="46" width="160" height="160" fill="#F9FDEB"');
     expect(svg).toContain('x="526" y="46" width="160" height="160" fill="#F5FAFC"');

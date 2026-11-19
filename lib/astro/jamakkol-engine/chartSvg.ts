@@ -3,7 +3,7 @@ import { COLORS, colorForPoint, outerRingSignIndex, type JamakkolResult, type Po
 const ABBR = ["Ari", "Tau", "Gem", "Can", "Leo", "Vir", "Lib", "Sco", "Sag", "Cap", "Aqu", "Pis"];
 const GRID: (number | null)[][] = [[11, 0, 1, 2], [10, null, null, 3], [9, null, null, 4], [8, 7, 6, 5]];
 const CHART_COLORS = {
-  canvas: "#FFFBEB",
+  canvas: "#FFE8CC",
   surface: "#FFFCF5",
   house: "#955643",
   heading: "#3D6158",
@@ -136,7 +136,7 @@ export function renderJamakkolChart(result: JamakkolResult, options: JamakkolCha
           : "left";
     points.forEach((point, index) => {
       const name = JAMA_BORDER_NAMES[point.name.replace("Jama ", "")] ?? point.short;
-      const label = `${name} ${absoluteDegMin(point.longitude)}`;
+      const label = `${name} ${absoluteDegMin(point.longitude)}${point.exalted ? " (Ex)" : ""}`;
       const color = colorForPoint(point);
       if (edge === "top") parts.push(`<text x="${centerX}" y="${bandTop + index * 14}" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} ←</text>`);
       if (edge === "bottom") parts.push(`<text x="${centerX}" y="${band + chartSize + 24 + index * 14}" fill="${color}" font-size="12" font-weight="700" text-anchor="middle">${label} →</text>`);
