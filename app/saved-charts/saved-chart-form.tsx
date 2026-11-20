@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useAuth } from "@clerk/nextjs";
+import { useEffect, useState, useTransition } from "react";
 import { Crosshair, LoaderCircle, MapPin } from "lucide-react";
-import { clearCachedSavedProfiles } from "@/lib/saved-profiles-cache";
+import type { SavedChartActionResult, SavedProfile } from "@/lib/saved-profiles-cache";
 
 interface GeocodeResult {
   label: string;
@@ -13,12 +12,19 @@ interface GeocodeResult {
   timezone: string;
 }
 
-type CreateProfileAction = (formData: FormData) => void | Promise<void>;
+type CreateProfileAction = (formData: FormData) => Promise<SavedChartActionResult<SavedProfile>>;
 
 const INPUT_CLASS = "mt-2 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/40";
 
-export default function SavedChartForm({ action }: { action: CreateProfileAction }) {
-  const { userId } = useAuth();
+export default function SavedChartForm({
+  action,
+  onSaved,
+}: {
+  action: CreateProfileAction;
+  onSaved: (profile: SavedProfile) => void;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const [city, setCity] = useState("");
   const [locationSelected, setLocationSelected] = useState(false);
   const [latitude, setLatitude] = useState("");
@@ -128,9 +134,22 @@ export default function SavedChartForm({ action }: { action: CreateProfileAction
 
   return (
     <form
-      action={action}
-      onSubmit={() => {
-        if (userId) clearCachedSavedProfiles(userId);
+      onSubmit={(event) => {
+        event.preventDefault();
+        const formData = new FormData(event.currentTarget);
+        setError(null);
+        startTransition(async () => {
+          try {
+            const result = await action(formData);
+            if (!result.ok) {
+              setError(result.error);
+              return;
+            }
+            onSaved(result.value);
+          } catch (reason) {
+            setError(reason instanceof Error ? reason.message : "The chart could not be saved. Try again.");
+          }
+        });
       }}
       className="mt-6 grid gap-4 sm:grid-cols-2"
     >
@@ -221,8 +240,9 @@ export default function SavedChartForm({ action }: { action: CreateProfileAction
         Personal notes
         <textarea name="notes" rows={3} maxLength={10000} placeholder="Add context, observations, or questions…" className="mt-2 w-full resize-y rounded-lg border border-border bg-background px-3 py-2.5 text-sm leading-6 outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/40" />
       </label>
+      {error && <p role="alert" className="text-sm text-rose-700 sm:col-span-2 dark:text-rose-300">{error}</p>}
       <div className="sm:col-span-2">
-        <button type="submit" className="h-10 rounded-lg bg-[#C64F30] px-4 text-sm font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40 focus-visible:ring-offset-2">Save chart</button>
+        <button type="submit" disabled={isPending} className="h-10 rounded-lg bg-[#C64F30] px-4 text-sm font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40 focus-visible:ring-offset-2 disabled:cursor-wait disabled:opacity-60">{isPending ? "Saving chart…" : "Save chart"}</button>
       </div>
     </form>
   );

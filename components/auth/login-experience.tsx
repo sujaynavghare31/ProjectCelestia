@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { SignIn, SignUp } from "@clerk/nextjs";
+import { useEffect, useState } from "react";
+import { ClerkLoaded, ClerkLoading, SignIn, SignUp } from "@clerk/nextjs";
 import { Sun } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -17,14 +17,14 @@ const clerkAppearance = {
     borderRadius: "0.75rem",
   },
   elements: {
-    rootBox: "!w-full !min-w-0 !max-w-full",
-    cardBox: "!w-full !min-w-0 !max-w-none !shadow-none !border-0 !bg-transparent !rounded-none",
-    card: "!w-full !min-w-0 !shadow-none !border-0 !bg-transparent !rounded-none !p-0 gap-4",
+    rootBox: "!w-full !max-w-full !min-w-0 !overflow-visible",
+    cardBox: "!w-full !max-w-full !min-w-0 !shadow-none !border-0 !bg-transparent !rounded-none !overflow-visible",
+    card: "!w-full !max-w-full !min-w-0 !shadow-none !border-0 !bg-transparent !p-0 gap-4 !overflow-visible",
     header: "!hidden",
-    footer: "!bg-none !bg-transparent !shadow-none !border-0 pt-3",
+    footer: "!bg-none !bg-transparent !shadow-none !border-0 pt-2",
     footerAction: "!hidden",
-    main: "!w-full min-w-0",
-    form: "!w-full min-w-0",
+    main: "!w-full !max-w-full !min-w-0 !overflow-visible",
+    form: "!w-full !max-w-full !min-w-0 !overflow-visible",
     socialButtonsBlockButton:
       "w-full h-11 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-slate-800 text-sm font-medium shadow-none transition-colors",
     socialButtonsBlockButtonText: "font-medium text-slate-800",
@@ -33,7 +33,7 @@ const clerkAppearance = {
     formFieldLabelRow: "flex items-center justify-between w-full mb-1.5",
     formFieldLabel: "text-left text-[13px] font-medium text-slate-700",
     formFieldInput:
-      "w-full h-11 rounded-xl border border-stone-300/90 bg-white px-3.5 text-base sm:text-sm text-slate-900 placeholder:text-stone-400 shadow-none ring-0 focus:border-[#C05A3A] focus:ring-2 focus:ring-[#C05A3A]/15 transition-colors",
+      "!w-full !max-w-full !min-w-0 !h-11 !max-h-11 !shadow-none !ring-0 !border !border-stone-300 rounded-xl px-3.5 bg-white text-base sm:text-sm text-slate-900 placeholder:text-stone-400 focus:!border-[#C05A3A] focus:!ring-2 focus:!ring-[#C05A3A]/15 transition-colors",
     otpCodeFieldInputs: "gap-2",
     otpCodeFieldInput:
       "h-12 rounded-xl border border-stone-300/90 bg-white text-base font-semibold text-slate-900 shadow-none focus:border-[#C05A3A] focus:ring-2 focus:ring-[#C05A3A]/15",
@@ -70,8 +70,18 @@ export default function LoginExperience({
   localClerkFallback: boolean;
 }) {
   const router = useRouter();
-  const isSignUp = mode === "signup";
+  const [activeMode, setActiveMode] = useState(mode);
+  const isSignUp = activeMode === "signup";
   const savedChartsCallback = callbackUrl.split(/[?#]/, 1)[0] === "/saved-charts";
+
+  const switchMode = (nextMode: "signin" | "signup") => {
+    setActiveMode(nextMode);
+    window.history.replaceState(
+      window.history.state,
+      "",
+      getLoginModeHref(nextMode, callbackUrl),
+    );
+  };
 
   useEffect(() => {
     function handleEscape(event: KeyboardEvent) {
@@ -87,7 +97,7 @@ export default function LoginExperience({
     <main className="login-dot-grid flex min-h-[100dvh] w-full flex-col items-center justify-center px-4 py-8 text-slate-900">
       <section
         aria-labelledby="login-title"
-        className="mx-auto w-full max-w-[430px] rounded-2xl border border-stone-200/80 bg-white p-6 shadow-[0_12px_36px_rgba(15,23,42,0.06)] sm:p-8"
+        className="mx-auto w-full max-w-[460px] min-w-0 rounded-2xl border border-stone-200/80 bg-white p-6 shadow-[0_12px_36px_rgba(15,23,42,0.06)] sm:p-8"
       >
         <div className="mb-6 flex items-center justify-between">
           <Link
@@ -126,9 +136,9 @@ export default function LoginExperience({
           aria-label="Authentication mode"
           className="mt-6 mb-6 grid grid-cols-2 gap-1 rounded-xl bg-stone-100/90 p-1"
         >
-          <Link
-            href={getLoginModeHref("signin", callbackUrl)}
-            replace
+          <button
+            type="button"
+            onClick={() => switchMode("signin")}
             aria-current={!isSignUp ? "page" : undefined}
             className={`flex h-10 items-center justify-center rounded-lg px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C05A3A]/50 ${
               !isSignUp
@@ -137,10 +147,10 @@ export default function LoginExperience({
             }`}
           >
             Sign in
-          </Link>
-          <Link
-            href={getLoginModeHref("signup", callbackUrl)}
-            replace
+          </button>
+          <button
+            type="button"
+            onClick={() => switchMode("signup")}
             aria-current={isSignUp ? "page" : undefined}
             className={`flex h-10 items-center justify-center rounded-lg px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C05A3A]/50 ${
               isSignUp
@@ -149,27 +159,40 @@ export default function LoginExperience({
             }`}
           >
             Create account
-          </Link>
+          </button>
         </nav>
 
         {localClerkFallback ? (
           <p role="status" className="rounded-xl border border-stone-200 bg-stone-50 px-4 py-3 text-sm leading-6 text-slate-600">
             Sign-in is unavailable in this local preview. Configure Clerk development keys to test authentication here.
           </p>
-        ) : isSignUp ? (
-          <SignUp
-            routing="hash"
-            forceRedirectUrl={callbackUrl}
-            fallbackRedirectUrl={callbackUrl}
-            appearance={clerkAppearance}
-          />
         ) : (
-          <SignIn
-            routing="hash"
-            forceRedirectUrl={callbackUrl}
-            fallbackRedirectUrl={callbackUrl}
-            appearance={clerkAppearance}
-          />
+          <div className="login-clerk min-w-0 w-full max-w-full overflow-visible">
+            <ClerkLoading>
+              <div aria-hidden="true" className="h-[126px] w-full animate-pulse">
+                <div className="h-4 w-24 rounded bg-stone-200" />
+                <div className="mt-2 h-11 w-full rounded-xl border border-stone-200 bg-stone-100" />
+                <div className="mt-4 h-11 w-full rounded-xl bg-stone-200" />
+              </div>
+            </ClerkLoading>
+            <ClerkLoaded>
+              {isSignUp ? (
+                <SignUp
+                  routing="hash"
+                  forceRedirectUrl={callbackUrl}
+                  fallbackRedirectUrl={callbackUrl}
+                  appearance={clerkAppearance}
+                />
+              ) : (
+                <SignIn
+                  routing="hash"
+                  forceRedirectUrl={callbackUrl}
+                  fallbackRedirectUrl={callbackUrl}
+                  appearance={clerkAppearance}
+                />
+              )}
+            </ClerkLoaded>
+          </div>
         )}
 
         <div className="mt-6 border-t border-stone-200 pt-4 text-center">

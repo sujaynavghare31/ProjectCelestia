@@ -51,6 +51,7 @@ const savedProfile = {
   timezone: "America/New_York",
   city: "Sample City",
   notes: "Synthetic chart notes",
+  updatedAt: new Date("2024-01-03T00:00:00.000Z"),
 };
 
 function request(body: unknown) {
@@ -106,6 +107,7 @@ describe("/api/profiles", () => {
             timezone: true,
             city: true,
             notes: true,
+            updatedAt: true,
           },
         },
       },
@@ -122,6 +124,7 @@ describe("/api/profiles", () => {
       timezone: "America/New_York",
       city: "Sample City",
       notes: "Synthetic chart notes",
+      updatedAt: "2024-01-03T00:00:00.000Z",
     });
     expect(result.userId).toBe("clerk-user-1");
   });

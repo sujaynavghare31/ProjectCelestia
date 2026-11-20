@@ -12,10 +12,17 @@ export type SavedProfile = {
   timezone: string;
   city: string | null;
   notes: string;
+  updatedAt?: string;
 };
 
+export type SavedChartActionResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; error: string };
+
 const STORAGE_PREFIX = "project-celestia:saved-profiles:";
+const HANDOFF_PREFIX = "project-celestia:selected-saved-profile:";
 const profilesByUser = new Map<string, SavedProfile[]>();
+const handoffByUser = new Map<string, SavedProfile>();
 const inFlightByUser = new Map<string, Promise<SavedProfile[]>>();
 const generationsByUser = new Map<string, number>();
 
@@ -48,7 +55,8 @@ function isSavedProfile(value: unknown): value is SavedProfile {
     && Number.isFinite(profile.longitude)
     && typeof profile.timezone === "string"
     && (typeof profile.city === "string" || profile.city === null)
-    && typeof profile.notes === "string";
+    && typeof profile.notes === "string"
+    && (profile.updatedAt === undefined || typeof profile.updatedAt === "string");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -103,6 +111,7 @@ export function updateCachedSavedProfile(userId: string, profile: SavedProfile) 
     return;
   }
   writeSavedProfilesCache(userId, [profile, ...cached.filter(({ id }) => id !== profile.id)]);
+  if (handoffByUser.get(userId)?.id === profile.id) writeSelectedSavedProfileHandoff(userId, profile);
 }
 
 export function removeCachedSavedProfile(userId: string, profileId: string) {
@@ -112,11 +121,51 @@ export function removeCachedSavedProfile(userId: string, profileId: string) {
     return;
   }
   writeSavedProfilesCache(userId, cached.filter(({ id }) => id !== profileId));
+  if (handoffByUser.get(userId)?.id === profileId) clearSelectedSavedProfileHandoff(userId);
+}
+
+export function writeSelectedSavedProfileHandoff(userId: string, profile: SavedProfile) {
+  handoffByUser.set(userId, profile);
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(`${HANDOFF_PREFIX}${userId}`, JSON.stringify(profile));
+  } catch (error) {
+    console.warn("[saved-charts] Unable to write the selected chart handoff", error);
+  }
+}
+
+export function consumeSelectedSavedProfileHandoff(userId: string, expectedProfileId: string) {
+  let profile = handoffByUser.get(userId) ?? null;
+  handoffByUser.delete(userId);
+  if (typeof window !== "undefined") {
+    try {
+      const stored = window.sessionStorage.getItem(`${HANDOFF_PREFIX}${userId}`);
+      window.sessionStorage.removeItem(`${HANDOFF_PREFIX}${userId}`);
+      if (stored) {
+        const parsed: unknown = JSON.parse(stored);
+        if (isSavedProfile(parsed)) profile = parsed;
+      }
+    } catch (error) {
+      console.warn("[saved-charts] Unable to read the selected chart handoff", error);
+    }
+  }
+  return profile?.id === expectedProfileId ? profile : null;
+}
+
+export function clearSelectedSavedProfileHandoff(userId: string) {
+  handoffByUser.delete(userId);
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(`${HANDOFF_PREFIX}${userId}`);
+  } catch (error) {
+    console.warn("[saved-charts] Unable to clear the selected chart handoff", error);
+  }
 }
 
 export function clearCachedSavedProfiles(userId: string) {
   advanceGeneration(userId);
   profilesByUser.delete(userId);
+  clearSelectedSavedProfileHandoff(userId);
   if (typeof window === "undefined") return;
   try {
     window.sessionStorage.removeItem(`${STORAGE_PREFIX}${userId}`);

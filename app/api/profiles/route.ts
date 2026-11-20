@@ -66,6 +66,7 @@ function serializeProfile(profile: {
   timezone: string;
   city: string | null;
   notes: string;
+  updatedAt: Date;
 }) {
   return {
     id: profile.id,
@@ -79,6 +80,7 @@ function serializeProfile(profile: {
     timezone: profile.timezone,
     city: profile.city,
     notes: profile.notes,
+    updatedAt: profile.updatedAt.toISOString(),
   };
 }
 
@@ -111,6 +113,7 @@ async function getProfiles(timings: ProfileTimings) {
             timezone: true,
             city: true,
             notes: true,
+            updatedAt: true,
           },
         },
       },
@@ -138,6 +141,7 @@ async function getProfiles(timings: ProfileTimings) {
           timezone: true,
           city: true,
           notes: true,
+          updatedAt: true,
         },
       });
     }
@@ -268,6 +272,7 @@ async function saveProfile(request: Request) {
       timezone: true,
       city: true,
       notes: true,
+      updatedAt: true,
     },
   });
   if (!saved) return NextResponse.json({ error: "Chart save could not be confirmed." }, { status: 500 });

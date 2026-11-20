@@ -143,6 +143,32 @@
   background-size: 24px 24px;
 }
 
+.login-clerk,
+.login-clerk .cl-rootBox,
+.login-clerk .cl-cardBox,
+.login-clerk .cl-card,
+.login-clerk .cl-main,
+.login-clerk .cl-form {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+  overflow: visible !important;
+  box-sizing: border-box !important;
+}
+
+.login-clerk .cl-card {
+  margin-inline: 0 !important;
+}
+
+.login-clerk .cl-footerItem {
+  border-top: 0 !important;
+  padding-top: 0 !important;
+}
+
+.login-clerk .cl-footerItem > div > div:last-child {
+  display: none !important;
+}
+
 .dark .cosmic-grid {
   background-image: radial-gradient(circle at 1px 1px, rgb(160 178 207 / 0.08) 1px, transparent 0);
 }

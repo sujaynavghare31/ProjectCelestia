@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useTheme } from "next-themes";
 import { UserButton, useAuth } from "@clerk/nextjs";
+import Link from "next/link";
 import {
   ArrowDownRight,
   ArrowRight,
@@ -223,12 +224,12 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
   useEffect(() => {
     setMounted(true);
     const tab = new URLSearchParams(window.location.search).get("tab");
-    if (tab === "jamakkol") setActiveNavigation("jamakkol");
-    if (tab === "match") {
-      setActiveNavigation("match");
-      setActiveTab("match");
-      setSelectedTab("match");
-    }
+    const destination = navigationItems.find(({ id }) => id === tab)?.id;
+    if (!destination) return;
+    setActiveNavigation(destination);
+    const nextTab = destination === "jamakkol" ? "kundali" : destination;
+    setActiveTab(nextTab);
+    setSelectedTab(nextTab);
   }, []);
 
   const numerology = useMemo(() => {
@@ -417,12 +418,12 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
               <UserButton />
             ) : (
               <>
-                <a href="/login" className="inline-flex min-h-11 items-center whitespace-nowrap rounded-lg px-2 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground">
+                <Link href="/login" prefetch={true} className="inline-flex min-h-11 items-center whitespace-nowrap rounded-lg px-2 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground">
                   Sign in
-                </a>
-                <a href="/login?mode=signup" className="inline-flex min-h-11 items-center whitespace-nowrap rounded-lg bg-[#C64F30] px-2 text-xs font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40 sm:px-3">
+                </Link>
+                <Link href="/login?mode=signup" prefetch={true} className="inline-flex min-h-11 items-center whitespace-nowrap rounded-lg bg-[#C64F30] px-2 text-xs font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40 sm:px-3">
                   Sign up
-                </a>
+                </Link>
               </>
             )}
             <button
@@ -440,12 +441,12 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
               <UserButton />
             ) : (
               <>
-                <a href="/login" className="inline-flex min-h-9 items-center justify-center rounded-md px-1.5 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                <Link href="/login" prefetch={true} className="inline-flex min-h-9 items-center justify-center rounded-md px-1.5 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
                   Sign in
-                </a>
-                <a href="/login?mode=signup" className="inline-flex min-h-9 items-center justify-center rounded-md px-1.5 text-xs font-semibold text-[#C05A3A] transition hover:bg-[#C05A3A]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C05A3A]/40">
+                </Link>
+                <Link href="/login?mode=signup" prefetch={true} className="inline-flex min-h-9 items-center justify-center rounded-md px-1.5 text-xs font-semibold text-[#C05A3A] transition hover:bg-[#C05A3A]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C05A3A]/40">
                   Sign up
-                </a>
+                </Link>
               </>
             )}
             <button

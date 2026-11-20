@@ -4,8 +4,10 @@ import {
   fetchSavedProfiles,
   getCachedSavedProfiles,
   removeCachedSavedProfile,
+  consumeSelectedSavedProfileHandoff,
   SavedProfilesRequestSupersededError,
   updateCachedSavedProfile,
+  writeSelectedSavedProfileHandoff,
   writeSavedProfilesCache,
   type SavedProfile,
 } from "./saved-profiles-cache";
@@ -49,6 +51,13 @@ describe("saved profiles cache", () => {
 
     removeCachedSavedProfile(userId, "chart-1");
     expect(getCachedSavedProfiles(userId)).toEqual([{ ...profile("chart-2"), fullName: "Updated" }]);
+  });
+
+  it("hands off the selected chart once to the dashboard", () => {
+    writeSelectedSavedProfileHandoff(userId, profile("chart-1"));
+
+    expect(consumeSelectedSavedProfileHandoff(userId, "chart-1")).toEqual(profile("chart-1"));
+    expect(consumeSelectedSavedProfileHandoff(userId, "chart-1")).toBeNull();
   });
 
   it("deduplicates concurrent revalidation and caches the result", async () => {

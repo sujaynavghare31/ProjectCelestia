@@ -46,6 +46,9 @@ import CelestiaLoader from "@/components/ui/CelestiaLoader";
 import JamakkolTab from "@/components/dashboard-tabs/jamakkol-tab";
 import {
   clearCachedSavedProfiles,
+  consumeSelectedSavedProfileHandoff,
+  fetchSavedProfiles,
+  getCachedSavedProfiles,
   updateCachedSavedProfile,
   type SavedProfile,
 } from "@/lib/saved-profiles-cache";
@@ -1183,6 +1186,7 @@ export function KundaliDashboard({
   const [locationError, setLocationError] = useState<string | null>(null);
   const [coordinateTimezoneError, setCoordinateTimezoneError] = useState<string | null>(null);
   const initialProfileSubmitted = useRef(false);
+  const openedSavedProfileId = useRef<string | null>(null);
   const jaiminiAutoloadKey = useRef<string | null>(null);
 
   useEffect(() => () => {
@@ -1251,6 +1255,75 @@ export function KundaliDashboard({
     const defaults = getBirthDateTimeDefaults(profile);
     if (defaults) setProfile(defaults);
   }, [profile.date, profile.time, setProfile]);
+
+  useEffect(() => {
+    const chartId = new URLSearchParams(window.location.search).get("chartId");
+    if (!chartId || !clerkUserId || openedSavedProfileId.current === chartId) return;
+
+    let isMounted = true;
+    const openSavedProfile = async () => {
+      let savedProfile = consumeSelectedSavedProfileHandoff(clerkUserId, chartId)
+        ?? getCachedSavedProfiles(clerkUserId)?.find(({ id }) => id === chartId)
+        ?? null;
+
+      if (!savedProfile) {
+        const savedProfiles = await fetchSavedProfiles(clerkUserId);
+        savedProfile = savedProfiles.find(({ id }) => id === chartId) ?? null;
+      }
+      if (!isMounted) return;
+      if (!savedProfile) {
+        setProfileActionError("That chart is no longer in your saved library. Choose another chart and try again.");
+        return;
+      }
+
+      openedSavedProfileId.current = chartId;
+      const birthProfile: BirthProfile = {
+        id: savedProfile.id,
+        name: savedProfile.chartName || savedProfile.fullName,
+        sex: savedProfile.sex,
+        date: savedProfile.dateOfBirth,
+        time: savedProfile.timeOfBirth,
+        lat: savedProfile.latitude,
+        lng: savedProfile.longitude,
+        timezone: savedProfile.timezone,
+        city: savedProfile.city ?? "",
+        notes: savedProfile.notes,
+      };
+
+      setProfile(birthProfile);
+      setSavedProfileId(savedProfile.id);
+      setLocationSearch(birthProfile.city);
+      setLatitudeDraft(birthProfile.lat.toFixed(2));
+      setLongitudeDraft(birthProfile.lng.toFixed(2));
+      setUseCoordinates(false);
+      initialProfileSubmitted.current = true;
+      setSubmittedProfile({ ...birthProfile, name: birthProfile.name.trim() || "Birth chart" });
+      setProfileCollapsed(true);
+      setChartMode("birth");
+      setProfileActionError(null);
+      setProfileActionMessage(`Loaded ${birthProfile.name || "saved chart"}. Choose Update chart to save changes.`);
+
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.delete("chartId");
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`,
+      );
+    };
+
+    void openSavedProfile().catch((requestError: unknown) => {
+      if (isMounted) {
+        setProfileActionError(
+          requestError instanceof Error ? requestError.message : "The saved chart could not be opened.",
+        );
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [clerkUserId, setProfile]);
 
   useEffect(() => {
     let draft: BirthProfile | null = null;
