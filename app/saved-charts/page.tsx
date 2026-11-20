@@ -5,6 +5,7 @@ import { ChartSex } from "@/lib/generated/prisma/enums";
 import { getCurrentDatabaseUser } from "@/lib/clerk-user";
 import { prisma } from "@/lib/prisma";
 import RemoveChartButton from "./remove-chart-button";
+import SavedChartForm from "./saved-chart-form";
 
 async function createProfile(formData: FormData) {
   "use server";
@@ -159,55 +160,7 @@ export default async function SavedChartsPage() {
         <details className="mt-10 rounded-2xl border border-border bg-card p-5 sm:p-7">
           <summary className="cursor-pointer text-lg font-semibold">Add a chart here</summary>
           <p className="mt-1 text-sm text-muted-foreground">Enter the same profile details you use in the chart workspace.</p>
-          <form action={createProfile} className="mt-6 grid gap-4 sm:grid-cols-2">
-            <label className="text-sm font-medium">
-              Chart name <span className="font-normal text-muted-foreground">(optional)</span>
-              <input name="chartName" maxLength={100} placeholder="Enter Jataka's name" className="mt-2 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/40" />
-            </label>
-            <label className="text-sm font-medium">
-              Person name
-              <input name="fullName" required maxLength={160} placeholder="Full name" className="mt-2 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/40" />
-            </label>
-            <label className="text-sm font-medium">
-              Date of birth
-              <input name="dob" type="date" required className="mt-2 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/40" />
-            </label>
-            <label className="text-sm font-medium">
-              Time of birth
-              <input name="time" type="time" step={1} required className="mt-2 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/40" />
-            </label>
-            <label className="text-sm font-medium">
-              Gender
-              <select name="sex" defaultValue="male" className="mt-2 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/40">
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="not-applicable">Not specified</option>
-              </select>
-            </label>
-            <label className="text-sm font-medium">
-              Birth city
-              <input name="city" required maxLength={160} placeholder="City, country" className="mt-2 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/40" />
-            </label>
-            <label className="text-sm font-medium">
-              Latitude
-              <input name="latitude" type="number" step="any" min="-90" max="90" required className="mt-2 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/40" />
-            </label>
-            <label className="text-sm font-medium">
-              Longitude
-              <input name="longitude" type="number" step="any" min="-180" max="180" required className="mt-2 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/40" />
-            </label>
-            <label className="text-sm font-medium sm:col-span-2">
-              Timezone
-              <input name="timezone" required maxLength={100} placeholder="Asia/Kolkata" className="mt-2 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/40" />
-            </label>
-            <label className="text-sm font-medium sm:col-span-2">
-              Personal notes
-              <textarea name="notes" rows={3} maxLength={10000} placeholder="Add context, observations, or questions…" className="mt-2 w-full resize-y rounded-lg border border-border bg-background px-3 py-2.5 text-sm leading-6 outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/40" />
-            </label>
-            <div className="sm:col-span-2">
-              <button type="submit" className="h-10 rounded-lg bg-[#C64F30] px-4 text-sm font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40 focus-visible:ring-offset-2">Save chart</button>
-            </div>
-          </form>
+          <SavedChartForm action={createProfile} />
         </details>
       </div>
     </main>

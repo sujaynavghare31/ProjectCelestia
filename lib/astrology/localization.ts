@@ -17,7 +17,7 @@ const PLANET_NAMES: Record<string, { hi: string; mr: string; initials: string }>
   Lilith: { hi: "लिलिथ", mr: "लिलिथ", initials: "Li" },
   Ascendant: { hi: "लग्‍न", mr: "लग्न", initials: "As" },
   "Part of Fortune": { hi: "भाग्य बिंदु", mr: "भाग्य बिंदू", initials: "PoF" },
-  Mandi: { hi: "मांदि", mr: "मांदी", initials: "Ma" },
+  Mandi: { hi: "मांदि", mr: "मांदी", initials: "Md" },
   Gulika: { hi: "गुलिक", mr: "गुलिक", initials: "Gu" },
 };
 
@@ -55,7 +55,6 @@ export function planetChartDisplayName(
   glyph?: string,
   fallback?: string,
 ): string {
-  if (name === "Mandi" || name === "Gulika") return useIcons ? glyph ?? name : name;
   if (name === "Part of Fortune") return glyph ?? "⊗";
   return useIcons ? glyph ?? fallback ?? name : planetChartName(name, language, fallback);
 }

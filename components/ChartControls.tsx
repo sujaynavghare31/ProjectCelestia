@@ -84,7 +84,7 @@ export default function ChartControls({
   }, [customPickerOpen]);
 
   return (
-    <div className="space-y-2 border-b border-border bg-muted/10 p-3 sm:space-y-4 sm:p-4">
+    <div className="space-y-2 border-b border-border bg-muted/10 p-3 sm:space-y-4 sm:p-4 lg:h-[96px] lg:min-h-[96px] lg:space-y-2 lg:px-3 lg:py-1">
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
           <div className="min-w-0">
@@ -105,7 +105,9 @@ export default function ChartControls({
             className="relative min-w-0 w-auto"
           >
             <legend className="sr-only">{transitLabel}</legend>
-            <div role="radiogroup" aria-label="Transit overlay" className="inline-flex max-w-full items-center rounded-full bg-background/70 p-0.5">
+            <div className="inline-flex items-center gap-1.5">
+              <span className="hidden text-[10px] font-medium text-muted-foreground lg:inline">Transit:</span>
+              <div role="radiogroup" aria-label="Transit overlay" className="inline-flex max-w-full items-center rounded-full bg-background/70 p-0.5">
               {transitOptions.map(({ value, label, active }) => (
                 <button
                   key={value}
@@ -123,11 +125,12 @@ export default function ChartControls({
                     onOverlayTransitsChange(true);
                     setCustomPickerOpen(value === "custom");
                   }}
-                  className={`inline-flex min-h-11 items-center rounded-full px-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                  className={`inline-flex min-h-11 items-center rounded-full px-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:min-h-9 ${active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
                 >
                   {label}
                 </button>
               ))}
+              </div>
             </div>
             {overlayTransits && transitMode === "specific" && customPickerOpen && (
               <div className="absolute right-0 top-full z-30 mt-2 flex w-full max-w-[min(22rem,calc(100vw-2rem))] flex-wrap items-end justify-end gap-2 rounded-xl border border-border bg-card p-3 shadow-lg sm:w-[22rem]">
@@ -147,7 +150,7 @@ export default function ChartControls({
             onClick={onMaximize}
             aria-label="Expand chart to fullscreen"
             title="Expand chart to fullscreen"
-            className="grid size-11 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            className="grid size-11 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:size-9"
           >
             <Maximize2 className="size-4" />
           </button>
@@ -156,14 +159,14 @@ export default function ChartControls({
             onClick={onOpenSettings}
             aria-label="Open chart settings"
             title="Chart settings"
-            className="grid size-11 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            className="grid size-11 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:size-9"
           >
             <Settings className="size-4" />
           </button>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-3">
+      <div className="flex flex-wrap items-center gap-2 border-t border-border/70 pt-3 lg:min-h-11 lg:pt-1">
         <fieldset className="min-w-0">
           <legend className="sr-only">Chart style</legend>
           <div role="radiogroup" aria-label="Chart style" className="inline-flex max-w-full flex-wrap items-center gap-0.5 rounded-2xl bg-background/70 p-0.5">
@@ -175,7 +178,7 @@ export default function ChartControls({
                 aria-checked={chartStyle === value}
                 aria-label={`${label}${value === "diamond" ? " / Diamond" : ""} chart`}
                 onClick={() => onChartStyleChange(value)}
-                className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${chartStyle === value ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:min-h-9 ${chartStyle === value ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
               >
                 <ChartStyleIcon style={value} />
                 {label}
@@ -186,7 +189,7 @@ export default function ChartControls({
 
         <div className="w-full min-w-[160px] max-w-[210px] sm:w-auto">
           <Select value={referenceName} onValueChange={onReferenceNameChange}>
-            <SelectTrigger aria-label="D1 reference lagna" className="h-11 w-full rounded-full bg-card text-xs">
+            <SelectTrigger aria-label="D1 reference lagna" className="h-11 w-full rounded-full bg-card pr-9 text-xs lg:h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="z-[110] !bg-card !text-foreground shadow-md">

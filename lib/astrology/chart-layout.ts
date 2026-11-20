@@ -1,4 +1,4 @@
-const INLINE_HOUSE_BODY_LIMIT = 4;
+const INLINE_HOUSE_BODY_LIMIT = 5;
 
 export function splitHouseBodies<T>(bodies: readonly T[]) {
   return {

@@ -20,6 +20,7 @@ import {
   Orbit,
   Search,
   Save,
+  StickyNote,
   Trash2,
   X,
 } from "lucide-react";
@@ -245,8 +246,13 @@ function getPanchang(date: string, planets: PlanetPosition[]) {
   };
 }
 
-function PanchangStrip({ date, planets }: { date: string; planets: PlanetPosition[] }) {
+function PanchangStrip({ date, planets, houseSystem }: { date: string; planets: PlanetPosition[]; houseSystem: HouseSystem }) {
   const panchang = getPanchang(date, planets);
+  const parsedDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T12:00:00`) : null;
+  const formattedDate = parsedDate && !Number.isNaN(parsedDate.getTime())
+    ? parsedDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+    : formatBirthDate(date);
+  const houseSystemCaption = houseSystem === "carter" ? "Carter houses" : "Placidus houses";
   const items = panchang ? [
     { label: "Weekday", value: panchang.weekday },
     { label: "Tithi", value: panchang.tithi },
@@ -255,20 +261,42 @@ function PanchangStrip({ date, planets }: { date: string; planets: PlanetPositio
     { label: "Karana", value: panchang.karana },
   ] : [];
   return (
-    <section aria-label="Panchang" className="col-span-1 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3 text-[hsl(var(--foreground))] shadow-sm xl:col-span-2">
-      <div className="mb-1.5 flex items-center justify-between gap-2 px-1">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[hsl(var(--foreground))]">Panchang</p>
-        <p className="text-xs text-[hsl(var(--muted-foreground))]">{formatBirthDate(date)}</p>
-      </div>
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
-        {items.length ? items.map((item) => (
-          <div key={item.label} className="min-w-0 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2.5 py-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-[hsl(var(--muted-foreground))]">{item.label}</p>
-            <p className="mt-0.5 truncate text-xs font-semibold text-[hsl(var(--foreground))]" title={item.value}>{item.value}</p>
+    <>
+      <section aria-label="Panchang" className="hidden rounded-2xl border border-stone-200/80 bg-white px-5 py-3.5 text-slate-900 shadow-[0_1px_3px_rgba(15,23,42,0.04)] md:block">
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-slate-500">Panchang</p>
+          <div className="flex flex-wrap items-center justify-end gap-x-2 text-xs font-medium text-slate-500">
+            <span>{formattedDate}</span>
+            <span aria-hidden="true" className="text-stone-300">·</span>
+            <span>{houseSystemCaption}</span>
           </div>
-        )) : <p className="col-span-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2.5 py-2 text-xs text-[hsl(var(--muted-foreground))] sm:col-span-5">Waiting for planetary positions…</p>}
-      </div>
-    </section>
+        </div>
+        <div className="mt-2.5 grid grid-cols-5 gap-2.5">
+          {items.length ? items.map((item) => (
+            <div key={item.label} className="min-w-0 rounded-xl border border-stone-200/60 bg-[#FAF8F5] px-3.5 py-2.5">
+              <p className="text-[10.5px] font-semibold uppercase tracking-wider text-stone-500">{item.label}</p>
+              <p className="mt-0.5 break-words text-[15px] font-bold leading-snug text-slate-900">{item.value}</p>
+            </div>
+          )) : (
+            <p className="col-span-5 rounded-xl border border-stone-200/60 bg-[#FAF8F5] px-3.5 py-2.5 text-sm font-medium text-slate-500">Waiting for planetary positions…</p>
+          )}
+        </div>
+      </section>
+      <section aria-label="Panchang" className="col-span-1 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--card))] p-3 text-[hsl(var(--foreground))] shadow-sm md:hidden xl:col-span-2">
+        <div className="mb-1.5 flex items-center justify-between gap-2 px-1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-[hsl(var(--foreground))]">Panchang</p>
+          <p className="text-xs text-[hsl(var(--muted-foreground))]">{formatBirthDate(date)}</p>
+        </div>
+        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5">
+          {items.length ? items.map((item) => (
+            <div key={item.label} className="min-w-0 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2.5 py-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-[hsl(var(--muted-foreground))]">{item.label}</p>
+              <p className="mt-0.5 truncate text-xs font-semibold text-[hsl(var(--foreground))]" title={item.value}>{item.value}</p>
+            </div>
+          )) : <p className="col-span-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] px-2.5 py-2 text-xs text-[hsl(var(--muted-foreground))] sm:col-span-5">Waiting for planetary positions…</p>}
+        </div>
+      </section>
+    </>
   );
 }
 
@@ -315,7 +343,6 @@ type PreferenceOption = {
 const CHART_ELEMENT_OPTIONS: PreferenceOption[] = [
   { key: "showHouseLabels", label: "House labels", description: "Show house numbers around the chart." },
   { key: "showSignNumbers", label: "Sign numbers", description: "Use Aries = 1 through Pisces = 12." },
-  { key: "showBhavaCusps", label: "Bhava cusp labels", description: "Show each house cusp in the sign where it starts." },
 ];
 
 const CELESTIAL_BODY_OPTIONS: PreferenceOption[] = [
@@ -414,7 +441,7 @@ function ChartSettingsDrawer({
               checked={draft.viewPreferences[key]}
               disabled={unavailable}
               onCheckedChange={(checked) => setPreference(key, checked)}
-              className="mt-0.5 data-[state=checked]:bg-blue-500 focus-visible:ring-blue-400"
+              className="mt-0.5"
             />
           </div>
         );
@@ -604,45 +631,58 @@ function ChartSettingsDrawer({
                 <h4 className="mb-2 text-xs font-semibold text-muted-foreground">House and sign labels</h4>
                 {renderPreferenceOptions(CHART_ELEMENT_OPTIONS)}
               </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <label className="text-xs font-medium">
-                  Cusp sign labels
-                  <select
-                    value={draft.viewPreferences.cuspLabelSignStyle}
-                    onChange={(event) => setPreference("cuspLabelSignStyle", event.target.value as ChartSettings["viewPreferences"]["cuspLabelSignStyle"])}
-                    className={`${CONTROL_CLASS} mt-1.5 h-11 w-full text-sm md:h-10`}
-                  >
-                    <option value="short">Short · Vi</option>
-                    <option value="full">Full · Virgo</option>
-                    <option value="number">Number · 6</option>
-                    <option value="hindi">Hindi · कन्या</option>
-                    <option value="glyph">Glyph · ♍︎</option>
-                  </select>
-                </label>
-                <label className="text-xs font-medium">
-                  Cusp degree format
-                  <select
-                    value={draft.viewPreferences.cuspLabelDegreeFormat}
-                    onChange={(event) => setPreference("cuspLabelDegreeFormat", event.target.value as ChartSettings["viewPreferences"]["cuspLabelDegreeFormat"])}
-                    className={`${CONTROL_CLASS} mt-1.5 h-11 w-full text-sm md:h-10`}
-                  >
-                    <option value="dms">DMS · 22°47′10″</option>
-                    <option value="dm">Degrees/minutes</option>
-                    <option value="decimal">Decimal · 22.79°</option>
-                    <option value="compact">Compact</option>
-                  </select>
-                </label>
-                <label className="text-xs font-medium">
-                  Cusp placement
-                  <select
-                    value={draft.viewPreferences.cuspLabelStyle}
-                    onChange={(event) => setPreference("cuspLabelStyle", event.target.value as ChartSettings["viewPreferences"]["cuspLabelStyle"])}
-                    className={`${CONTROL_CLASS} mt-1.5 h-11 w-full text-sm md:h-10`}
-                  >
-                    <option value="line">On the line</option>
-                    <option value="box">In the sign box</option>
-                  </select>
-                </label>
+              <div className="rounded-xl border border-border bg-card p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="min-w-0">
+                    <span className="block text-xs font-medium">Bhava cusp labels</span>
+                    <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">Show each house cusp in the sign where it starts.</span>
+                  </span>
+                  <Switch
+                    aria-label="Bhava cusp labels"
+                    checked={draft.viewPreferences.showBhavaCusps}
+                    onCheckedChange={(checked) => setPreference("showBhavaCusps", checked)}
+                  />
+                </div>
+                <fieldset disabled={!draft.viewPreferences.showBhavaCusps} className="mt-3 grid gap-3 sm:grid-cols-3 disabled:opacity-50">
+                  <label className="text-xs font-medium">
+                    Cusp sign labels
+                    <select
+                      value={draft.viewPreferences.cuspLabelSignStyle}
+                      onChange={(event) => setPreference("cuspLabelSignStyle", event.target.value as ChartSettings["viewPreferences"]["cuspLabelSignStyle"])}
+                      className={`${CONTROL_CLASS} mt-1.5 h-11 w-full text-sm md:h-10`}
+                    >
+                      <option value="short">Short · Vi</option>
+                      <option value="full">Full · Virgo</option>
+                      <option value="number">Number · 6</option>
+                      <option value="hindi">Hindi · कन्या</option>
+                      <option value="glyph">Glyph · ♍︎</option>
+                    </select>
+                  </label>
+                  <label className="text-xs font-medium">
+                    Cusp degree format
+                    <select
+                      value={draft.viewPreferences.cuspLabelDegreeFormat}
+                      onChange={(event) => setPreference("cuspLabelDegreeFormat", event.target.value as ChartSettings["viewPreferences"]["cuspLabelDegreeFormat"])}
+                      className={`${CONTROL_CLASS} mt-1.5 h-11 w-full text-sm md:h-10`}
+                    >
+                      <option value="dms">DMS · 22°47′10″</option>
+                      <option value="dm">Degrees/minutes</option>
+                      <option value="decimal">Decimal · 22.79°</option>
+                      <option value="compact">Compact</option>
+                    </select>
+                  </label>
+                  <label className="text-xs font-medium">
+                    Cusp placement
+                    <select
+                      value={draft.viewPreferences.cuspLabelStyle}
+                      onChange={(event) => setPreference("cuspLabelStyle", event.target.value as ChartSettings["viewPreferences"]["cuspLabelStyle"])}
+                      className={`${CONTROL_CLASS} mt-1.5 h-11 w-full text-sm md:h-10`}
+                    >
+                      <option value="line">On the line</option>
+                      <option value="box">In the sign box</option>
+                    </select>
+                  </label>
+                </fieldset>
               </div>
               <div>
                 <h4 className="mb-2 text-xs font-semibold text-muted-foreground">Additional bodies</h4>
@@ -657,7 +697,7 @@ function ChartSettingsDrawer({
                       aria-label="Arudha Padas"
                       checked={draft.viewPreferences.showArudhaPadas}
                       onCheckedChange={(checked) => setPreference("showArudhaPadas", checked)}
-                      className="mt-0.5 data-[state=checked]:bg-blue-500 focus-visible:ring-blue-400"
+                      className="mt-0.5"
                     />
                   </div>
                   {draft.viewPreferences.showArudhaPadas && (
@@ -816,8 +856,8 @@ function ChartOverflowFrame({
   arudhaPadas: ArudhaPada[];
 }) {
   return (
-    <div className="relative flex h-full w-full flex-col">
-      <div className="relative min-h-0 w-full flex-1">
+    <div className="relative flex w-full flex-col">
+      <div className="relative aspect-square w-full">
         {children}
       </div>
       {overflow.length > 0 && (
@@ -977,7 +1017,11 @@ export function SvgChart({
           signName: SIGNS[sign],
         };
       });
-    return <PlacidusWheel ascendant={ascendant} planets={planets} points={points} cusps={cusps} referenceHouse={referenceHouse} overlay={overlay} labelPlanetsAsTransit={showTransitLabels} language={language} preferences={preferences} />;
+    return (
+      <div className="relative aspect-square w-full">
+        <PlacidusWheel ascendant={ascendant} planets={planets} points={points} cusps={cusps} referenceHouse={referenceHouse} overlay={overlay} labelPlanetsAsTransit={showTransitLabels} language={language} preferences={preferences} />
+      </div>
+    );
   }
 
   if (style === "east") {
@@ -1013,12 +1057,14 @@ export function SvgChart({
               ))}
               {contents.map((body, bodyIndex) => {
                 const name = chartPlanetDisplay(body, language, preferences.usePlanetIcons);
+                const bodyBaseline = y + bodyIndex * 11 + 4;
+                const labelWidth = name.length * 4.2 + (body.isTransit ? 8 : 0) + (body.motion === "R" ? 5 : 0) + 4;
                 const vargottama = body.name !== "Ascendant" && body.sign === getVargaSign(body, 9);
                 return (
                   <g key={body.id} opacity={isHighlighted(body, vargottama) ? 1 : 0.4} filter={isHighlighted(body, vargottama) && hoveredPlanet !== null ? "drop-shadow(0 0 6px hsl(var(--foreground)))" : undefined} onMouseEnter={() => onBodyEnter(body)} onMouseLeave={() => setHoveredPlanet(null)}>
                     {body.motion === "R" && <title>Retrograde Motion</title>}
-                    {vargottama && <ellipse cx={x} cy={y + bodyIndex * 11 - 3} rx={name.length * 3.4 + (body.motion === "R" ? 5 : 0)} ry="7" fill="none" stroke="hsl(var(--foreground))" strokeWidth="1" />}
-                    <text x={x} y={y + bodyIndex * 11 + 4} fill="hsl(var(--foreground))" fontSize="8" fontWeight="600" textAnchor="middle">
+                    {vargottama && <rect x={x - labelWidth / 2} y={bodyBaseline - 9} width={labelWidth} height="11" rx="4" fill="none" stroke="#C05A3A" strokeWidth="1" />}
+                    <text x={x} y={bodyBaseline} fill="hsl(var(--foreground))" fontSize="8" fontWeight="600" textAnchor="middle">
                       {body.isTransit ? "T " : ""}{name}{body.motion === "R" && <tspan fill="hsl(var(--foreground))" fontSize="8" fontWeight="800" dy="-3">ᴿ</tspan>}
                     </text>
                   </g>
@@ -1065,7 +1111,7 @@ export function SvgChart({
                   const name = chartPlanetDisplay(body, language, preferences.usePlanetIcons);
                   const vargottama = body.name !== "Ascendant" && body.sign === getVargaSign(body, 9);
                   return (
-                    <span key={body.id} title={body.name} className={`inline-flex items-center gap-0.5 whitespace-nowrap font-semibold text-foreground ${vargottama ? "rounded-full border border-foreground px-1.5" : ""}`}>
+                    <span key={body.id} title={body.name} className={`inline-flex items-center gap-0.5 whitespace-nowrap font-semibold text-foreground ${vargottama ? "rounded-full border border-[#C05A3A] px-1" : ""}`}>
                       {body.isTransit ? "T " : ""}{name}{body.motion === "R" && <span className="font-bold text-foreground">R</span>}
                     </span>
                   );
@@ -1115,6 +1161,10 @@ export function SvgChart({
       {houses.map((house) => {
         const [x, y] = centers[house.house];
         const isAscHouse = house.house === 1;
+        const inlineBodies = houseBodyGroups[house.house - 1].inline;
+        const compactBottomBodies = y >= 300 && inlineBodies.length >= 3;
+        const bodyLineHeight = y >= 270 ? (compactBottomBodies ? 8 : 10) : 13;
+        const bodyStartY = compactBottomBodies ? y - 2 : y + 10;
         return (
           <g key={house.house}>
             <text x={x} y={y - 15} fill="hsl(var(--foreground))" fontSize="9" textAnchor="middle">{preferences.showHouseLabels ? isAscHouse ? "1ST HOUSE" : `H${house.house}` : ""}{preferences.showHouseLabels ? " · " : ""}{chartSignDisplay(house.sign, language, preferences).toUpperCase()}</text>
@@ -1123,17 +1173,18 @@ export function SvgChart({
                 {cusp.label}
               </text>
             ))}
-            {houseBodyGroups[house.house - 1].inline.map((body, index) => {
+            {inlineBodies.map((body, index) => {
               const row = Math.floor(index / 1);
               const bodyColor = "hsl(var(--foreground))";
               const name = chartPlanetDisplay(body, language, preferences.usePlanetIcons);
-              const bodyY = y + 10 + row * 13;
+              const bodyY = bodyStartY + row * bodyLineHeight;
               const vargottama = body.name !== "Ascendant" && body.sign === getVargaSign(body, 9);
+              const labelWidth = name.length * 5 + (body.isTransit ? 8 : 0) + (body.motion === "R" ? 5 : 0) + 4;
               return (
                 <g key={body.id} opacity={isHighlighted(body, vargottama) ? 1 : 0.4} filter={isHighlighted(body, vargottama) && hoveredPlanet !== null ? "drop-shadow(0 0 6px hsl(var(--foreground)))" : undefined} onMouseEnter={() => onBodyEnter(body)} onMouseLeave={() => setHoveredPlanet(null)}>
                   {body.motion === "R" && <title>Retrograde Motion</title>}
-                  {vargottama && <ellipse cx={x} cy={bodyY - 3} rx={name.length * 3.4 + (body.motion === "R" ? 5 : 0)} ry="8" fill="none" stroke="hsl(var(--foreground))" strokeWidth="1" />}
-                  <text x={x} y={bodyY} fill={bodyColor} fontSize="10" fontWeight={body.name === "Ascendant" ? "700" : "600"} textAnchor="middle">
+                  {vargottama && <rect x={x - labelWidth / 2} y={bodyY - 9} width={labelWidth} height="12" rx="4" fill="none" stroke="#C05A3A" strokeWidth="1" />}
+                  <text x={x} y={bodyY} fill={bodyColor} fontSize={compactBottomBodies ? "8" : "10"} fontWeight={body.name === "Ascendant" ? "700" : "600"} textAnchor="middle">
                     {body.isTransit ? "T " : ""}{name}{body.motion === "R" && <tspan fill="hsl(var(--foreground))" fontSize="8" fontWeight="800" dy="-3">ᴿ</tspan>}
                   </text>
                 </g>
@@ -1142,7 +1193,7 @@ export function SvgChart({
             {arudhaPadas.length > 0 && (
               <text
                 x={x}
-                y={y + 10 + houseBodyGroups[house.house - 1].inline.length * 13 + 10}
+                y={y >= 300 ? 342 : y + 10 + inlineBodies.length * bodyLineHeight + 8}
                 fill="#C05A3A"
                 className="dark:fill-amber-300"
                 fontSize="9"
@@ -1202,10 +1253,8 @@ const JAIMINI_KARAKA_NAMES: Record<string, string> = {
 };
 
 const PLANETARY_ROW_ZEBRA = [
-  "bg-[#F1F8FD]",
-  "bg-[#FFF2F5]",
-  "bg-[#FFFBEA]",
-  "bg-[#F7F1EB]",
+  "bg-white dark:bg-card",
+  "bg-[#FAF8F5] dark:bg-muted/20",
 ];
 
 function PlanetTable({
@@ -1235,7 +1284,7 @@ function PlanetTable({
       <div className="hidden overflow-x-auto md:block">
       <table className="w-full min-w-[690px] text-left text-xs">
         <thead className="sticky top-0 bg-card text-xs uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))]">
-          <tr>{["Graha", "Jaimini karaka", "Sign", "Nakshatra", "Pada", "Longitude", "Motion", "Declination", "Dignity", "STATES (AVASTHAS)"].map((heading, index) => <th key={heading} className={`${index === 0 ? "sticky left-0 z-20 bg-card" : ""} whitespace-nowrap px-1.5 py-2 font-medium`}>{heading}</th>)}</tr>
+          <tr>{["Graha", "Jaimini karaka", "Sign", "Nakshatra", "Pada", "Longitude", "Motion", "Declination", "Dignity", "STATES (AVASTHAS)"].map((heading, index) => <th key={heading} className={`${index === 0 ? "sticky left-0 z-20 bg-card" : ""} ${[4, 5, 7].includes(index) ? "text-right font-mono tabular-nums" : ""} whitespace-nowrap px-1.5 py-2 font-medium`}>{heading}</th>)}</tr>
         </thead>
         <tbody className="divide-y divide-slate-200 dark:divide-slate-800/50">
           {rows.map((position, index) => {
@@ -1267,22 +1316,24 @@ function PlanetTable({
                   )}
                 </td>
                 <td className="whitespace-nowrap px-1.5 py-1.5">{position.nakshatraName}</td>
-                <td className="px-1.5 py-1.5 text-center">{position.pada}</td>
+                <td className="px-1.5 py-1.5 text-right font-mono tabular-nums">{position.pada}</td>
                 <td className="whitespace-nowrap px-1.5 py-1.5 text-right text-slate-700"><DegreeValue position={position} decimal={decimal} /></td>
                 <td className="px-1.5 py-1.5">
                   {nodeType === "true" && (position.name === "Rahu" || position.name === "Ketu") && position.motion === "D"
                     ? <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium ${motionStyle(position.motion)}`}><span>Direct</span><span role="img" aria-label="Rahu/Ketu is in direct motion for this specific ephemeris calculation time." title="Rahu/Ketu is in direct motion for this specific ephemeris calculation time."><Info className="size-4" /></span></span>
                     : <span className={`inline-flex whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium ${motionStyle(position.motion)}`}>{position.motion === "R" ? "Retrograde" : "Direct"}</span>}
                 </td>
-                <td className={`whitespace-nowrap px-1.5 py-1.5 text-right font-mono text-slate-700 ${Math.abs(position.declination) > 23.45 ? "font-semibold text-[hsl(var(--retrograde-crimson))]" : ""}`} title={Math.abs(position.declination) > 23.45 ? "Out of Bounds (OOB) Declination" : undefined}>{declinationToDms(position.declination)}</td>
+                <td className={`whitespace-nowrap px-1.5 py-1.5 text-right font-mono text-slate-700 ${Math.abs(position.declination) > 23.45 ? "font-semibold text-[hsl(var(--retrograde-crimson))]" : ""}`} title={Math.abs(position.declination) > 23.45 ? "Out of Bounds (OOB) Declination" : undefined}>
+                  {declinationToDms(position.declination)}{Math.abs(position.declination) > 23.45 && <span className="ml-1 rounded bg-rose-100 px-1 py-0.5 align-middle text-[9px] font-semibold tracking-normal text-rose-800 dark:bg-rose-900/40 dark:text-rose-300">OOB</span>}
+                </td>
                 <td className="whitespace-nowrap px-1.5 py-1.5"><span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${dignityStyle(position.dignity)}`}>{position.dignity}</span></td>
                 <td className="px-1.5 py-1.5">
                   {detailedAvastha ? (
-                    <div className="flex min-w-36 flex-col gap-0.5 text-xs text-slate-600 dark:text-slate-400">
-                      <span>Baladi: {detailedAvastha.baladi.state}</span>
-                      <span title={detailedAvastha.jagradadi.reasons.join(" ")}>Jagradadi: {detailedAvastha.jagradadi.state}</span>
-                      {detailedAvastha.shayanadi && <span>Shayanadi: {detailedAvastha.shayanadi.state}</span>}
-                      {!!detailedAvastha.lajjitadi?.length && <span>Lajjitadi: {detailedAvastha.lajjitadi.map(({ state }) => state).join(", ")}</span>}
+                    <div className="flex min-w-36 flex-wrap gap-1 text-[10px] text-slate-600 dark:text-slate-400">
+                      <span title={`Baladi: ${detailedAvastha.baladi.state}`} className="rounded bg-muted px-1.5 py-0.5"><strong>Bal</strong> {detailedAvastha.baladi.state}</span>
+                      <span title={`Jagradadi: ${detailedAvastha.jagradadi.state}. ${detailedAvastha.jagradadi.reasons.join(" ")}`} className="rounded bg-muted px-1.5 py-0.5"><strong>Jag</strong> {detailedAvastha.jagradadi.state}</span>
+                      {detailedAvastha.shayanadi && <span title={`Shayanadi: ${detailedAvastha.shayanadi.state}`} className="rounded bg-muted px-1.5 py-0.5"><strong>Sha</strong> {detailedAvastha.shayanadi.state}</span>}
+                      {!!detailedAvastha.lajjitadi?.length && <span title={`Lajjitadi: ${detailedAvastha.lajjitadi.map(({ state }) => state).join(", ")}`} className="rounded bg-muted px-1.5 py-0.5"><strong>Laj</strong> {detailedAvastha.lajjitadi.map(({ state }) => state).join(", ")}</span>}
                     </div>
                   ) : "—"}
                 </td>
@@ -1299,7 +1350,7 @@ function PlanetTable({
             <thead className="sticky top-0 z-20 bg-card text-[10px] uppercase tracking-wide text-muted-foreground">
               <tr>
                 {["Graha", "Jaimini karaka", "Sign", "Nakshatra · Pada", "Longitude", "Motion", "Declination", "Dignity", "States (Avasthas)"].map((heading, index) => (
-                  <th key={heading} className={`${index === 0 ? "sticky left-0 z-30 bg-card" : ""} whitespace-nowrap px-3 py-2 font-semibold`}>{heading}</th>
+                  <th key={heading} className={`${index === 0 ? "sticky left-0 z-30 bg-card" : ""} ${[4, 6].includes(index) ? "text-right font-mono tabular-nums" : ""} whitespace-nowrap px-3 py-2 font-semibold`}>{heading}</th>
                 ))}
               </tr>
             </thead>
@@ -1339,15 +1390,17 @@ function PlanetTable({
                     <td className="whitespace-nowrap px-3 py-2">
                       <span className={`inline-flex rounded px-2 py-0.5 font-medium ${motionStyle(position.motion)}`}>{motionLabel}</span>
                     </td>
-                    <td className={`whitespace-nowrap px-3 py-2 text-right font-mono ${Math.abs(position.declination) > 23.45 ? "font-semibold text-[hsl(var(--retrograde-crimson))]" : ""}`} title={Math.abs(position.declination) > 23.45 ? "Out of Bounds (OOB) Declination" : undefined}>{declinationToDms(position.declination)}</td>
+                    <td className={`whitespace-nowrap px-3 py-2 text-right font-mono ${Math.abs(position.declination) > 23.45 ? "font-semibold text-[hsl(var(--retrograde-crimson))]" : ""}`} title={Math.abs(position.declination) > 23.45 ? "Out of Bounds (OOB) Declination" : undefined}>
+                      {declinationToDms(position.declination)}{Math.abs(position.declination) > 23.45 && <span className="ml-1 rounded bg-rose-100 px-1 py-0.5 align-middle text-[9px] font-semibold tracking-normal text-rose-800 dark:bg-rose-900/40 dark:text-rose-300">OOB</span>}
+                    </td>
                     <td className="whitespace-nowrap px-3 py-2"><span className={`inline-flex rounded-full px-2 py-0.5 font-medium ${dignityStyle(position.dignity)}`}>{position.dignity}</span></td>
                     <td className="min-w-[220px] px-3 py-2 text-slate-700">
                       {detailedAvastha ? (
-                        <div className="flex flex-col gap-0.5">
-                          <span>Baladi: {detailedAvastha.baladi.state}</span>
-                          <span title={detailedAvastha.jagradadi.reasons.join(" ")}>Jagradadi: {detailedAvastha.jagradadi.state}</span>
-                          {detailedAvastha.shayanadi && <span>Shayanadi: {detailedAvastha.shayanadi.state}</span>}
-                          {!!detailedAvastha.lajjitadi?.length && <span>Lajjitadi: {detailedAvastha.lajjitadi.map(({ state }) => state).join(", ")}</span>}
+                        <div className="flex flex-wrap gap-1">
+                          <span title={`Baladi: ${detailedAvastha.baladi.state}`} className="rounded bg-muted px-1.5 py-0.5"><strong>Bal</strong> {detailedAvastha.baladi.state}</span>
+                          <span title={`Jagradadi: ${detailedAvastha.jagradadi.state}. ${detailedAvastha.jagradadi.reasons.join(" ")}`} className="rounded bg-muted px-1.5 py-0.5"><strong>Jag</strong> {detailedAvastha.jagradadi.state}</span>
+                          {detailedAvastha.shayanadi && <span title={`Shayanadi: ${detailedAvastha.shayanadi.state}`} className="rounded bg-muted px-1.5 py-0.5"><strong>Sha</strong> {detailedAvastha.shayanadi.state}</span>}
+                          {!!detailedAvastha.lajjitadi?.length && <span title={`Lajjitadi: ${detailedAvastha.lajjitadi.map(({ state }) => state).join(", ")}`} className="rounded bg-muted px-1.5 py-0.5"><strong>Laj</strong> {detailedAvastha.lajjitadi.map(({ state }) => state).join(", ")}</span>}
                         </div>
                       ) : "—"}
                     </td>
@@ -1428,7 +1481,7 @@ interface GeocodeResult {
 }
 
 const CONTROL_CLASS = "h-9 rounded-lg border border-input bg-card px-2.5 text-xs text-card-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/40";
-const PANEL_CLASS = "min-w-0 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm";
+const PANEL_CLASS = "min-w-0 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm md:rounded-2xl md:border-stone-200/80 md:shadow-[0_1px_3px_rgba(15,23,42,0.04)]";
 
 type SavedProfile = {
   id: string;
@@ -1853,6 +1906,7 @@ export function KundaliDashboard({
   const [dashaSeed, setDashaSeed] = useState<DashaSeed>("moon");
   const [dashaLagnaMode, setDashaLagnaMode] = useState<DashaLagnaMode>("maha-lord");
   const [notesExpanded, setNotesExpanded] = useState(false);
+  const notesPopoverRef = useRef<HTMLDivElement>(null);
   const [chartMode, setChartMode] = useState<"transit" | "birth">("transit");
   const [transitDate, setTransitDate] = useState(() => getCurrentBirthDateTime().date);
   const [transitTime, setTransitTime] = useState(() => getCurrentBirthDateTime().time);
@@ -1989,8 +2043,24 @@ export function KundaliDashboard({
   }, [profile.city]);
 
   useEffect(() => {
-    if (profile.notes) setNotesExpanded(true);
+    if (profile.notes && window.matchMedia("(max-width: 1023px)").matches) setNotesExpanded(true);
   }, [profile.notes]);
+
+  useEffect(() => {
+    if (!notesExpanded) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (notesPopoverRef.current && !notesPopoverRef.current.contains(event.target as Node)) setNotesExpanded(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setNotesExpanded(false);
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [notesExpanded]);
 
   useEffect(() => {
     const query = locationSearch.trim();
@@ -2513,6 +2583,16 @@ export function KundaliDashboard({
       ? "Midpoint analysis uses sidereal longitudes. Switch the chart to Sidereal · Nirayana in Chart Settings."
       : null;
   const activeBirthProfile = submittedProfile ?? profile;
+  const normalizeChartName = (name: string) => name === "Current transit" ? "" : name.trim() || "Birth chart";
+  const chartInputsChanged = Boolean(submittedProfile && (
+    normalizeChartName(profile.name) !== normalizeChartName(submittedProfile.name)
+    || profile.sex !== submittedProfile.sex
+    || profile.date !== submittedProfile.date
+    || profile.time !== submittedProfile.time
+    || locationSearch.trim() !== submittedProfile.city.trim()
+    || profile.lat !== submittedProfile.lat
+    || profile.lng !== submittedProfile.lng
+  ));
   const referenceHouseNumber = getReferenceHouse(referenceName, displayData?.planets ?? []);
   const referenceLabel = referenceName === "Ascendant"
     ? "Ascendant"
@@ -2552,7 +2632,7 @@ export function KundaliDashboard({
         </div>
       )}
       <div className="mx-auto w-full max-w-[1440px] space-y-4 2xl:max-w-[1600px]">
-        <section aria-label="Birth chart controls" className="shrink-0 rounded-xl border border-border bg-card p-3 text-card-foreground shadow-sm">
+        <section aria-label="Birth chart controls" className="shrink-0 rounded-xl border border-border bg-card p-3 text-card-foreground shadow-sm md:rounded-2xl md:border-stone-200/80 md:shadow-[0_1px_3px_rgba(15,23,42,0.04)] lg:p-2">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2 lg:hidden">
             <div id="chart-profile" className="flex items-center gap-2 scroll-mt-4">
               <span className="grid size-7 place-items-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300"><Orbit className="size-4" /></span>
@@ -2585,13 +2665,13 @@ export function KundaliDashboard({
             </div>
           )}
           <form onSubmit={submitBirthChart} className={`${profileCollapsed ? "hidden md:block" : ""} min-w-0 space-y-2`}>
-            <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-[minmax(100px,1.15fr)_minmax(74px,0.8fr)_minmax(125px,1fr)_minmax(125px,1fr)_minmax(180px,1.6fr)_minmax(100px,0.9fr)_minmax(82px,0.7fr)_minmax(82px,0.7fr)]">
+            <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-[minmax(100px,1.15fr)_minmax(74px,0.8fr)_minmax(125px,1fr)_minmax(125px,1fr)_minmax(180px,1.6fr)_minmax(100px,0.9fr)_minmax(100px,0.9fr)_minmax(140px,1.2fr)]">
               <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">
                 Chart name
-                <input aria-label="Chart name" type="text" maxLength={100} value={profile.name === "Current transit" ? "" : profile.name} placeholder="Enter Jataka's name" onChange={(event) => setProfile({ name: event.target.value })} className={`${CONTROL_CLASS} mt-1 h-11 w-full text-base placeholder:text-slate-600 dark:placeholder:text-slate-400 md:text-sm`} />
+                <input aria-label="Chart name" type="text" maxLength={100} value={profile.name === "Current transit" ? "" : profile.name} placeholder="Enter Jataka's name" onChange={(event) => setProfile({ name: event.target.value })} className={`${CONTROL_CLASS} mt-1 h-11 w-full text-base placeholder:text-slate-600 dark:placeholder:text-slate-400 md:text-sm lg:h-9`} />
               </label>
               <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Gender
-                <select aria-label="Gender" value={profile.sex} onChange={(event) => setProfile({ sex: event.target.value as BirthProfile["sex"] })} className={`${CONTROL_CLASS} mt-1 h-11 w-full min-w-0 px-2 text-base md:text-sm`}>
+                <select aria-label="Gender" value={profile.sex} onChange={(event) => setProfile({ sex: event.target.value as BirthProfile["sex"] })} className={`${CONTROL_CLASS} mt-1 h-11 w-full min-w-0 px-2 pr-9 text-base md:text-sm lg:h-9`}>
                   <option value="not-applicable">Not specified</option>
                   <option value="male">Male</option>
                   <option value="female">Female</option>
@@ -2599,13 +2679,13 @@ export function KundaliDashboard({
               </label>
               <div className="grid min-w-0 grid-cols-2 gap-2.5 md:contents">
                 <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Birth date
-                  <input aria-label="Birth date" type="date" required value={profile.date} onChange={(event) => setProfile({ date: event.target.value })} className={`${CONTROL_CLASS} mt-1 box-border h-11 w-full min-w-0 max-w-full px-2 text-base md:text-sm`} />
+                  <input aria-label="Birth date" type="date" required value={profile.date} onChange={(event) => setProfile({ date: event.target.value })} className={`${CONTROL_CLASS} mt-1 box-border h-11 w-full min-w-0 max-w-full px-2 text-base md:text-sm lg:h-9`} />
                 </label>
                 <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Birth time
                   <input aria-label="Time of birth" type="time" step={1} value={profile.time} onChange={(event) => {
                     const time = event.target.value;
                     setProfile({ time: time ? (time.length === 5 ? `${time}:00` : time) : "" });
-                  }} required className={`${CONTROL_CLASS} mt-1 box-border h-11 w-full min-w-0 max-w-full px-2 text-base font-mono md:text-sm`} />
+                  }} required className={`${CONTROL_CLASS} mt-1 box-border h-11 w-full min-w-0 max-w-full px-2 text-base font-mono md:text-sm lg:h-9`} />
                 </label>
               </div>
               <div className="relative min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300">
@@ -2614,7 +2694,7 @@ export function KundaliDashboard({
                     <label htmlFor="birth-city-search">Birth city</label>
                     <span className="relative mt-1 block">
                       <MapPin className="pointer-events-none absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
-                      <input id="birth-city-search" aria-label="Birth city; search anywhere" type="search" maxLength={160} value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="Search city…" autoComplete="off" aria-autocomplete="list" aria-expanded={locationResults.length > 0} className={`${CONTROL_CLASS} h-11 w-full min-w-0 pl-8 pr-24 text-base md:text-sm lg:pr-16`} />
+                      <input id="birth-city-search" aria-label="Birth city; search anywhere" type="search" maxLength={160} value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="Search city…" autoComplete="off" aria-autocomplete="list" aria-expanded={locationResults.length > 0} className={`${CONTROL_CLASS} h-11 w-full min-w-0 pl-8 pr-24 text-base md:text-sm lg:h-9 lg:pr-16`} />
                       {locationLoading && <Search className="absolute right-16 top-2.5 size-3.5 animate-pulse text-primary lg:right-14" />}
                       <button type="button" onClick={useCurrentLocation} disabled={currentLocationLoading} title={currentLocationLoading ? "Finding current location" : "Use current location"} aria-label={currentLocationLoading ? "Finding current location" : "Use current location"} className="absolute right-11 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60 lg:right-8 lg:size-6">
                         {currentLocationLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <Crosshair className="size-3.5" />}
@@ -2640,14 +2720,14 @@ export function KundaliDashboard({
                         const value = limitCoordinatePrecision(event.target.value);
                         setLatitudeDraft(value);
                         setProfile({ lat: parseCoordinateDraft(value) });
-                      }} className={`${CONTROL_CLASS} mt-1 h-11 w-full min-w-0 px-1 text-base font-mono tabular-nums md:text-sm`} placeholder="28.66" />
+                      }} className={`${CONTROL_CLASS} mt-1 h-11 w-full min-w-0 px-1 text-base font-mono tabular-nums md:text-sm lg:h-9`} placeholder="28.66" />
                     </label>
                     <label className="min-w-0 truncate">Longitude
                       <input aria-label="Longitude" type="text" inputMode="decimal" autoComplete="off" value={longitudeDraft} onChange={(event) => {
                         const value = limitCoordinatePrecision(event.target.value);
                         setLongitudeDraft(value);
                         setProfile({ lng: parseCoordinateDraft(value) });
-                      }} className={`${CONTROL_CLASS} mt-1 h-11 w-full min-w-0 px-1 text-base font-mono tabular-nums md:text-sm`} placeholder="72.87" />
+                      }} className={`${CONTROL_CLASS} mt-1 h-11 w-full min-w-0 px-1 text-base font-mono tabular-nums md:text-sm lg:h-9`} placeholder="72.87" />
                     </label>
                     <button type="button" onClick={() => {
                       setUseCoordinates(false);
@@ -2658,18 +2738,54 @@ export function KundaliDashboard({
                   </div>
                 )}
               </div>
-              <button type="submit" className="inline-flex h-11 w-full min-w-0 self-end items-center justify-center gap-1.5 rounded-lg bg-[#C64F30] px-1 text-xs font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40">
-                Calculate chart
+              <button type="submit" className={`inline-flex h-11 w-full min-w-0 self-end items-center justify-center gap-1.5 rounded-lg bg-[#C64F30] px-1 text-xs font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40 lg:h-9 ${chartInputsChanged ? "ring-2 ring-amber-400/60 ring-offset-1 ring-offset-card" : ""}`}>
+                {chartInputsChanged ? "Update chart" : "Calculate chart"}
+                {chartInputsChanged && <><span className="sr-only">Chart inputs changed since calculation</span><span aria-hidden="true" className="size-1.5 rounded-full bg-amber-200" /></>}
               </button>
-              <button type="button" onClick={openSaveDialog} disabled={savingProfile} className="hidden min-h-11 w-full self-end items-center justify-center gap-1 rounded-lg border border-border bg-background px-1 text-[11px] font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60 lg:inline-flex">
+              <button type="button" onClick={openSaveDialog} disabled={savingProfile} className="hidden min-h-11 w-full self-end items-center justify-center gap-1 rounded-lg border border-border bg-background px-1 text-[11px] font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60 lg:inline-flex lg:min-h-9">
                 <Save aria-hidden="true" className="size-3.5 shrink-0" />
                 {saveButtonLabel}
               </button>
-              <button type="button" onClick={toggleSavedProfiles} disabled={savedProfilesLoading} aria-expanded={savedProfilesOpen} className="hidden min-h-11 w-full self-end items-center justify-center gap-1 rounded-lg border border-border bg-background px-1 text-[11px] font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60 lg:inline-flex">
-                <FolderOpen aria-hidden="true" className="size-3.5 shrink-0" />
-                {savedProfilesOpen ? "Close saved" : "Load saved"}
-              </button>
-              <div className="-mx-3 -mb-3 mt-1 min-w-0 rounded-b-xl border-t border-border bg-muted/80 px-3 py-2 dark:bg-muted/50 md:col-span-2 lg:col-span-8">
+              <div className="hidden min-w-0 self-end gap-1 lg:flex">
+                <div ref={notesPopoverRef} className="relative min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => setNotesExpanded((expanded) => !expanded)}
+                    aria-expanded={notesExpanded}
+                    aria-controls="chart-notes-desktop"
+                    className="inline-flex min-h-11 items-center gap-1 whitespace-nowrap rounded-lg border border-border bg-background px-2 text-[11px] font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:min-h-9"
+                  >
+                    <StickyNote aria-hidden="true" className="size-3.5 shrink-0" />
+                    Notes
+                    {profile.notes.trim() && <span aria-hidden="true" className="size-1.5 rounded-full bg-[#C64F30]" />}
+                  </button>
+                  {notesExpanded && (
+                    <div className="absolute right-0 top-full z-[70] mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-border bg-card p-3 text-card-foreground shadow-lg">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <label htmlFor="chart-notes-desktop" className="text-xs font-semibold">Personal notes</label>
+                        <button type="button" onClick={() => setNotesExpanded(false)} aria-label="Close personal notes" className="grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                          <X aria-hidden="true" className="size-4" />
+                        </button>
+                      </div>
+                      <textarea
+                        id="chart-notes-desktop"
+                        maxLength={10000}
+                        rows={5}
+                        value={profile.notes}
+                        onChange={(event) => setProfile({ notes: event.target.value })}
+                        placeholder="Add personal notes, life events, or reference details..."
+                        className="min-h-28 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm leading-5 text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary/40"
+                      />
+                      <p aria-live="polite" className="mt-1 text-right text-[10px] tabular-nums text-muted-foreground">{profile.notes.length}/10,000</p>
+                    </div>
+                  )}
+                </div>
+                <button type="button" onClick={toggleSavedProfiles} disabled={savedProfilesLoading} aria-expanded={savedProfilesOpen} className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-border bg-background px-1 text-[11px] font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60 lg:min-h-9">
+                  <FolderOpen aria-hidden="true" className="size-3.5 shrink-0" />
+                  {savedProfilesOpen ? "Close saved" : "Load saved"}
+                </button>
+              </div>
+              <div className="-mx-3 -mb-3 mt-1 min-w-0 rounded-b-xl border-t border-border bg-muted/80 px-3 py-2 dark:bg-muted/50 md:col-span-2 lg:hidden">
                 <button
                   type="button"
                   onClick={() => setNotesExpanded((expanded) => !expanded)}
@@ -2732,7 +2848,7 @@ export function KundaliDashboard({
         />
 
         {dashboardTab !== "jamakkol" && (
-          <nav role="tablist" aria-label="Kundali analysis" className="no-scrollbar flex w-full snap-x snap-mandatory gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 shadow-sm lg:overflow-visible">
+          <nav role="tablist" aria-label="Kundali analysis" className="no-scrollbar flex w-full snap-x snap-mandatory gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 shadow-sm md:items-center md:rounded-2xl md:border-stone-200/80 md:bg-white md:p-1.5 md:shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
             {DASHBOARD_TABS.map(({ id, label }) => (
               <button
                 key={id}
@@ -2744,7 +2860,7 @@ export function KundaliDashboard({
                 onClick={() => selectDashboardTab(id)}
                 onMouseEnter={() => preloadDashboardTab(id)}
                 onFocus={() => preloadDashboardTab(id)}
-                className={`min-h-11 shrink-0 snap-start rounded-lg px-2 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 2xl:px-3 2xl:text-xs ${dashboardTab === id ? "border border-primary/30 bg-accent text-accent-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                className={`min-h-11 shrink-0 snap-start rounded-lg px-2 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:min-h-0 md:rounded-xl md:px-3.5 md:py-2 md:text-[13.5px] md:transition-colors md:whitespace-nowrap ${dashboardTab === id ? "border border-primary/30 bg-accent text-accent-foreground shadow-sm md:border-[#EBC7B8] md:bg-[#FDF2EC] md:font-semibold md:text-[#B84E2E] md:shadow-[0_1px_2px_rgba(192,90,58,0.08)]" : "text-muted-foreground hover:bg-muted hover:text-foreground md:font-medium md:text-slate-600 md:hover:bg-stone-100/80 md:hover:text-slate-900"}`}
               >
                 {label}
               </button>
@@ -2849,10 +2965,10 @@ export function KundaliDashboard({
         <div className="flex flex-col gap-4">
         {displayError && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 size-4 shrink-0" /><span>{displayError}</span></div>}
         <div className="order-2 lg:order-1">
-          <PanchangStrip date={displayData?.input.date ?? profile.date} planets={displayData?.planets ?? []} />
+          <PanchangStrip date={displayData?.input.date ?? profile.date} planets={displayData?.planets ?? []} houseSystem={houseSystem} />
         </div>
         {kharaPoints.length > 0 && (
-          <section aria-label="Khara divisional points" className="order-3 overflow-hidden rounded-xl border border-border bg-card text-card-foreground">
+          <section aria-label="Khara divisional points" className="order-3 overflow-hidden rounded-xl border border-border bg-card text-card-foreground md:rounded-2xl md:border-stone-200/80 md:shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
             <div className="px-4 py-3">
               <h2 className="text-sm font-semibold">Khara positions</h2>
               <p className="mt-1 text-[11px] text-muted-foreground">64th Navamsha and 22nd Drekkana from the Lagna and Moon.</p>
@@ -2886,7 +3002,7 @@ export function KundaliDashboard({
         {/* Core chart panels grow with their controls and charts; wide tables keep horizontal-only overflow. */}
         <div id="kundali-charts" className="order-1 grid w-full grid-cols-1 items-stretch gap-4 scroll-mt-4 lg:order-2 lg:grid-cols-2 lg:gap-6">
           <div className="row-start-1 flex min-h-0 min-w-0 lg:col-start-1">
-            <section className="relative flex h-full min-h-0 w-full flex-col rounded-xl border border-border bg-card text-card-foreground shadow-sm" aria-label="Primary D1 chart">
+            <section className="relative flex h-full min-h-0 w-full flex-col rounded-xl border border-border bg-card text-card-foreground shadow-sm md:rounded-2xl md:border-stone-200/80 md:shadow-[0_1px_3px_rgba(15,23,42,0.04)]" aria-label="Primary D1 chart">
               <ChartControls
                 chartMode={chartMode}
                 chartStyle={chartStyle}
@@ -2905,76 +3021,78 @@ export function KundaliDashboard({
                 onTransitTimeChange={setTransitTime}
                 onTransitModeChange={handleTransitModeChange}
               />
-              <div className="relative aspect-square min-w-0 w-full overflow-hidden p-4 flex items-center justify-center bg-card">
-                <div className="relative h-full w-full max-w-[640px] max-h-[640px] aspect-square">
-                  {displayData ? <SvgChart style={chartStyle} ascendant={displayData.ascendant} planets={displayData.planets} points={displayData.points} houseCusps={displayData.houseCusps} varga={1} referenceHouse={referenceHouseNumber} overlay={chartMode === "birth" && overlayTransits ? transitData?.planets : undefined} showTransitLabels={chartMode === "transit" && overlayTransits} language={language} preferences={viewPreferences} /> : <div className="grid h-full w-full place-items-center text-xs text-muted-foreground">{displayLoading ? <LoaderCircle className="size-5 animate-spin text-primary" /> : "Chart unavailable"}</div>}
+              <div className="relative w-full min-w-0 p-4 bg-card">
+                <div className="relative mx-auto w-full max-w-[640px]">
+                  {displayData ? <SvgChart style={chartStyle} ascendant={displayData.ascendant} planets={displayData.planets} points={displayData.points} houseCusps={displayData.houseCusps} varga={1} referenceHouse={referenceHouseNumber} overlay={chartMode === "birth" && overlayTransits ? transitData?.planets : undefined} showTransitLabels={chartMode === "transit" && overlayTransits} language={language} preferences={viewPreferences} /> : <div className="grid aspect-square w-full place-items-center text-xs text-muted-foreground">{displayLoading ? <LoaderCircle className="size-5 animate-spin text-primary" /> : "Chart unavailable"}</div>}
+                  {overlayTransits && transitLoading && (
+                    <div role="status" aria-live="polite" className="absolute right-5 top-5 z-10 inline-flex items-center gap-2 rounded-full border border-stone-300 bg-card/95 px-3 py-1.5 text-xs font-medium text-stone-700 shadow-sm dark:border-stone-700 dark:text-stone-300">
+                      <LoaderCircle className="size-3.5 animate-spin" />
+                      Updating transit positions
+                    </div>
+                  )}
                 </div>
-                {overlayTransits && transitLoading && (
-                  <div role="status" aria-live="polite" className="absolute right-5 top-5 z-10 inline-flex items-center gap-2 rounded-full border border-stone-300 bg-card/95 px-3 py-1.5 text-xs font-medium text-stone-700 shadow-sm dark:border-stone-700 dark:text-stone-300">
-                    <LoaderCircle className="size-3.5 animate-spin" />
-                    Updating transit positions
-                  </div>
-                )}
               </div>
               <div className="mt-3 flex flex-none flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400">
                 <span className="flex items-center gap-1.5"><span className={`size-2 rounded-full ${chartMode === "transit" ? "bg-cyan-600 dark:bg-cyan-400" : "bg-amber-600 dark:bg-amber-400"}`} /> {chartMode === "transit" ? `Transit · ${currentTransitLabel}` : "Birth chart"}</span>
-                <button type="button" className="flex items-center gap-1.5 rounded px-1 transition hover:bg-[hsl(var(--input))]/50" onMouseEnter={() => setHoveredPlanet("Vargottama")} onMouseLeave={() => setHoveredPlanet(null)} onFocus={() => setHoveredPlanet("Vargottama")} onBlur={() => setHoveredPlanet(null)}><span className="inline-block size-3 rounded-full border border-primary" /> Vargottama</button>
+                <button type="button" className="flex items-center gap-1.5 rounded px-1 transition hover:bg-[hsl(var(--input))]/50" onMouseEnter={() => setHoveredPlanet("Vargottama")} onMouseLeave={() => setHoveredPlanet(null)} onFocus={() => setHoveredPlanet("Vargottama")} onBlur={() => setHoveredPlanet(null)}><span className="inline-block size-3 rounded-full border border-[#C05A3A]" /> Vargottama</button>
                 <span title="Retrograde Motion"><span className="font-bold text-rose-700 dark:text-rose-300">R</span> = retrograde</span>
-                <span>{chartStyle === "placidus" ? `${referenceLabel} at 9 o’clock` : referenceLabel}</span>
+                <span className="min-w-0 break-words text-right" title={chartStyle === "placidus" ? `${referenceLabel} at 9 o’clock` : referenceLabel}>{chartStyle === "placidus" ? `${referenceLabel} at 9 o’clock` : referenceLabel}</span>
               </div>
-              {chartMode === "transit" && <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">{transitLoading ? "Refreshing current sky…" : transitError ?? `Current sky · ${currentTransitLabel}`}</p>}
-              {chartMode === "birth" && overlayTransits && <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">{transitLoading ? "Refreshing transit sky…" : transitError ?? `Transit positions · ${currentTransitLabel}`}</p>}
+              <p className="mt-2 flex flex-wrap items-center gap-x-1.5 text-[10px] text-slate-600 dark:text-slate-400">
+                <span>{chartMode === "transit" ? transitLoading ? "Refreshing current sky…" : transitError ?? "Live transit positions" : overlayTransits ? transitLoading ? "Refreshing transit sky…" : transitError ?? `Transit positions · ${currentTransitLabel}` : "Birth chart positions"}</span>
+                <span aria-hidden="true">·</span>
+                <span>House cusps: {houseSystem === "carter" ? "Carter (Poli-Equatorial)" : "Placidus"} · planetary houses: {houseSystem === "carter" ? "Carter" : "Whole Sign"}</span>
+                {data && <span className="inline-flex items-center gap-1"><Clock3 aria-hidden="true" className="size-3" /> Calculated {new Date(data.calculatedAt).toLocaleTimeString()}</span>}
+              </p>
             </section>
           </div>
 
           <div className="order-2 flex min-h-0 min-w-0 lg:col-start-2 lg:row-start-1">
-            <section id="auxiliary-chart" className="relative flex h-full min-h-0 w-full flex-col rounded-xl border border-border bg-card text-card-foreground shadow-sm" aria-label="Auxiliary chart viewer">
-              <div className="bg-muted/10 p-4 border-b border-border flex flex-col gap-3">
-              <div className="grid flex-none grid-cols-1 gap-4 md:grid-cols-2">
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold">{auxiliaryType === "divisional" ? selectedAuxiliaryChart.label : "Auxiliary chart viewer"}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">{auxiliaryType === "divisional" ? selectedAuxiliaryChart.description : "Compare divisional, transit, return &amp; progression views"}</p>
-                </div>
-                <div className="flex w-full gap-2">
-                  <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">Auxiliary chart
-                    <select aria-label="Auxiliary chart type" value={auxiliaryType} onChange={(event) => setAuxiliaryType(event.target.value as AuxiliaryType)} className={`${CONTROL_CLASS} w-full`}>
-                      <option value="divisional">Divisional Charts (D2–D60)</option><option value="transit">Transit Chart</option><option value="solar">Solar Return (Varshaphala)</option><option value="tajika">Tajika</option><option value="progressions">Progressions</option>
-                    </select>
+            <section id="auxiliary-chart" className="relative flex h-full min-h-0 w-full flex-col rounded-xl border border-border bg-card text-card-foreground shadow-sm md:rounded-2xl md:border-stone-200/80 md:shadow-[0_1px_3px_rgba(15,23,42,0.04)]" aria-label="Auxiliary chart viewer">
+              <div className="flex flex-col gap-3 border-b border-border bg-muted/10 p-4 lg:min-h-[96px] lg:justify-center lg:gap-0 lg:p-3">
+              <div className="grid flex-none grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)] lg:w-full lg:items-center lg:gap-3">
+                  <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-muted-foreground">Chart
+                    <Select
+                      value={auxiliaryType === "divisional" ? auxiliaryChartId : auxiliaryType}
+                      onValueChange={(value) => {
+                        if (value === "BHAVA" || value.startsWith("D")) {
+                          setAuxiliaryType("divisional");
+                          setAuxiliaryChartId(value);
+                          setVarga(value === "BHAVA" ? 1 : Number(value.slice(1)));
+                        } else {
+                          setAuxiliaryType(value as AuxiliaryType);
+                        }
+                      }}
+                    >
+                      <SelectTrigger aria-label="Auxiliary chart" title={auxiliaryType === "divisional" ? selectedAuxiliaryChart.description : undefined} className="h-11 w-full min-w-0 bg-card pr-9 text-xs lg:h-9">
+                        <SelectValue placeholder="Select a chart" />
+                      </SelectTrigger>
+                      <SelectContent className="z-[100] !bg-card !text-foreground">
+                        <SelectGroup>
+                          <SelectLabel>Core charts</SelectLabel>
+                          {AUXILIARY_CHARTS.filter((chart) => chart.group === "Primary").map((chart) => <SelectItem key={chart.id} value={chart.id} aria-label={`${chart.label}: ${chart.description}`}>{chart.label}</SelectItem>)}
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Divisional charts</SelectLabel>
+                          {AUXILIARY_CHARTS.filter((chart) => chart.group === "Divisional").map((chart) => <SelectItem key={chart.id} value={chart.id} aria-label={`${chart.label}: ${chart.description}`}>{chart.label}</SelectItem>)}
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Other charts</SelectLabel>
+                          <SelectItem value="transit">Transit chart</SelectItem>
+                          <SelectItem value="solar">Solar Return (Varshaphala)</SelectItem>
+                          <SelectItem value="tajika">Tajika</SelectItem>
+                          <SelectItem value="progressions">Progressions</SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
                   </label>
-                  <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">Reference Lagna
-                    <select aria-label="Auxiliary reference lagna" value={auxiliaryReferenceName} onChange={(event) => setAuxiliaryReferenceName(event.target.value)} className={`${CONTROL_CLASS} w-full`}>
+                  <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-muted-foreground">Reference Lagna
+                    <select aria-label="Auxiliary reference lagna" value={auxiliaryReferenceName} onChange={(event) => setAuxiliaryReferenceName(event.target.value)} className={`${CONTROL_CLASS} w-full pr-9`}>
                       <option value="Ascendant">Ascendant</option>
                       {Array.from({ length: 12 }, (_, index) => <option key={index} value={`house:${index + 1}`}>House {index + 1}</option>)}
                     </select>
                   </label>
-                </div>
               </div>
-              {auxiliaryType === "divisional" && (
-                <div className="flex min-h-10 flex-none items-center">
-                  <Select
-                    value={auxiliaryChartId}
-                    onValueChange={(value) => {
-                      setAuxiliaryChartId(value);
-                      setVarga(value === "BHAVA" ? 1 : Number(value.slice(1)));
-                    }}
-                  >
-                    <SelectTrigger aria-label="Select auxiliary divisional chart" className="h-9 w-full bg-card">
-                      <SelectValue placeholder="Select a chart" />
-                    </SelectTrigger>
-                    {/* Opaque portal surface stays legible above the auxiliary chart. */}
-                    <SelectContent className="z-[100] !bg-card !text-foreground">
-                      <SelectGroup>
-                        <SelectLabel>Primary</SelectLabel>
-                        {AUXILIARY_CHARTS.filter((chart) => chart.group === "Primary").map((chart) => <SelectItem key={chart.id} value={chart.id}>{chart.label} · {chart.description}</SelectItem>)}
-                      </SelectGroup>
-                      <SelectGroup>
-                        <SelectLabel>Divisional</SelectLabel>
-                        {AUXILIARY_CHARTS.filter((chart) => chart.group === "Divisional").map((chart) => <SelectItem key={chart.id} value={chart.id}>{chart.label} · {chart.description}</SelectItem>)}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
               {(auxiliaryType === "solar" || auxiliaryType === "tajika") && (
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
                   <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Required age
@@ -2993,11 +3111,11 @@ export function KundaliDashboard({
                 </div>
               )}
               </div>
-              <div className="relative aspect-square min-w-0 w-full overflow-hidden p-4 flex items-center justify-center bg-card">
-                <div className="relative h-full w-full max-w-[640px] max-h-[640px] aspect-square">
+              <div className="relative w-full min-w-0 p-4 bg-card">
+                <div className="relative mx-auto w-full max-w-[640px]">
                   {auxiliaryAscendant && auxiliaryPlanets
                     ? <SvgChart style={chartStyle} ascendant={auxiliaryAscendant} planets={auxiliaryPlanets} points={auxiliaryPoints ?? []} houseCusps={auxiliaryCusps ?? []} varga={auxiliaryVarga} houseBasedPlacement={isBhavaChalitChart} referenceHouse={auxiliaryReferenceHouseNumber} overlay={undefined} language={language} preferences={viewPreferences} />
-                    : <div className="grid h-full w-full place-items-center px-6 text-center text-xs text-muted-foreground">{displayLoading ? <LoaderCircle className="size-5 animate-spin text-primary" /> : "Auxiliary chart unavailable"}</div>}
+                    : <div className="grid aspect-square w-full place-items-center px-6 text-center text-xs text-muted-foreground">{displayLoading ? <LoaderCircle className="size-5 animate-spin text-primary" /> : "Auxiliary chart unavailable"}</div>}
                 </div>
               </div>
               {auxiliaryType === "solar" || auxiliaryType === "tajika"
@@ -3006,7 +3124,7 @@ export function KundaliDashboard({
                   : auxiliaryType === "progressions" ? <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">Progression controls are saved in this view, but progression calculations are not yet provided by the ephemeris engine. Reference lagna: {auxiliaryReferenceName === "Ascendant" ? "Ascendant" : `House ${auxiliaryReferenceHouseNumber}`}.</p>
                     : <p className="mt-2 text-xs text-slate-600 dark:text-slate-400">D{varga} divisional placements · whole-sign houses · {auxiliaryReferenceName === "Ascendant" ? "Ascendant" : `House ${auxiliaryReferenceHouseNumber}`} reference</p>}
               <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-[hsl(var(--muted-foreground))]">
-                <button type="button" className="flex items-center gap-1.5 rounded px-1 transition hover:bg-[hsl(var(--input))]/50" onMouseEnter={() => setHoveredPlanet("Vargottama")} onMouseLeave={() => setHoveredPlanet(null)} onFocus={() => setHoveredPlanet("Vargottama")} onBlur={() => setHoveredPlanet(null)}><span className="inline-block size-3 rounded-full border border-primary" /> Vargottama</button>
+                <button type="button" className="flex items-center gap-1.5 rounded px-1 transition hover:bg-[hsl(var(--input))]/50" onMouseEnter={() => setHoveredPlanet("Vargottama")} onMouseLeave={() => setHoveredPlanet(null)} onFocus={() => setHoveredPlanet("Vargottama")} onBlur={() => setHoveredPlanet(null)}><span className="inline-block size-3 rounded-full border border-[#C05A3A]" /> Vargottama</button>
                 <span title="Retrograde Motion"><span className="font-bold text-rose-700 dark:text-rose-300">R</span> = retrograde</span>
               </div>
             </section>
@@ -3075,10 +3193,6 @@ export function KundaliDashboard({
 
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400">
-          <span className="inline-flex items-center gap-1.5"><Clock3 className="size-3" /> House cusps: {houseSystem === "carter" ? "Carter (Poli-Equatorial)" : "Placidus"} · planetary houses: {houseSystem === "carter" ? "Carter" : "Whole Sign"}</span>
-          {data && <span>Calculated {new Date(data.calculatedAt).toLocaleTimeString()}</span>}
-        </div>
         </div>
         )}
         {dashboardTab === "ashtakavarga" && (

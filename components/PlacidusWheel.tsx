@@ -18,7 +18,7 @@ const SIGN_GLYPHS = ["♈", "♉", "♊", "♋", "♌", "♍", "♎", "♏", "�
 const PLANET_GLYPHS: Record<string, string> = {
   Sun: "☉", Moon: "☽", Mars: "♂", Mercury: "☿", Jupiter: "♃", Venus: "♀",
   Saturn: "♄", Rahu: "☊", Ketu: "☋", Uranus: "♅", Neptune: "♆", Pluto: "♇",
-  Ascendant: "ASC", Chiron: "⚷", Lilith: "⚸", "Part of Fortune": "⊗", Mandi: "Ma", Gulika: "Gu",
+  Ascendant: "ASC", Chiron: "⚷", Lilith: "⚸", "Part of Fortune": "⊗", Mandi: "Md", Gulika: "Gu",
 };
 const ELEMENT_GRADIENTS = [
   { id: "fire-glow", signs: [0, 4, 8], color: "#fb7185" },
@@ -438,7 +438,7 @@ function PlacidusWheel({
               strokeWidth="0.5"
             />
             <circle cx={degreePoint.x} cy={degreePoint.y} r="2" fill="hsl(var(--foreground))" fillOpacity="0.8" />
-            {vargottama && <circle cx={point.x} cy={point.y} r="16" fill="none" stroke="hsl(var(--chart-3))" strokeWidth="1" />}
+            {vargottama && <circle cx={point.x} cy={point.y} r="13" fill="none" stroke="#C05A3A" strokeWidth="1.5" />}
             <circle
               cx={point.x}
               cy={point.y}

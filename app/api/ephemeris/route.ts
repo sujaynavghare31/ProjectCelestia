@@ -386,7 +386,7 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
     longitude: input.lng,
     sunLongitude: sun.longitude,
   });
-  const makeUpagraha = (id: "gulika" | "mandi", name: "Gulika" | "Mandi", symbol: "Gu" | "Ma", longitude: number) => {
+  const makeUpagraha = (id: "gulika" | "mandi", name: "Gulika" | "Mandi", symbol: "Gu" | "Md", longitude: number) => {
     const equatorial = swe.swe_cotrans(
       [normalizeDegrees(longitude + ayanamsaDegrees), 0, 1],
       eclipticNutation.latitude,
@@ -402,7 +402,7 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
     });
   };
   const gulika = makeUpagraha("gulika", "Gulika", "Gu", upagrahas.gulikaLongitude);
-  const mandi = makeUpagraha("mandi", "Mandi", "Ma", mandiSunDegree);
+  const mandi = makeUpagraha("mandi", "Mandi", "Md", mandiSunDegree);
   const chartPoints = [
     { ...partOfFortune, house: ((partOfFortune.sign - ascSign + 12) % 12) + 1 },
     { ...gulika, house: ((gulika.sign - ascSign + 12) % 12) + 1 },
