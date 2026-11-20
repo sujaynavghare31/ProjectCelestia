@@ -48,7 +48,7 @@ cd ProjectCelestia
 npm install
 ```
 
-Account sign-in, registration, and saved chart profiles use Clerk and the PostgreSQL database configured by `DATABASE_URL`; the database must be running, reachable from the app, and have the Prisma schema applied. Configure `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in every environment. Keep the secret key private. Set these variables before running the schema commands:
+Account sign-in, registration, and saved chart profiles use Clerk and the PostgreSQL database configured by `DATABASE_URL`. In production, configure this variable and ensure the database is running, reachable from the app, and has the Prisma schema applied; missing configuration, connectivity problems, or an unapplied schema can cause saved charts to return a server error. Configure `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in every environment. Keep the secret key private. Set these variables before running the schema commands:
 
 ```bash
 npm run db:generate
