@@ -93,7 +93,8 @@ function JamakkolChart({ result, language }: { result: JamakkolResult; language:
 function PositionsTable({ result, language }: { result: JamakkolResult; language: JamakkolLanguage }) {
   const copy = JAMAKKOL_COPY[language];
   return (
-    <div className="overflow-x-auto rounded-xl border border-border">
+    <>
+    <div className="hidden overflow-x-auto rounded-xl border border-border md:block">
       <table className="w-full min-w-[620px] text-left text-xs">
         <thead className="bg-muted/60 text-[10px] uppercase tracking-wide text-muted-foreground">
           <tr><th scope="col" className="sticky left-0 z-20 bg-muted/60 px-3 py-2">{copy.point}</th><th scope="col" className="px-3 py-2">{copy.type}</th><th scope="col" className="px-3 py-2">{copy.sign}</th><th scope="col" className="px-3 py-2">{copy.degree}</th><th scope="col" className="px-3 py-2">{copy.nakshatraPada}</th></tr>
@@ -111,6 +112,22 @@ function PositionsTable({ result, language }: { result: JamakkolResult; language
         </tbody>
       </table>
     </div>
+    <div className="grid gap-2 md:hidden">
+      {result.points.map((point) => (
+        <article key={`${point.category}-${point.name}`} className="rounded-lg border border-border bg-background p-3">
+          <div className="flex flex-wrap items-start justify-between gap-1.5">
+            <h4 className="text-xs font-semibold">{translatePoint(point.name, language)}</h4>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">{translateCategory(categoryLabels[point.category], language)}</span>
+          </div>
+          <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2">
+            <div className="min-w-0"><dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{copy.sign}</dt><dd className="break-words text-xs font-medium">{translateSign(point.sign, language)}</dd></div>
+            <div className="min-w-0"><dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{copy.degree}</dt><dd className="break-words font-mono text-xs">{point.degree}{point.retrograde ? (language === "ta" ? " (வ)" : " (R)") : point.exalted ? " ↑" : ""}</dd></div>
+            <div className="col-span-2 min-w-0"><dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{copy.nakshatraPada}</dt><dd className="break-words text-xs text-muted-foreground">{translateNakshatraPada(point.nakshatraPada, language)}</dd></div>
+          </dl>
+        </article>
+      ))}
+    </div>
+    </>
   );
 }
 
@@ -127,19 +144,19 @@ function PanchangCard({ result, language }: { result: JamakkolResult; language: 
   ];
   return (
     <section className="rounded-xl border border-border bg-card p-4 shadow-sm" aria-labelledby="jamakkol-panchang-title">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
         <h3 id="jamakkol-panchang-title" className="text-sm font-semibold">{copy.panchang}</h3>
-        <span className="text-[11px] text-muted-foreground">{language === "ta" ? `${copy.rahuKalam} · ${copy.yamagandam} · ${copy.gulikaKalam}` : "Rahu · Yamagandam · Gulika"}</span>
+        <span className="break-words text-[11px] text-muted-foreground">{language === "ta" ? `${copy.rahuKalam} · ${copy.yamagandam} · ${copy.gulikaKalam}` : "Rahu · Yamagandam · Gulika"}</span>
       </div>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map(([labelKey, valueKey, value]) => <div key={labelKey} className="rounded-lg border border-border bg-background px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{copy[labelKey]}</p><p className="mt-0.5 text-xs font-medium">{translatePanchangValue(valueKey, value, language)}</p></div>)}
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {items.map(([labelKey, valueKey, value]) => <div key={labelKey} className="min-w-0 rounded-lg border border-border bg-background px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{copy[labelKey]}</p><p className="mt-0.5 break-words text-xs font-medium">{translatePanchangValue(valueKey, value, language)}</p></div>)}
       </div>
-      <div className="mt-2 grid gap-2 sm:grid-cols-3">
-        {[[copy.rahuKalam, result.panchang.rahuKalam], [copy.yamagandam, result.panchang.yamagandam], [copy.gulikaKalam, result.panchang.gulikaKalam]].map(([label, value]) => <div key={label} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/25 dark:text-rose-200"><p className="text-[10px] uppercase tracking-wide">{label}</p><p className="mt-0.5 text-xs font-semibold">{value}</p></div>)}
+      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {[[copy.rahuKalam, result.panchang.rahuKalam], [copy.yamagandam, result.panchang.yamagandam], [copy.gulikaKalam, result.panchang.gulikaKalam]].map(([label, value]) => <div key={label} className="min-w-0 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/25 dark:text-rose-200"><p className="break-words text-[10px] uppercase tracking-wide">{label}</p><p className="mt-0.5 break-words text-xs font-semibold">{value}</p></div>)}
       </div>
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-border pt-3 text-xs">
-        <p><span className="font-semibold">{language === "ta" ? "உச்சம் பெற்ற ஜாம கிரகங்கள்" : "Exalted Jama grahas"}:</span> {result.exaltedJama.map((planet) => translatePlanet(planet, language)).join(", ") || copy.none}</p>
-        <p><span className="font-semibold">{copy.kavippu}:</span> {translatePoint(result.veediSign, language)} · {copy.count} {result.kavippuCount}</p>
+        <p className="min-w-0 break-words"><span className="font-semibold">{language === "ta" ? "உச்சம் பெற்ற ஜாம கிரகங்கள்" : "Exalted Jama grahas"}:</span> {result.exaltedJama.map((planet) => translatePlanet(planet, language)).join(", ") || copy.none}</p>
+        <p className="min-w-0 break-words"><span className="font-semibold">{copy.kavippu}:</span> {translatePoint(result.veediSign, language)} · {copy.count} {result.kavippuCount}</p>
       </div>
     </section>
   );
@@ -151,7 +168,7 @@ function JamaGrahaTable({ date, time, language }: { date: string; time: string; 
   return (
     <section className="rounded-xl border border-border bg-card p-4 shadow-sm" aria-labelledby="jama-grahas-title">
       <h3 id="jama-grahas-title" className="mb-3 text-sm font-semibold">{copy.jamaGrahas}</h3>
-      <div className="overflow-x-auto">
+      <div className="hidden overflow-x-auto md:block">
         <table className="w-full min-w-[420px] text-left text-xs">
           <thead className="bg-muted/60 text-[10px] uppercase tracking-wide text-muted-foreground">
             <tr><th scope="col" className="sticky left-0 z-20 bg-muted/60 px-3 py-2">{copy.graha}</th><th scope="col" className="px-3 py-2">{language === "ta" ? copy.sign : "Sign (Tamil)"}</th><th scope="col" className="px-3 py-2">{copy.degree}</th><th scope="col" className="px-3 py-2">{copy.exalted}</th></tr>
@@ -170,6 +187,24 @@ function JamaGrahaTable({ date, time, language }: { date: string; time: string; 
             })}
           </tbody>
         </table>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2 md:hidden">
+        {result.grahas.map((graha) => {
+          const formattedPosition = formatJama(graha.longitude);
+          const degree = language === "ta" ? formattedPosition.slice(formattedPosition.indexOf(" ") + 1) : formattedPosition;
+          return (
+            <article key={graha.short} className="min-w-0 rounded-lg border border-border bg-background p-3">
+              <div className="flex items-start justify-between gap-2">
+                <h4 className="break-words text-xs font-semibold">{translatePlanet(graha.name, language)}</h4>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${graha.exalted ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-300" : "bg-muted text-muted-foreground"}`}>
+                  {graha.exalted ? copy.exalted : copy.none}
+                </span>
+              </div>
+              <p className="mt-1 break-words text-xs text-muted-foreground">{translateSign(graha.sign, language)}</p>
+              <p className="mt-1 font-mono text-xs">{degree}</p>
+            </article>
+          );
+        })}
       </div>
     </section>
   );

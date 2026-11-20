@@ -85,7 +85,7 @@ function TimingTable({
       <div className="border-b border-border px-4 py-3">
         <h2 className={`text-sm font-semibold ${titleTone}`}>{title}</h2>
       </div>
-      <div className="overflow-x-auto">
+      <div className="hidden overflow-x-auto md:block">
         <table className="w-full min-w-[320px] text-left text-xs">
           <thead className="bg-muted/40 text-muted-foreground">
             <tr>
@@ -109,6 +109,19 @@ function TimingTable({
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="space-y-2 p-3 md:hidden">
+        {timings.map((timing) => (
+          <article key={timing.name} className={`min-w-0 rounded-lg border border-border px-3 py-2.5 ${rowTone}`}>
+            <h3 className={`break-words text-xs font-medium ${titleTone}`}>{timing.name}</h3>
+            {timing.note && <p className="mt-1 break-words text-[11px] leading-4 text-muted-foreground">{timing.note}</p>}
+            <div className="mt-2 space-y-1 text-right text-xs tabular-nums text-card-foreground">
+              {timing.windows.length
+                ? timing.windows.map((window) => <p key={`${window.start}-${window.end}`} className="break-words">{formatWindow(window.start, window.end, timezone, date)}</p>)
+                : <p className="text-muted-foreground">Unavailable today</p>}
+            </div>
+          </article>
+        ))}
       </div>
     </section>
   );
@@ -166,8 +179,8 @@ function ActivePanchangSummary({ data }: { data: PanchangDay }) {
         {summaryItems.map(({ label, value, detail }) => (
           <div key={label} className="min-w-0 px-4 py-4">
             <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
-            <dd className="mt-1 truncate text-base font-semibold text-card-foreground" title={value}>{value}</dd>
-            <p className="mt-1 truncate text-[10px] tabular-nums text-muted-foreground" title={detail}>{detail}</p>
+            <dd className="mt-1 break-words text-base font-semibold text-card-foreground md:truncate" title={value}>{value}</dd>
+            <p className="mt-1 whitespace-normal break-words text-[10px] tabular-nums text-muted-foreground md:truncate" title={detail}>{detail}</p>
           </div>
         ))}
       </dl>
@@ -381,7 +394,7 @@ export default function PanchangDashboard() {
                     <h2 className="truncate text-[11px] font-medium text-muted-foreground">{label}</h2>
                     <Icon aria-hidden="true" className={`size-4 shrink-0 ${tone}`} />
                   </div>
-                  <p className="mt-2 truncate text-base font-semibold tabular-nums tracking-tight text-card-foreground" title={value}>{value}</p>
+                  <p className="mt-2 break-words text-base font-semibold tabular-nums tracking-tight text-card-foreground md:truncate" title={value}>{value}</p>
                 </article>
               ))}
             </div>

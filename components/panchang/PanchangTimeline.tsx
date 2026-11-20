@@ -7,6 +7,8 @@ import { motion, useReducedMotion } from "framer-motion";
 import type { PanchangDay, PanchangSegment } from "@/lib/astrology/panchang/PanchangEngine";
 import { isWithinPanchangTimeline } from "@/lib/astrology/panchang/timeline-utils";
 
+// AI WARNING: Panchang graph color coding is user-locked. Do not edit palettes without explicit user approval.
+// Keep existing desktop colors unchanged; the approved vibrant palette below is mobile-only.
 const TRACK_COLORS = [
   "border-border bg-muted text-foreground",
   "border-primary/30 bg-accent text-accent-foreground",
@@ -17,6 +19,30 @@ const MUHURTA_COLORS = {
   auspicious: "border-emerald-200 bg-emerald-100 text-emerald-950 dark:border-emerald-800/60 dark:bg-emerald-900/35 dark:text-emerald-100",
   inauspicious: "border-rose-200 bg-rose-100 text-rose-950 dark:border-rose-800/60 dark:bg-rose-900/35 dark:text-rose-100",
   neutral: "border-border bg-muted text-foreground",
+};
+
+// These mobile-only Panchang colors match the vibrant palette in portal_theme.docx.
+const MOBILE_LIMB_COLORS: Record<string, string> = {
+  tithi: "border-sky-300 bg-sky-200 text-sky-950 dark:border-sky-700 dark:bg-sky-900/70 dark:text-sky-100",
+  nakshatra: "border-rose-300 bg-rose-200 text-rose-950 dark:border-rose-700 dark:bg-rose-900/70 dark:text-rose-100",
+  yoga: "border-purple-300 bg-purple-200 text-purple-950 dark:border-purple-700 dark:bg-purple-900/70 dark:text-purple-100",
+  karana: "border-emerald-300 bg-emerald-200 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-900/70 dark:text-emerald-100",
+};
+const MOBILE_MUHURTA_COLORS = {
+  auspicious: "border-emerald-300 bg-emerald-200 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-900/70 dark:text-emerald-100",
+  inauspicious: "border-rose-300 bg-rose-200 text-rose-950 dark:border-rose-700 dark:bg-rose-900/70 dark:text-rose-100",
+  neutral: "border-amber-300 bg-amber-100 text-amber-950 dark:border-amber-700 dark:bg-amber-900/50 dark:text-amber-100",
+};
+const MOBILE_HORA_COLORS: Record<string, string> = {
+  Sun: "border-orange-300 bg-orange-100 text-orange-950 dark:border-orange-700 dark:bg-orange-950/60 dark:text-orange-100",
+  Moon: "border-sky-300 bg-sky-100 text-sky-950 dark:border-sky-700 dark:bg-sky-950/60 dark:text-sky-100",
+  Mars: "border-rose-300 bg-rose-100 text-rose-950 dark:border-rose-700 dark:bg-rose-950/60 dark:text-rose-100",
+  Mercury: "border-emerald-300 bg-emerald-100 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-100",
+  Jupiter: "border-amber-300 bg-amber-100 text-amber-950 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-100",
+  Venus: "border-pink-300 bg-pink-100 text-pink-950 dark:border-pink-700 dark:bg-pink-950/60 dark:text-pink-100",
+  Saturn: "border-slate-300 bg-slate-100 text-slate-950 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100",
+  Rahu: "border-purple-300 bg-purple-100 text-purple-950 dark:border-purple-700 dark:bg-purple-950/60 dark:text-purple-100",
+  Ketu: "border-indigo-300 bg-indigo-100 text-indigo-950 dark:border-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-100",
 };
 
 function localDateKey(date: Date, timezone: string) {
@@ -127,8 +153,7 @@ function MobilePanchangTimeline({
           const current = track.segments.find(({ start: segmentStart, end: segmentEnd }) =>
             activeTime >= Date.parse(segmentStart) && activeTime < Date.parse(segmentEnd),
           );
-          const trackIndex = data.timeline.tracks.findIndex(({ key }) => key === track.key);
-          const colorClass = TRACK_COLORS[trackIndex] ?? MUHURTA_COLORS.neutral;
+          const colorClass = MOBILE_LIMB_COLORS[track.key] ?? MUHURTA_COLORS.neutral;
           return (
             <div key={track.key} className="relative space-y-1.5">
               <div className="flex min-w-0 items-baseline justify-between gap-2">
@@ -183,8 +208,8 @@ function MobilePanchangTimeline({
                   const key = `${track.key}-${segment.index}-${segment.start}`;
                   const isCurrent = isNowInSelectedDay && current?.start === segment.start;
                   const colorClass = track.key === "muhurta"
-                    ? MUHURTA_COLORS[segment.quality ?? "neutral"]
-                    : "border-border bg-muted text-foreground";
+                    ? MOBILE_MUHURTA_COLORS[segment.quality ?? "neutral"]
+                    : MOBILE_HORA_COLORS[segment.name] ?? "border-border bg-muted text-foreground";
                   const activeClass = isCurrent
                     ? track.key === "hora"
                       ? "border-amber-500 bg-amber-300 font-semibold text-amber-950 ring-2 ring-inset ring-amber-600 dark:border-amber-300 dark:bg-amber-400/80 dark:text-amber-950 dark:ring-amber-200"

@@ -1224,7 +1224,8 @@ function PlanetTable({
     ...data.points.filter((point) => chartPointVisible(point, preferences)),
   ];
   return (
-    <div className="overflow-x-auto">
+    <>
+      <div className="hidden overflow-x-auto md:block">
       <table className="w-full min-w-[690px] text-left text-xs">
         <thead className="sticky top-0 bg-card text-xs uppercase tracking-[0.12em] text-[hsl(var(--muted-foreground))]">
           <tr>{["Graha", "Jaimini karaka", "Sign", "Nakshatra", "Pada", "Longitude", "Motion", "Declination", "Dignity", "STATES (AVASTHAS)"].map((heading, index) => <th key={heading} className={`${index === 0 ? "sticky left-0 z-20 bg-card" : ""} whitespace-nowrap px-1.5 py-2 font-medium`}>{heading}</th>)}</tr>
@@ -1283,7 +1284,92 @@ function PlanetTable({
           })}
         </tbody>
       </table>
-    </div>
+      </div>
+      <div className="grid gap-2 p-2 md:hidden" aria-label="Planetary positions">
+        {rows.map((position) => {
+          const isAscendant = position.name === "Ascendant";
+          const vargottama = position.name !== "Ascendant" && position.sign === getVargaSign(position, 9);
+          const detailedAvastha = data.avasthaReport?.planets.find((report) => report.planet === position.name);
+          const motionLabel = nodeType === "true" && (position.name === "Rahu" || position.name === "Ketu") && position.motion === "D"
+            ? "Direct"
+            : position.motion === "R" ? "Retrograde" : "Direct";
+
+          return (
+            <article key={position.id} className="min-w-0 rounded-lg border border-border bg-background p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <h3 className="break-words text-sm font-semibold text-foreground">
+                    {preferences.usePlanetIcons && <PlanetMark name={position.name} label={position.symbol} enabled />}
+                    {planetName(position.name, language, position.name)}
+                  </h3>
+                  {(detailedAvastha?.isCombust || vargottama) && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {detailedAvastha?.isCombust && <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-medium text-accent-foreground">Combusted</span>}
+                      {vargottama && <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-medium text-accent-foreground">Vargottama</span>}
+                    </div>
+                  )}
+                </div>
+                {position.jaimini && (
+                  <span className="shrink-0 rounded-full bg-accent/70 px-2 py-1 text-[10px] font-semibold text-accent-foreground">
+                    {JAIMINI_KARAKA_NAMES[position.jaimini] ?? position.jaimini}
+                  </span>
+                )}
+              </div>
+              <dl className="mt-3 grid grid-cols-2 gap-2">
+                <div className="min-w-0 rounded-md bg-muted/50 px-2.5 py-2">
+                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Sign</dt>
+                  <dd className="mt-0.5 break-words text-xs font-medium">
+                    {preferences.useSignIcons ? <SignMark sign={position.sign} label={signName(position.signName, language)} enabled /> : signName(position.signName, language)}
+                  </dd>
+                  {(dagdhaSigns.includes(position.sign) || interceptedSigns.includes(position.sign)) && (
+                    <dd className="mt-1 flex flex-wrap gap-1">
+                      {dagdhaSigns.includes(position.sign) && <span className="rounded bg-rose-100 px-1 py-0.5 text-[10px] font-semibold text-rose-800 dark:bg-rose-400/10 dark:text-rose-300">Dagdha Rashi</span>}
+                      {interceptedSigns.includes(position.sign) && <span className="rounded bg-accent px-1 py-0.5 text-[10px] font-semibold text-accent-foreground">Intercepted</span>}
+                    </dd>
+                  )}
+                </div>
+                <div className="min-w-0 rounded-md bg-muted/50 px-2.5 py-2">
+                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Nakshatra · Pada</dt>
+                  <dd className="mt-0.5 break-words text-xs font-medium">{position.nakshatraName} · {position.pada}</dd>
+                </div>
+                <div className="min-w-0 rounded-md bg-muted/50 px-2.5 py-2">
+                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Longitude</dt>
+                  <dd className="mt-0.5 break-words text-xs font-mono"><DegreeValue position={position} decimal={decimal} /></dd>
+                </div>
+                <div className="min-w-0 rounded-md bg-muted/50 px-2.5 py-2">
+                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Motion · Declination</dt>
+                  <dd className="mt-0.5 break-words text-xs">
+                    <span className={`inline-flex rounded px-1.5 py-0.5 font-medium ${motionStyle(position.motion)}`}>{motionLabel}</span>
+                    <span className={`mt-1 block font-mono text-muted-foreground ${Math.abs(position.declination) > 23.45 ? "font-semibold text-[hsl(var(--retrograde-crimson))]" : ""}`} title={Math.abs(position.declination) > 23.45 ? "Out of Bounds (OOB) Declination" : undefined}>{declinationToDms(position.declination)}</span>
+                  </dd>
+                </div>
+                <div className="min-w-0 rounded-md bg-muted/50 px-2.5 py-2">
+                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Dignity</dt>
+                  <dd className="mt-0.5"><span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${dignityStyle(position.dignity)}`}>{position.dignity}</span></dd>
+                </div>
+                <div className="min-w-0 rounded-md bg-muted/50 px-2.5 py-2">
+                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Jaimini karaka</dt>
+                  <dd className="mt-0.5 break-words text-xs font-semibold">{JAIMINI_KARAKA_NAMES[position.jaimini ?? ""] ?? position.jaimini ?? "—"}</dd>
+                </div>
+                <div className="col-span-2 min-w-0 rounded-md bg-muted/50 px-2.5 py-2">
+                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">States (Avasthas)</dt>
+                  <dd className="mt-0.5 break-words text-xs leading-5 text-muted-foreground">
+                    {detailedAvastha ? (
+                      <>
+                        <span className="block">Baladi: {detailedAvastha.baladi.state}</span>
+                        <span className="block" title={detailedAvastha.jagradadi.reasons.join(" ")}>Jagradadi: {detailedAvastha.jagradadi.state}</span>
+                        {detailedAvastha.shayanadi && <span className="block">Shayanadi: {detailedAvastha.shayanadi.state}</span>}
+                        {!!detailedAvastha.lajjitadi?.length && <span className="block">Lajjitadi: {detailedAvastha.lajjitadi.map(({ state }) => state).join(", ")}</span>}
+                      </>
+                    ) : "—"}
+                  </dd>
+                </div>
+              </dl>
+            </article>
+          );
+        })}
+      </div>
+    </>
   );
 }
 

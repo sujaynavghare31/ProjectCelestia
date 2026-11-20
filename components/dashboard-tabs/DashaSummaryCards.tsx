@@ -2,6 +2,7 @@
 
 import type { DashaPeriodNode, DashaSystem } from "@/lib/astrology/timing/DashaEngine";
 
+// AI WARNING: Dasha graph colors are user-locked. Preserve this desktop palette; change only with explicit user approval.
 const CARD_STYLE: Record<string, string> = {
   Sun: "bg-accent text-accent-foreground",
   Moon: "bg-muted text-foreground",
@@ -12,6 +13,19 @@ const CARD_STYLE: Record<string, string> = {
   Saturn: "bg-muted text-foreground",
   Rahu: "bg-muted text-foreground",
   Ketu: "bg-emerald-50 text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100",
+};
+
+// It matches the user-approved vibrant Dasha colors in portal_theme.docx.
+const MOBILE_CARD_STYLE: Record<string, string> = {
+  Sun: "border border-orange-300 bg-orange-100 text-orange-950 dark:border-orange-700 dark:bg-orange-950/60 dark:text-orange-100",
+  Moon: "border border-sky-300 bg-sky-100 text-sky-950 dark:border-sky-700 dark:bg-sky-950/60 dark:text-sky-100",
+  Mars: "border border-rose-300 bg-rose-100 text-rose-950 dark:border-rose-700 dark:bg-rose-950/60 dark:text-rose-100",
+  Mercury: "border border-emerald-300 bg-emerald-100 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-100",
+  Jupiter: "border border-amber-300 bg-amber-100 text-amber-950 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-100",
+  Venus: "border border-pink-300 bg-pink-100 text-pink-950 dark:border-pink-700 dark:bg-pink-950/60 dark:text-pink-100",
+  Saturn: "border border-slate-300 bg-slate-100 text-slate-950 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100",
+  Rahu: "border border-purple-300 bg-purple-100 text-purple-950 dark:border-purple-700 dark:bg-purple-950/60 dark:text-purple-100",
+  Ketu: "border border-indigo-300 bg-indigo-100 text-indigo-950 dark:border-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-100",
 };
 
 const LEVEL_LABELS: Record<DashaSystem, string[]> = {
@@ -30,10 +44,12 @@ export default function DashaSummaryCards({
   system,
   activePath,
   currentPath = activePath,
+  vibrantMobile = false,
 }: {
   system: DashaSystem;
   activePath: DashaPeriodNode[];
   currentPath?: DashaPeriodNode[];
+  vibrantMobile?: boolean;
 }) {
   const labels = LEVEL_LABELS[system];
   return (
@@ -45,7 +61,9 @@ export default function DashaSummaryCards({
           period.lord === currentPeriod.lord &&
           (period.details?.virtualStart ?? period.start) === (currentPeriod.details?.virtualStart ?? currentPeriod.start) &&
           period.end === currentPeriod.end;
-        const style = CARD_STYLE[period?.lord ?? ""] ?? "bg-muted text-foreground";
+        const style = vibrantMobile
+          ? MOBILE_CARD_STYLE[period?.lord ?? ""] ?? "border border-border bg-muted text-foreground"
+          : CARD_STYLE[period?.lord ?? ""] ?? "bg-muted text-foreground";
         const role = typeof period?.details?.role === "string" ? `${period.details.role} · ` : "";
         return (
           <article key={label} className={`min-w-0 rounded-lg px-3 py-2.5 ${style}`}>

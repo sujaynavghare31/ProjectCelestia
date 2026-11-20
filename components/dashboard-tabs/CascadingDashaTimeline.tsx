@@ -13,6 +13,8 @@ const TRACKS: Record<DashaSystem, string[]> = {
   kalachakra: ["Deha/Jeeva Maha", "Antar"],
 };
 
+// AI WARNING: Dasha graph color coding is user-locked. Do not edit either palette without explicit user approval.
+// Keep this established desktop palette unchanged; the approved mobile palette follows.
 const PLANET_COLORS: Record<string, string> = {
   Sun: "bg-accent text-accent-foreground border-primary/30",
   Moon: "bg-muted text-foreground border-border",
@@ -23,6 +25,19 @@ const PLANET_COLORS: Record<string, string> = {
   Saturn: "bg-muted text-foreground border-border",
   Rahu: "bg-muted text-foreground border-border",
   Ketu: "bg-emerald-50 text-emerald-950 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-100 dark:border-emerald-900/50",
+};
+
+// These user-approved mobile Dasha colors match the vibrant palette in portal_theme.docx.
+const MOBILE_DASHA_COLORS: Record<string, string> = {
+  Sun: "border-orange-300 bg-orange-100 text-orange-950 dark:border-orange-700 dark:bg-orange-950/60 dark:text-orange-100",
+  Moon: "border-sky-300 bg-sky-100 text-sky-950 dark:border-sky-700 dark:bg-sky-950/60 dark:text-sky-100",
+  Mars: "border-rose-300 bg-rose-100 text-rose-950 dark:border-rose-700 dark:bg-rose-950/60 dark:text-rose-100",
+  Mercury: "border-emerald-300 bg-emerald-100 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-100",
+  Jupiter: "border-amber-300 bg-amber-100 text-amber-950 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-100",
+  Venus: "border-pink-300 bg-pink-100 text-pink-950 dark:border-pink-700 dark:bg-pink-950/60 dark:text-pink-100",
+  Saturn: "border-slate-300 bg-slate-100 text-slate-950 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100",
+  Rahu: "border-purple-300 bg-purple-100 text-purple-950 dark:border-purple-700 dark:bg-purple-950/60 dark:text-purple-100",
+  Ketu: "border-indigo-300 bg-indigo-100 text-indigo-950 dark:border-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-100",
 };
 
 const PLANET_ABBREVIATIONS: Record<string, string> = {
@@ -73,6 +88,13 @@ function colorClassesFor(period: DashaPeriodNode, system: DashaSystem) {
     ? SIGN_RULERS[period.lord]
     : YOGINI_PLANETS[period.lord] ?? period.lord;
   return getPlanetColors(planet ?? "Saturn");
+}
+
+function mobileColorClassesFor(period: DashaPeriodNode, system: DashaSystem) {
+  const planet = system === "chara" || system === "kalachakra"
+    ? SIGN_RULERS[period.lord]
+    : YOGINI_PLANETS[period.lord] ?? period.lord;
+  return MOBILE_DASHA_COLORS[planet ?? ""] ?? "border-border bg-muted text-foreground";
 }
 
 function abbreviationFor(period: DashaPeriodNode, system: DashaSystem) {
@@ -378,7 +400,7 @@ function MobileVimshottariTimeline({
                       className={`min-h-11 shrink-0 min-w-[70px] rounded-lg border px-2.5 py-1.5 text-center text-xs leading-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C05A3A]/50 ${
                         isSelected
                           ? "border-[#C05A3A] bg-[#C05A3A]/10 font-semibold text-[#C05A3A]"
-                          : "border-border bg-background text-foreground"
+                          : mobileColorClassesFor(period, "vimshottari")
                       }`}
                     >
                       {PLANET_ABBREVIATIONS[period.lord] ?? period.lord.slice(0, 2)} · {formatChipDuration(period)}

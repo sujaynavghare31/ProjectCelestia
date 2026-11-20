@@ -201,7 +201,7 @@ export default function DashaDashboard({
             {system === "vimshottari" ? (
               <>
                 <div className="md:hidden">
-                  <DashaSummaryCards system={system} activePath={selectedMobilePath ?? currentPath} currentPath={currentPath} />
+                  <DashaSummaryCards system={system} activePath={selectedMobilePath ?? currentPath} currentPath={currentPath} vibrantMobile />
                 </div>
                 <div className="hidden md:block">
                   <DashaSummaryCards system={system} activePath={currentPath} />
