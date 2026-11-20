@@ -36,18 +36,26 @@ export interface CarterInput {
    * ~3m56s ≈ 1°. Default true (correct). Set false to reproduce the spreadsheet exactly.
    */
   fixLmtDayRollover?: boolean;
+  /**
+   * How the 12 cusps are built once the Ascendant is known (Ascendant itself always comes from RAMC / RA):
+   * - "ascPlus30" (default): each cusp advances 30° in longitude from the Ascendant.
+   * - "raSteps": each cusp advances 30° in right ascension before conversion to longitude.
+   */
+  cuspMethod?: CuspMethod;
 }
+
+export type CuspMethod = "ascPlus30" | "raSteps";
 
 export interface CuspRow {
   house: number;
-  /** RA of cusp = RA(Asc) + (n−1)×30 */
+  /** "raSteps": RA used for this cusp. "ascPlus30": RA of the cusp, for display only. */
   ra: number;
   sayana: ZodiacPosition;
-  /** Method A: Sayana cusp − ayanamsa (standard; same as Swiss Ephemeris sidereal houses) */
+  /** Method A: Sayana cusp − ayanamsa. With "ascPlus30", each cusp advances 30° from the sidereal Ascendant. */
   nirayanaA: ZodiacPosition;
-  /** RA used by Method B = RA(Asc) − ayanamsa + (n−1)×30 */
+  /** RA used by Method B. With "ascPlus30", this is RA(Asc) − ayanamsa for every cusp. */
   raB: number;
-  /** Method B: ecliptic longitude of RA(Asc) − ayanamsa + (n−1)×30 */
+  /** Method B: ecliptic longitude of RA(Asc) − ayanamsa, then 30° longitude steps for "ascPlus30". */
   nirayanaB: ZodiacPosition;
   kpA?: KpLords;
   kpB?: KpLords;
@@ -119,22 +127,34 @@ export function carterCusps(input: CarterInput) {
   const ayanCalc = lahiriMean(daysFromJ2000At0h(y, m, d) + birth - tz / 24);
   const ayan = input.ayanamsaOverride ?? ayanCalc;
   const raAscMinusAyan = norm360(raAsc - ayan);
+  const ascB = longitudeFromRA(raAscMinusAyan, eps);
 
   // ---------- STEP 3: Carter cusps ----------
   const withKp = input.withKpLords ?? true;
+  const method: CuspMethod = input.cuspMethod ?? "ascPlus30";
   const cusps: CuspRow[] = [];
   for (let n = 1; n <= 12; n++) {
-    const ra = norm360(raAsc + (n - 1) * 30);
-    const say = longitudeFromRA(ra, eps);
-    const raB = norm360(raAscMinusAyan + (n - 1) * 30);
-    const nb = longitudeFromRA(raB, eps);
+    const step = (n - 1) * 30;
+    let say: number, nb: number, ra: number, raB: number;
+    if (method === "ascPlus30") {
+      say = norm360(asc + step);
+      nb = norm360(ascB + step);
+      ra = raFromLongitude(say, eps);
+      raB = raAscMinusAyan;
+    } else {
+      ra = norm360(raAsc + step);
+      say = longitudeFromRA(ra, eps);
+      raB = norm360(raAscMinusAyan + step);
+      nb = longitudeFromRA(raB, eps);
+    }
     const row: CuspRow = { house: n, ra, sayana: zodiac(say), nirayanaA: zodiac(say - ayan), raB, nirayanaB: zodiac(nb) };
     if (withKp) { row.kpA = kpLords(say - ayan); row.kpB = kpLords(nb); }
     cusps.push(row);
   }
 
   return {
-    input: { ...input, fixLmtDayRollover: fix },
+    input: { ...input, fixLmtDayRollover: fix, cuspMethod: method },
+    cuspMethod: method,
     step1: {
       longitude: { value: lon, text: formatDMS(lon) },
       latitude: { value: lat, text: formatDMS(lat) },
@@ -163,9 +183,12 @@ export function carterCusps(input: CarterInput) {
     cusps,
     notes: [
       "Sayana = tropical; Nirayana = tropical − ayanamsa.",
-      "Cusp 1 = Ascendant. In Carter's system cusp 10 is generally NOT the MC.",
-      "Method A (standard, as Swiss Ephemeris): cusps computed tropically, then ayanamsa subtracted from each cusp.",
-      "Method B: ayanamsa subtracted from the RA of the Ascendant, then 30° RA steps converted to longitude.",
+      "Cusp 1 = Ascendant (always found from RAMC → RA). Cusp 10 is generally NOT the MC.",
+      method === "ascPlus30"
+        ? "Cusps: Ascendant + 30° per house (longitude). RA is NOT computed per house."
+        : "Cusps: RA(Asc) + 30° of RA per house, each converted to longitude (old workbook method).",
+      "Method A: ayanamsa subtracted from the Ascendant/cusps (standard).",
+      "Method B: ayanamsa subtracted from the RA of the Ascendant, converted to longitude, then the same 30° steps.",
     ],
   };
 }

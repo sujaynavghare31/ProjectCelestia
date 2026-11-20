@@ -37,6 +37,7 @@ import { readSavedAstrologyConfig } from "@/lib/astrology/config-storage";
 import { calculateCarterCusps, getCarterPlacementCusps, placeInCarterHouses } from "@/lib/astrology/carter-chart";
 import { cuspLabels, northCuspAnchor } from "@/lib/astrology/cusp-labels";
 import { calculateArudhaPadas, type ArudhaPada } from "@/lib/astrology/arudha-padas";
+import { calculateKharaPoints } from "@/lib/astrology/khara-points";
 import dynamic from "next/dynamic";
 import { readAnalysisPreferences, writeAnalysisPreferences } from "@/lib/astrology/analysis-preferences";
 import { createMidpointReport, visibleMidpointRows, visibleMidpointTrees } from "@/lib/astrology/midpoint-chart";
@@ -1793,7 +1794,7 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
   const [dashaSystem, setDashaSystem] = useState<DashaSystem>("vimshottari");
   const [dashaSeed, setDashaSeed] = useState<DashaSeed>("moon");
   const [dashaLagnaMode, setDashaLagnaMode] = useState<DashaLagnaMode>("maha-lord");
-  const [notesFocused, setNotesFocused] = useState(false);
+  const [notesExpanded, setNotesExpanded] = useState(false);
   const [chartMode, setChartMode] = useState<"transit" | "birth">("transit");
   const [transitDate, setTransitDate] = useState(() => getCurrentBirthDateTime().date);
   const [transitTime, setTransitTime] = useState(() => getCurrentBirthDateTime().time);
@@ -1818,7 +1819,6 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
   const [useCoordinates, setUseCoordinates] = useState(false);
   const [latitudeDraft, setLatitudeDraft] = useState(profile.lat.toFixed(2));
   const [longitudeDraft, setLongitudeDraft] = useState(profile.lng.toFixed(2));
-  const notesInputRef = useRef<HTMLTextAreaElement>(null);
   const [analysisPreferencesLoaded, setAnalysisPreferencesLoaded] = useState(false);
   const [locationResults, setLocationResults] = useState<GeocodeResult[]>([]);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -1927,10 +1927,7 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
   }, [profile.city]);
 
   useEffect(() => {
-    const notesInput = notesInputRef.current;
-    if (!notesInput) return;
-    notesInput.style.height = "36px";
-    notesInput.style.height = `${profile.notes ? Math.max(notesInput.scrollHeight, 36) : 36}px`;
+    if (profile.notes) setNotesExpanded(true);
   }, [profile.notes]);
 
   useEffect(() => {
@@ -2397,6 +2394,22 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
   }, [sourceDisplayData, houseSystem, carterResult, carterZodiac]);
   const displayLoading = chartMode === "transit" ? transitLoading : loading;
   const displayError = chartMode === "transit" ? transitError : error;
+  const kharaPoints = useMemo(() => {
+    if (!displayData) return [];
+    const references = [
+      { name: "Lagna", position: displayData.ascendant },
+      ...displayData.planets
+        .filter((planet) => planet.name === "Moon")
+        .map((position) => ({ name: "Moon", position })),
+    ];
+    return references.map(({ name, position }) => ({
+      name,
+      ...calculateKharaPoints(position),
+    }));
+  }, [displayData]);
+  useEffect(() => {
+    if (displayData && !displayLoading) setProfileCollapsed(true);
+  }, [displayData, displayLoading]);
   const displayCuspLabels = useMemo(() => {
     if (!displayData || displayData.houseCusps.length !== 12) return null;
     return cuspLabels(
@@ -2472,8 +2485,8 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
           </div>
           {profileCollapsed && (
             <div className="mb-2 flex min-h-11 items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-1.5 md:hidden">
-              <p className="min-w-0 flex-1 truncate text-sm font-medium" title={`${activeBirthProfile.name} · ${formatBirthDate(activeBirthProfile.date)} · ${activeBirthProfile.city}`}>
-                {activeBirthProfile.name} · {formatBirthDate(activeBirthProfile.date)} · {activeBirthProfile.city}
+              <p className="min-w-0 flex-1 break-words text-xs font-medium leading-5" title={`${activeBirthProfile.name} · ${formatBirthDate(activeBirthProfile.date)} · ${activeBirthProfile.time} · ${activeBirthProfile.city}`}>
+                {activeBirthProfile.name} · {formatBirthDate(activeBirthProfile.date)} · {activeBirthProfile.time} · {activeBirthProfile.city}
               </p>
               <button
                 type="button"
@@ -2486,7 +2499,7 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
             </div>
           )}
           <form onSubmit={submitBirthChart} className={`${profileCollapsed ? "hidden md:block" : ""} min-w-0 space-y-2`}>
-            <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-8">
+            <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-[minmax(100px,1.15fr)_minmax(74px,0.8fr)_minmax(125px,1fr)_minmax(125px,1fr)_minmax(180px,1.6fr)_minmax(100px,0.9fr)_minmax(82px,0.7fr)_minmax(82px,0.7fr)]">
               <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">
                 Chart name
                 <input aria-label="Chart name" type="text" maxLength={100} value={profile.name === "Current transit" ? "" : profile.name} placeholder="Enter Jataka's name" onChange={(event) => setProfile({ name: event.target.value })} className={`${CONTROL_CLASS} mt-1 h-11 w-full text-base placeholder:text-slate-600 dark:placeholder:text-slate-400 md:text-sm`} />
@@ -2498,15 +2511,17 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
                   <option value="female">Female</option>
                 </select>
               </label>
-              <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Birth date
-                <input aria-label="Birth date" type="date" required value={profile.date} onChange={(event) => setProfile({ date: event.target.value })} className={`${CONTROL_CLASS} mt-1 box-border h-11 w-full min-w-0 max-w-full appearance-none px-2 text-base md:text-sm`} />
-              </label>
-              <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Birth time
-                <input aria-label="Time of birth" type="time" step={1} value={profile.time} onChange={(event) => {
-                  const time = event.target.value;
-                  setProfile({ time: time ? (time.length === 5 ? `${time}:00` : time) : "" });
-                }} required className={`${CONTROL_CLASS} mt-1 box-border h-11 w-full min-w-0 max-w-full appearance-none px-2 text-base font-mono md:text-sm`} />
-              </label>
+              <div className="grid min-w-0 grid-cols-2 gap-2.5 md:contents">
+                <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Birth date
+                  <input aria-label="Birth date" type="date" required value={profile.date} onChange={(event) => setProfile({ date: event.target.value })} className={`${CONTROL_CLASS} mt-1 box-border h-11 w-full min-w-0 max-w-full px-2 text-base md:text-sm`} />
+                </label>
+                <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Birth time
+                  <input aria-label="Time of birth" type="time" step={1} value={profile.time} onChange={(event) => {
+                    const time = event.target.value;
+                    setProfile({ time: time ? (time.length === 5 ? `${time}:00` : time) : "" });
+                  }} required className={`${CONTROL_CLASS} mt-1 box-border h-11 w-full min-w-0 max-w-full px-2 text-base font-mono md:text-sm`} />
+                </label>
+              </div>
               <div className="relative min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300">
                 {!useCoordinates ? (
                   <>
@@ -2568,22 +2583,32 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
                 <FolderOpen aria-hidden="true" className="size-3.5 shrink-0" />
                 {savedProfilesOpen ? "Close saved" : "Load saved"}
               </button>
-              <div className="-mx-3 -mb-3 mt-1 flex min-w-0 items-start gap-2 rounded-b-xl border-t border-border bg-muted/80 px-3 py-2 dark:bg-muted/50 md:col-span-2 lg:col-span-8">
-                  <label htmlFor="chart-notes" className="sr-only">Chart notes</label>
-                  <textarea
-                    ref={notesInputRef}
-                    id="chart-notes"
-                    maxLength={10000}
-                    rows={1}
-                    value={profile.notes}
-                    onChange={(event) => setProfile({ notes: event.target.value })}
-                    onFocus={() => setNotesFocused(true)}
-                    onBlur={() => setNotesFocused(false)}
-                    placeholder="Add personal notes, life events, or reference details..."
-                    className="min-h-9 min-w-0 flex-1 resize-none overflow-hidden border-0 bg-transparent p-1.5 text-sm leading-5 text-foreground outline-none placeholder:whitespace-nowrap placeholder:text-ellipsis placeholder:text-muted-foreground focus:outline-none focus:ring-0"
-                  />
-                  {notesFocused && <span aria-live="polite" className="shrink-0 pt-2 text-[10px] tabular-nums text-muted-foreground">{profile.notes.length}/10,000</span>}
-                </div>
+              <div className="-mx-3 -mb-3 mt-1 min-w-0 rounded-b-xl border-t border-border bg-muted/80 px-3 py-2 dark:bg-muted/50 md:col-span-2 lg:col-span-8">
+                <button
+                  type="button"
+                  onClick={() => setNotesExpanded((expanded) => !expanded)}
+                  aria-expanded={notesExpanded}
+                  aria-controls="chart-notes"
+                  className="min-h-11 text-left text-xs font-medium text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+                >
+                  {notesExpanded ? "Hide personal notes" : profile.notes ? "Edit personal notes" : "+ Add personal notes"}
+                </button>
+                {notesExpanded && (
+                  <div className="flex min-w-0 items-end gap-2">
+                    <label htmlFor="chart-notes" className="sr-only">Personal chart notes</label>
+                    <textarea
+                      id="chart-notes"
+                      maxLength={10000}
+                      rows={4}
+                      value={profile.notes}
+                      onChange={(event) => setProfile({ notes: event.target.value })}
+                      placeholder="Add personal notes, life events, or reference details..."
+                      className="min-h-24 min-w-0 flex-1 resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm leading-5 text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary/40"
+                    />
+                    <span aria-live="polite" className="shrink-0 pb-2 text-[10px] tabular-nums text-muted-foreground">{profile.notes.length}/10,000</span>
+                  </div>
+                )}
+              </div>
             </div>
           </form>
           {profileActionError && <p role="alert" className="mt-2 text-xs text-rose-800 dark:text-rose-200">{profileActionError}</p>}
@@ -2753,12 +2778,45 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
           </Suspense>
         )}
         {dashboardTab === "core" && (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
         {displayError && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 size-4 shrink-0" /><span>{displayError}</span></div>}
-        <PanchangStrip date={displayData?.input.date ?? profile.date} planets={displayData?.planets ?? []} />
+        <div className="order-2 lg:order-1">
+          <PanchangStrip date={displayData?.input.date ?? profile.date} planets={displayData?.planets ?? []} />
+        </div>
+        {kharaPoints.length > 0 && (
+          <section aria-label="Khara divisional points" className="order-3 overflow-hidden rounded-xl border border-border bg-card text-card-foreground">
+            <div className="px-4 py-3">
+              <h2 className="text-sm font-semibold">Khara positions</h2>
+              <p className="mt-1 text-[11px] text-muted-foreground">64th Navamsha and 22nd Drekkana from the Lagna and Moon.</p>
+            </div>
+            <div className="grid divide-y divide-border border-t border-border md:grid-cols-2 md:divide-x md:divide-y-0">
+              {kharaPoints.map((points) => (
+                <div key={points.name} className="min-w-0 px-4 py-3">
+                  <h3 className="mb-2 text-xs font-semibold">{points.name}</h3>
+                  <dl className="space-y-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <dt className="text-xs font-medium">64th Navamsha</dt>
+                        <dd className="text-[10px] text-muted-foreground">8th from {signName(SIGNS[points.navamsaSign], language)} Navamsha</dd>
+                      </div>
+                      <dd className="text-right text-sm font-semibold">{signName(SIGNS[points.sixtyFourthNavamsaSign], language)}</dd>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 border-t border-border/70 pt-2">
+                      <div>
+                        <dt className="text-xs font-medium">22nd Drekkana</dt>
+                        <dd className="text-[10px] text-muted-foreground">8th from {signName(SIGNS[points.drekkanaSign], language)} Drekkana</dd>
+                      </div>
+                      <dd className="text-right text-sm font-semibold">{signName(SIGNS[points.twentySecondDrekkanaSign], language)}</dd>
+                    </div>
+                  </dl>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Core chart panels grow with their controls and charts; wide tables keep horizontal-only overflow. */}
-        <div id="kundali-charts" className="grid w-full grid-cols-1 items-stretch gap-4 scroll-mt-4 lg:grid-cols-2 lg:gap-6">
+        <div id="kundali-charts" className="order-1 grid w-full grid-cols-1 items-stretch gap-4 scroll-mt-4 lg:order-2 lg:grid-cols-2 lg:gap-6">
           <div className="row-start-1 flex min-h-0 min-w-0 lg:col-start-1">
             <section className="relative flex h-full min-h-0 w-full flex-col rounded-xl border border-border bg-card text-card-foreground shadow-sm" aria-label="Primary D1 chart">
               <ChartControls

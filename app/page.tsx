@@ -17,6 +17,7 @@ import {
   Globe2,
   Heart,
   Info,
+  Menu,
   Moon,
   Orbit,
   PanelTop,
@@ -90,7 +91,6 @@ const mobileNavigationItems = [
   { id: "kundali", label: "Kundali", icon: Compass },
   { id: "numerology", label: "Numerology", icon: Sparkles },
   { id: "jamakkol", label: "Jamakkol", icon: Orbit },
-  { id: "about", label: "About Us", icon: Info },
 ] as const;
 
 function NumerologyTabLoading() {
@@ -209,6 +209,7 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
   const [kuaGender, setKuaGender] = useState<"male" | "female">("male");
   const [activeTab, setActiveTab] = useState("kundali");
   const [activeNavigation, setActiveNavigation] = useState("kundali");
+  const [utilitiesOpen, setUtilitiesOpen] = useState(false);
   const [dashboardNavigationRequest, setDashboardNavigationRequest] = useState<{ tab: "core" | "jamakkol"; id: number } | null>(null);
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
   const isDark = mounted ? resolvedTheme === "dark" : false;
@@ -318,6 +319,7 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
   const missingNumbers = numerology.birth ? gridNumbers.filter((number) => !(numerology.digitCounts[number] > 0)) : [];
   const luckyDates = numerology.profile?.lucky.datesEveryMonth ?? [];
   const navigate = (destination: typeof navigationItems[number]["id"]) => {
+    setUtilitiesOpen(false);
     setActiveNavigation(destination);
     setActiveTab(destination === "jamakkol" ? "kundali" : destination);
     if (destination === "jamakkol" || destination === "kundali") {
@@ -422,7 +424,7 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
               {!mounted || isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </button>
           </div>
-          <div className="ml-auto flex shrink-0 items-center gap-1 lg:hidden">
+          <div className="relative ml-auto flex shrink-0 items-center gap-1 lg:hidden">
             {isSignedIn ? (
               <UserButton />
             ) : (
@@ -435,10 +437,20 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
                 </a>
               </>
             )}
+            <button
+              type="button"
+              onClick={() => setUtilitiesOpen((open) => !open)}
+              aria-label={utilitiesOpen ? "Close utility menu" : "Open utility menu"}
+              aria-expanded={utilitiesOpen}
+              aria-controls="mobile-utility-menu"
+              className="grid size-10 shrink-0 place-items-center rounded-lg border border-border bg-background text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              <Menu aria-hidden="true" className="size-5" />
+            </button>
           </div>
           <nav
             aria-label="Primary navigation"
-            className="relative z-10 flex w-full basis-full flex-wrap items-center gap-1.5 border-t border-stone-200/80 bg-white py-2 dark:border-stone-700/80 dark:bg-slate-950 md:hidden"
+            className="relative z-50 grid w-full basis-full grid-cols-4 gap-1 border-t border-stone-200/80 bg-white py-2 dark:border-stone-700/80 dark:bg-slate-950 md:hidden"
           >
             {mobileNavigationItems.map(({ id, label, icon: Icon }) => {
               const active = activeNavigation === id;
@@ -449,14 +461,52 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
                   type="button"
                   onClick={() => navigate(id)}
                   aria-current={active ? "page" : undefined}
-                  className={`relative z-10 inline-flex min-h-10 shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium touch-manipulation transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${active ? "bg-[#C05A3A]/10 text-[#C05A3A]" : "text-muted-foreground hover:bg-stone-100 hover:text-foreground dark:hover:bg-slate-800"}`}
+                  className={`relative z-50 inline-flex min-h-11 min-w-0 cursor-pointer select-none items-center justify-center gap-1 whitespace-nowrap rounded-lg px-0.5 text-[10px] font-medium touch-manipulation transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${active ? "bg-[#C05A3A]/10 text-[#C05A3A]" : "text-muted-foreground hover:bg-stone-100 hover:text-foreground dark:hover:bg-slate-800"}`}
                 >
-                  <Icon className="size-4 shrink-0" aria-hidden="true" />
+                  <Icon className="size-3.5 shrink-0" aria-hidden="true" />
                   {label}
                 </button>
               );
             })}
           </nav>
+          {utilitiesOpen && (
+            <div
+              id="mobile-utility-menu"
+              aria-label="Utility menu"
+              className="absolute right-3 top-full z-[60] mt-1 grid w-64 gap-2 rounded-xl border border-border bg-card p-3 text-card-foreground shadow-lg lg:hidden"
+            >
+              <Select value={language} onValueChange={(value) => setLanguage(value as CelestialLanguage)}>
+                <SelectTrigger aria-label={`Display language, current setting: ${languageLabel}`} className="h-11 w-full bg-background text-sm">
+                  <Globe2 aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate text-left">{languageLabel}</span>
+                </SelectTrigger>
+                <SelectContent align="end" className="z-[100] bg-card text-card-foreground">
+                  <SelectItem value="en">English</SelectItem>
+                  <SelectItem value="hi">Hindi</SelectItem>
+                  <SelectItem value="mr">Marathi</SelectItem>
+                  <SelectItem value="initials">English · initials</SelectItem>
+                </SelectContent>
+              </Select>
+              <button
+                type="button"
+                onClick={() => setTheme(isDark ? "light" : "dark")}
+                className="flex min-h-11 items-center gap-2 rounded-lg px-3 text-left text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
+                {isDark ? <Sun aria-hidden="true" className="size-4" /> : <Moon aria-hidden="true" className="size-4" />}
+                Switch to {isDark ? "light" : "dark"} mode
+              </button>
+              <a href="/saved-charts" className="flex min-h-11 items-center rounded-lg px-3 text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                Saved charts
+              </a>
+              <button
+                type="button"
+                onClick={() => navigate("about")}
+                className="min-h-11 rounded-lg px-3 text-left text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
+                About
+              </button>
+            </div>
+          )}
         </header>
 
         <div id="dashboard-scroll" className="cosmic-grid min-w-0 overflow-x-hidden p-3 sm:p-6 lg:p-8">

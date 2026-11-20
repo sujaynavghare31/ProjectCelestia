@@ -84,7 +84,7 @@ export default function ChartControls({
   }, [customPickerOpen]);
 
   return (
-    <div className="space-y-4 border-b border-border bg-muted/10 p-4">
+    <div className="space-y-2 border-b border-border bg-muted/10 p-3 sm:space-y-4 sm:p-4">
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
           <div className="min-w-0">
@@ -102,7 +102,7 @@ export default function ChartControls({
             title={chartMode === "transit"
               ? "This chart already shows current-sky positions; enable labels to mark them with T and degrees."
               : "Draw a current or date-specific transit sky over the birth chart."}
-            className="relative min-w-0 w-full sm:w-auto"
+            className="relative min-w-0 w-auto"
           >
             <legend className="sr-only">{transitLabel}</legend>
             <div role="radiogroup" aria-label="Transit overlay" className="inline-flex max-w-full items-center rounded-full bg-background/70 p-0.5">

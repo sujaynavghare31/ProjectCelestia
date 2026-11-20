@@ -17,9 +17,9 @@ const clerkAppearance = {
     borderRadius: "0.5rem",
   },
   elements: {
-    rootBox: "w-full max-w-full",
-    cardBox: "w-full max-w-full border-0 bg-transparent p-0 shadow-none",
-    card: "w-full border-0 bg-transparent p-0 shadow-none",
+    rootBox: "w-full min-w-0 max-w-full",
+    cardBox: "!w-full min-w-0 !max-w-full border-0 bg-transparent p-0 shadow-none",
+    card: "!w-full min-w-0 !max-w-full border-0 bg-transparent p-0 shadow-none",
     header: "hidden",
     headerTitle: "hidden",
     headerSubtitle: "hidden",
@@ -64,7 +64,7 @@ export default async function LoginPage({
   if (isLocalClerkFallback) {
     return (
       <main className="cosmic-grid flex min-h-screen items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md rounded-3xl border border-border/80 bg-card/90 p-7 shadow-[0_24px_70px_-30px_rgba(91,61,43,0.25)] backdrop-blur-xl sm:p-9">
+        <div className="w-full min-w-0 max-w-md rounded-3xl border border-border/80 bg-card/90 p-7 shadow-[0_24px_70px_-30px_rgba(91,61,43,0.25)] backdrop-blur-xl sm:p-9">
           <Link href="/" className="text-sm font-semibold tracking-wide text-foreground">Project Celestia</Link>
           <h1 className="mt-4 text-2xl font-semibold tracking-tight">Local preview mode</h1>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
@@ -77,8 +77,8 @@ export default async function LoginPage({
   }
 
   return (
-    <main className="cosmic-grid flex min-h-screen items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md rounded-3xl border border-border/80 bg-card/90 p-7 shadow-[0_24px_70px_-30px_rgba(91,61,43,0.25)] backdrop-blur-xl sm:p-9">
+    <main className="cosmic-grid flex min-h-screen w-full min-w-0 items-center justify-center overflow-x-clip px-4 py-12">
+      <div className="w-full min-w-0 max-w-md rounded-3xl border border-border/80 bg-card/90 p-7 shadow-[0_24px_70px_-30px_rgba(91,61,43,0.25)] backdrop-blur-xl sm:p-9">
         <div className="mb-8">
           <Link href="/" className="text-sm font-semibold tracking-wide text-foreground">Project Celestia</Link>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight">{isSignUp ? "Create your account" : "Welcome back"}</h1>

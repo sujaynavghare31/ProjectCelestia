@@ -73,11 +73,31 @@ export function outerRingSignIndex(signIndex: number, nextSlotTaken = false) {
 
 export function outerRingSignIndexes(longitudes: number[]) {
   const signs = longitudes.map((longitude) => Math.floor(norm360(longitude) / 30));
-  return signs.map((sign, index) => {
-    if (!isFixed(sign)) return sign;
-    const nextSlot = mod(sign + 1, 12);
-    const nextSlotTaken = signs.some((otherSign, otherIndex) => otherIndex !== index && otherSign === nextSlot);
-    return outerRingSignIndex(sign, nextSlotTaken);
+  const slots = new Set<number>(OUTER_SLOT_SIGNS);
+  const displaySigns: Array<number | undefined> = Array(signs.length);
+
+  signs.forEach((sign, index) => {
+    if (!isFixed(sign) && slots.has(sign)) {
+      displaySigns[index] = sign;
+      slots.delete(sign);
+    }
+  });
+
+  signs.forEach((sign, index) => {
+    if (displaySigns[index] !== undefined) return;
+    const candidates = Array.from({ length: 12 }, (_, offset) => [
+      mod(sign + offset + 1, 12),
+      mod(sign - offset - 1, 12),
+    ]).flat();
+    const slot = candidates.find((candidate) => slots.has(candidate));
+    if (slot === undefined) throw new Error("Unable to place a Jama graha on a unique outer chart slot.");
+    displaySigns[index] = slot;
+    slots.delete(slot);
+  });
+
+  return displaySigns.map((sign) => {
+    if (sign === undefined) throw new Error("Unable to place a Jama graha on an outer chart slot.");
+    return sign;
   });
 }
 

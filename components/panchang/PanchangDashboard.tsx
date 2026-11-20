@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { PanchangDay, PanchangTiming } from "@/lib/astrology/panchang/PanchangEngine";
+import { isWithinPanchangTimeline } from "@/lib/astrology/panchang/timeline-utils";
 import { PanchangTimeline } from "./PanchangTimeline";
 import { PanchangInsights } from "./PanchangInsights";
 
@@ -123,11 +124,8 @@ function ActivePanchangSummary({ data }: { data: PanchangDay }) {
   }, []);
 
   const start = Date.parse(data.timeline.start);
-  const end = Date.parse(data.timeline.end);
   const nowTime = now?.getTime() ?? 0;
-  const isLive = now !== null &&
-    localDateKey(now, data.timezone) === data.date &&
-    nowTime >= start && nowTime < end;
+  const isLive = now !== null && isWithinPanchangTimeline(nowTime, data.timeline.start, data.timeline.end);
   const activeTime = isLive ? nowTime : start;
   const activeAt = isLive && now
     ? `Now · ${formatInTimeZone(now, data.timezone, "h:mm a")}`
@@ -278,6 +276,14 @@ export default function PanchangDashboard() {
     { label: "Moonrise", value: formatTime(data.solarEvents.moonrise, data.timezone), Icon: Moon, tone: "text-stone-700 dark:text-stone-300" },
     { label: "Moonset", value: formatTime(data.solarEvents.moonset, data.timezone), Icon: Moon, tone: "text-stone-700 dark:text-stone-300" },
   ] : [];
+  const mobileSolarEvents = [
+    solarEvents.find(({ label }) => label === "Sunrise"),
+    solarEvents.find(({ label }) => label === "Sunset"),
+    solarEvents.find(({ label }) => label === "Moonrise"),
+    solarEvents.find(({ label }) => label === "Moonset"),
+    solarEvents.find(({ label }) => label === "Solar noon"),
+    solarEvents.find(({ label }) => label === "Civil twilight"),
+  ].filter((event): event is (typeof solarEvents)[number] => Boolean(event));
 
   return (
     <div className="space-y-5">
@@ -299,7 +305,7 @@ export default function PanchangDashboard() {
               type="date"
               value={date}
               onChange={(event) => setDate(event.target.value)}
-              className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm text-foreground outline-none transition focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="h-10 w-full min-w-0 max-w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm text-foreground outline-none transition focus-visible:ring-2 focus-visible:ring-primary/40"
             />
           </span>
         </div>
@@ -367,16 +373,29 @@ export default function PanchangDashboard() {
         <>
           <ActivePanchangSummary data={data} />
 
-          <section aria-label="Solar and lunar events" className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
-            {solarEvents.map(({ label, value, Icon, tone }) => (
-              <article key={label} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="text-xs font-medium text-muted-foreground">{label}</h2>
-                  <Icon aria-hidden="true" className={`size-4 ${tone}`} />
-                </div>
-                <p className="mt-3 truncate text-xl font-semibold tabular-nums tracking-tight text-card-foreground" title={value}>{value}</p>
-              </article>
-            ))}
+          <section aria-label="Solar and lunar events">
+            <div className="md:hidden grid grid-cols-2 gap-2.5">
+              {mobileSolarEvents.map(({ label, value, Icon, tone }) => (
+                <article key={label} className="min-w-0 rounded-xl border border-border bg-card p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="truncate text-[11px] font-medium text-muted-foreground">{label}</h2>
+                    <Icon aria-hidden="true" className={`size-4 shrink-0 ${tone}`} />
+                  </div>
+                  <p className="mt-2 truncate text-base font-semibold tabular-nums tracking-tight text-card-foreground" title={value}>{value}</p>
+                </article>
+              ))}
+            </div>
+            <div className="hidden md:grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+              {solarEvents.map(({ label, value, Icon, tone }) => (
+                <article key={label} className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-xs font-medium text-muted-foreground">{label}</h2>
+                    <Icon aria-hidden="true" className={`size-4 ${tone}`} />
+                  </div>
+                  <p className="mt-3 truncate text-xl font-semibold tabular-nums tracking-tight text-card-foreground" title={value}>{value}</p>
+                </article>
+              ))}
+            </div>
           </section>
 
           <PanchangTimeline data={data} />

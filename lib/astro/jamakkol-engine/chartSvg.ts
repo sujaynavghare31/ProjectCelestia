@@ -124,10 +124,12 @@ export function renderJamakkolChart(result: JamakkolResult, options: JamakkolCha
   const half = Math.ceil(tablePoints.length / 2);
   const tableY = titleY + 78;
   tablePoints.forEach((point, index) => {
-    const columnX = index < half ? centerX - 160 : centerX;
+    const columnX = index < half ? centerX - 160 + 8 : centerX + 8;
     const rowY = tableY + (index % half) * 18;
     const isFullPointName = !!FULL_POINT_NAMES[point.name];
-    const labelWidth = isTamil ? (isFullPointName ? 68 : 54) : isFullPointName ? 76 : 36;
+    const labelWidth = point.name === "Mandi"
+      ? 44
+      : isTamil ? (isFullPointName ? 68 : 54) : isFullPointName ? 76 : 36;
     const pointText = isTamil && point.name === "Mandi"
       ? "மாந்தி"
       : pointLabel(point, language);

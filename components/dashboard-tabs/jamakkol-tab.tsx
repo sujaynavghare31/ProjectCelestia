@@ -137,6 +137,10 @@ function PanchangCard({ result, language }: { result: JamakkolResult; language: 
       <div className="mt-2 grid gap-2 sm:grid-cols-3">
         {[[copy.rahuKalam, result.panchang.rahuKalam], [copy.yamagandam, result.panchang.yamagandam], [copy.gulikaKalam, result.panchang.gulikaKalam]].map(([label, value]) => <div key={label} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/25 dark:text-rose-200"><p className="text-[10px] uppercase tracking-wide">{label}</p><p className="mt-0.5 text-xs font-semibold">{value}</p></div>)}
       </div>
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-border pt-3 text-xs">
+        <p><span className="font-semibold">{language === "ta" ? "உச்சம் பெற்ற ஜாம கிரகங்கள்" : "Exalted Jama grahas"}:</span> {result.exaltedJama.map((planet) => translatePlanet(planet, language)).join(", ") || copy.none}</p>
+        <p><span className="font-semibold">{copy.kavippu}:</span> {translatePoint(result.veediSign, language)} · {copy.count} {result.kavippuCount}</p>
+      </div>
     </section>
   );
 }
@@ -309,7 +313,7 @@ export default function JamakkolTab({ profile, data, chartMode, transitDate, tra
       <JamaGrahaTable date={jamaDateTime.date} time={jamaDateTime.time} language={language} />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:gap-6">
         <section className="rounded-xl border border-border bg-card p-4 shadow-sm" aria-labelledby="jamakkol-positions-title"><h3 id="jamakkol-positions-title" className="mb-3 text-sm font-semibold">{copy.positions}</h3><PositionsTable result={active} language={language} /></section>
-        <div className="space-y-4"><PanchangCard result={active} language={language} /><section className="rounded-xl border border-border bg-card p-4 text-xs shadow-sm"><p><span className="font-semibold">{language === "ta" ? "உச்சம் பெற்ற ஜாம கிரகங்கள்" : "Exalted Jama grahas"}:</span> {active.exaltedJama.map((planet) => translatePlanet(planet, language)).join(", ") || copy.none}</p><p className="mt-2"><span className="font-semibold">{copy.kavippu}:</span> {translatePoint(active.veediSign, language)} · {copy.count} {active.kavippuCount}</p></section></div>
+        <PanchangCard result={active} language={language} />
       </div>
     </div>
   );

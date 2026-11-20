@@ -105,10 +105,14 @@ export default function DashaDashboard({
   onLagnaModeChange: (value: DashaLagnaMode) => void;
 }) {
   const [now, setNow] = useState(() => Date.now());
+  const [selectedMobilePath, setSelectedMobilePath] = useState<DashaPeriodNode[] | null>(null);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
+  useEffect(() => {
+    setSelectedMobilePath(null);
+  }, [data, seed, system]);
 
   const calculation = useMemo((): { result: DashaEngineResult | null; error: string } => {
     if (!data) return { result: null, error: "" };
@@ -187,8 +191,25 @@ export default function DashaDashboard({
                 {formatSeed(seed)} in {result.nakshatra.name} · {(result.nakshatra.progress * 100).toFixed(2)}% elapsed · {(result.nakshatra.remaining * 100).toFixed(2)}% remaining
               </p>
             )}
-            <CascadingDashaTimeline periods={result.periods} system={system} activeDate={now} />
-            <DashaSummaryCards system={system} activePath={currentPath} />
+            <CascadingDashaTimeline
+              periods={result.periods}
+              system={system}
+              activeDate={now}
+              selectedPath={selectedMobilePath}
+              onSelectPath={setSelectedMobilePath}
+            />
+            {system === "vimshottari" ? (
+              <>
+                <div className="md:hidden">
+                  <DashaSummaryCards system={system} activePath={selectedMobilePath ?? currentPath} currentPath={currentPath} />
+                </div>
+                <div className="hidden md:block">
+                  <DashaSummaryCards system={system} activePath={currentPath} />
+                </div>
+              </>
+            ) : (
+              <DashaSummaryCards system={system} activePath={currentPath} />
+            )}
             <DashaTable key={`${system}-${seed}-${data?.calculatedAt}`} periods={result.periods} title={result.title} system={system} />
           </div>
           {system === "vimshottari" && data && (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateOuterJamaGrahas, FIXED_OUTER_SIGN_INDEXES, jamakkol, outerRingSignIndex, PLANET_COLORS } from "./jamakkol";
+import { calculateOuterJamaGrahas, FIXED_OUTER_SIGN_INDEXES, jamakkol, outerRingSignIndex, outerRingSignIndexes, PLANET_COLORS } from "./jamakkol";
 import { renderJamakkolChart } from "./chartSvg";
 
 describe("Jamakkol outer grahas", () => {
@@ -12,6 +12,12 @@ describe("Jamakkol outer grahas", () => {
         : signIndex);
     }
     expect(outerRingSignIndex(10)).toBe(11);
+  });
+  it("assigns unique outer slots when fixed-sign grahas crowd neighboring slots", () => {
+    const displaySigns = outerRingSignIndexes([30, 60, 0, 120, 150, 210, 240, 300]);
+
+    expect(new Set(displaySigns).size).toBe(displaySigns.length);
+    expect(displaySigns.every((signIndex) => !FIXED_OUTER_SIGN_INDEXES.includes(signIndex as 1 | 4 | 7 | 10))).toBe(true);
   });
   it("uses the fixed 6 AM / 6 PM outer Jama formula", () => {
     const localDate = new Date(2026, 10, 18, 23, 27, 38);
@@ -109,6 +115,9 @@ describe("Jamakkol outer grahas", () => {
     expect(svg).toContain(">Mandi<");
     expect(svg).toContain("Mandi</text>");
     expect(svg).toContain("8° 11′ 00″");
+    const mandiLabel = svg.match(/<text x="(\d+)" y="(\d+)"[^>]*>Mandi<\/text><text x="(\d+)" y="\d+"[^>]*>8° 11′ 00″<\/text>/);
+    expect(mandiLabel).not.toBeNull();
+    expect(Number(mandiLabel?.[3]) - Number(mandiLabel?.[1])).toBe(44);
   });
 
   it("matches the reference Jama ring at 11:51 PM and keeps each graha in its calculated sign", () => {

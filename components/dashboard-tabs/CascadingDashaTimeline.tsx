@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { DashaPeriodNode, DashaSystem } from "@/lib/astrology/timing/DashaEngine";
 import { createDashaSubperiods } from "@/lib/astrology/timing/period-expansion";
+import { DASHA_LORDS } from "@/lib/astrology/timing/sequences";
 
 const TRACKS: Record<DashaSystem, string[]> = {
   vimshottari: ["Maha", "Antar", "Pratyantar", "Sookshma"],
@@ -225,14 +226,186 @@ function percentageAt(activeTime: number, start: number, end: number) {
   return Math.max(0, Math.min(100, ((activeTime - start) / (end - start)) * 100));
 }
 
+function mahaSiblings(period: DashaPeriodNode) {
+  const activeIndex = DASHA_LORDS.findIndex(({ lord }) => lord === period.lord);
+  if (activeIndex < 0) return [period];
+
+  const yearMs = (period.yearLengthDays || 365.2425) * 86_400_000;
+  const currentBounds = periodBounds(period);
+  const cycleStart = currentBounds.start -
+    DASHA_LORDS.slice(0, activeIndex).reduce((years, item) => years + item.years, 0) * yearMs;
+  let elapsedYears = 0;
+
+  return DASHA_LORDS.map(({ lord, years }) => {
+    const start = cycleStart + elapsedYears * yearMs;
+    elapsedYears += years;
+    const end = cycleStart + elapsedYears * yearMs;
+    return {
+      ...period,
+      id: `maha:${lord}:${new Date(start).toISOString()}`,
+      lord,
+      start: new Date(start).toISOString(),
+      end: new Date(end).toISOString(),
+      durationYears: years,
+      details: undefined,
+      subPeriods: [],
+    };
+  });
+}
+
+function formatChipDuration(period: DashaPeriodNode) {
+  const days = durationInDays(period);
+  const years = days / (period.yearLengthDays || 365.2425);
+  return years < 1 ? `${Math.max(1, Math.round(days))}d` : `${Math.round(years)}y`;
+}
+
+function mobileSelectionPath(
+  activePath: DashaPeriodNode[],
+  period: DashaPeriodNode,
+  level: number,
+  system: DashaSystem,
+  activeTime: number,
+) {
+  const path = [...activePath.slice(0, level), period];
+  let selected = period;
+  for (let depth = level + 1; depth < TRACKS[system].length; depth += 1) {
+    const children = getTimelineChildren(selected, system);
+    const child = children.find((candidate) => isActiveAt(candidate, activeTime)) ?? children[0];
+    if (!child) break;
+    path.push(child);
+    selected = child;
+  }
+  return path;
+}
+
+function MobileVimshottariTimeline({
+  activeTime,
+  activePath,
+  selectedPath,
+  onSelectPath,
+}: {
+  activeTime: number;
+  activePath: DashaPeriodNode[];
+  selectedPath: DashaPeriodNode[] | null;
+  onSelectPath: (path: DashaPeriodNode[]) => void;
+}) {
+  const labels = TRACKS.vimshottari;
+  const rows = useMemo(() => labels.map((label, level) => {
+    const activePeriod = activePath[level];
+    const parent = activePath[level - 1];
+    const siblings = level === 0 && activePeriod
+      ? mahaSiblings(activePeriod)
+      : parent ? getTimelineChildren(parent, "vimshottari") : [];
+    return { label, level, siblings, activePeriod };
+  }), [activePath, labels]);
+  const activeIds = rows.map(({ activePeriod }) => activePeriod?.id ?? "").join("|");
+  const activeChipRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const siblingStripRefs = useRef<Array<HTMLDivElement | null>>([]);
+
+  useEffect(() => {
+    activeChipRefs.current.forEach((element, level) => {
+      const strip = siblingStripRefs.current[level];
+      if (!element || !strip) return;
+      const sidePadding = Math.max(0, (strip.clientWidth - element.offsetWidth) / 2);
+      strip.style.paddingInline = `${sidePadding}px`;
+      element.scrollIntoView({ inline: "center", block: "nearest" });
+    });
+  }, [activeIds]);
+
+  const summary = activePath.length
+    ? `Current dasha is ${activePath.map(({ lord }) => lord).join(" > ")}`
+    : "Current dasha is outside the calculated period range";
+
+  return (
+    <section aria-label="Dasha timeline" className="space-y-4 rounded-xl border border-border bg-card px-3 py-4 text-card-foreground">
+      <header className="space-y-2 text-center">
+        <h3 className="text-sm font-semibold leading-5">{summary}</h3>
+        <span className="inline-flex rounded-full bg-accent px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-accent-foreground">Now</span>
+      </header>
+
+      <div className="space-y-4">
+        {rows.map(({ label, level, siblings, activePeriod }) => {
+          if (!activePeriod) return null;
+          const bounds = periodBounds(activePeriod);
+          const progress = percentageAt(activeTime, bounds.start, bounds.end);
+          const elapsed = formatElapsedRemaining(activePeriod, activeTime)
+            .replace(" | ", " · ")
+            .replace(" to go", " left");
+          const selectedId = selectedPath?.[level]?.id ?? activePath[level]?.id;
+
+          return (
+            <section key={label} aria-label={`${label} dasha periods`} className="min-w-0 space-y-2">
+              <div className="flex min-w-0 items-baseline justify-between gap-2">
+                <h4 className="min-w-0 truncate text-xs font-semibold">
+                  <span className="uppercase tracking-wide">{label}</span> · {activePeriod.lord}
+                </h4>
+                <span className="shrink-0 text-right text-[10px] tabular-nums text-muted-foreground">{elapsed}</span>
+              </div>
+
+              <div
+                role="progressbar"
+                aria-label={`${label} ${activePeriod.lord} elapsed`}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(progress)}
+                className="relative h-2.5 rounded-full bg-muted"
+              >
+                <span className="absolute inset-y-0 left-0 rounded-full bg-[#C05A3A]" style={{ width: `${progress}%` }} />
+                <span
+                  aria-hidden="true"
+                  className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card bg-[#C05A3A]"
+                  style={{ left: `${progress}%` }}
+                />
+              </div>
+              <p className="text-right text-[9px] tabular-nums text-muted-foreground">{Math.round(progress)}% elapsed</p>
+
+              <div
+                ref={(element) => { siblingStripRefs.current[level] = element; }}
+                className="no-scrollbar flex gap-1.5 overflow-x-auto py-1"
+              >
+                {siblings.map((period) => {
+                  const isActive = period.id === activePeriod.id ||
+                    (level === 0 && period.lord === activePeriod.lord && isActiveAt(period, activeTime));
+                  const isSelected = period.id === selectedId || (level === 0 && isActive && selectedId === activePath[0]?.id);
+                  return (
+                    <button
+                      key={period.id}
+                      ref={isActive ? (element) => { activeChipRefs.current[level] = element; } : undefined}
+                      type="button"
+                      aria-pressed={isSelected}
+                      aria-current={isActive ? "time" : undefined}
+                      onClick={() => onSelectPath(mobileSelectionPath(activePath, period, level, "vimshottari", activeTime))}
+                      className={`min-h-11 shrink-0 min-w-[70px] rounded-lg border px-2.5 py-1.5 text-center text-xs leading-4 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C05A3A]/50 ${
+                        isSelected
+                          ? "border-[#C05A3A] bg-[#C05A3A]/10 font-semibold text-[#C05A3A]"
+                          : "border-border bg-background text-foreground"
+                      }`}
+                    >
+                      {PLANET_ABBREVIATIONS[period.lord] ?? period.lord.slice(0, 2)} · {formatChipDuration(period)}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export default function CascadingDashaTimeline({
   periods,
   system,
   activeDate,
+  selectedPath,
+  onSelectPath,
 }: {
   periods: DashaPeriodNode[];
   system: DashaSystem;
   activeDate: Date | number;
+  selectedPath?: DashaPeriodNode[] | null;
+  onSelectPath?: (path: DashaPeriodNode[]) => void;
 }) {
   const activeTime = activeDate instanceof Date ? activeDate.getTime() : activeDate;
   const labels = TRACKS[system];
@@ -245,82 +418,96 @@ export default function CascadingDashaTimeline({
     : "Current dasha is outside the calculated period range";
 
   return (
-    <section aria-label="Dasha timeline" className="space-y-3 rounded-xl border border-border bg-card px-3 py-4 sm:px-4">
-      <div className="text-center">
-        <h3 className="text-sm font-semibold">{summary}</h3>
-        <div className="mt-1 flex items-center justify-center gap-2">
-          <p className="text-[10px] text-muted-foreground">Maha window · active parent subperiods</p>
-          <span className="rounded bg-accent px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-accent-foreground">Now</span>
+    <>
+      {system === "vimshottari" && onSelectPath && (
+        <div className="md:hidden">
+          <MobileVimshottariTimeline
+            activeTime={activeTime}
+            activePath={activePath}
+            selectedPath={selectedPath ?? null}
+            onSelectPath={onSelectPath}
+          />
         </div>
-      </div>
-      <div className="flex gap-3">
-        <div className="w-[76px] shrink-0 space-y-2">
-          {rows.map(({ label }) => <div key={label} className="flex h-20 items-center text-[10px] font-medium text-muted-foreground">{label}</div>)}
-        </div>
-        <div className="min-w-0 flex-1 space-y-2">
-          {rows.map((row) => {
-            const domainDuration = row.domainEnd - row.domainStart;
-            const nowPercent = percentageAt(activeTime, row.domainStart, row.domainEnd);
-            const elapsedLabel = row.level <= 2 && row.activePeriod
-              ? formatElapsedRemaining(row.activePeriod, activeTime)
-              : null;
-            const metricTransform = nowPercent < 15 ? "translateX(0%)"
-              : nowPercent > 85 ? "translateX(-100%)" : "translateX(-50%)";
+      )}
+      <div className={system === "vimshottari" ? "hidden md:block" : undefined}>
+        <section aria-label="Dasha timeline" className="space-y-3 rounded-xl border border-border bg-card px-3 py-4 sm:px-4">
+          <div className="text-center">
+            <h3 className="text-sm font-semibold">{summary}</h3>
+            <div className="mt-1 flex items-center justify-center gap-2">
+              <p className="text-[10px] text-muted-foreground">Maha window · active parent subperiods</p>
+              <span className="rounded bg-accent px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-accent-foreground">Now</span>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <div className="w-[76px] shrink-0 space-y-2">
+              {rows.map(({ label }) => <div key={label} className="flex h-20 items-center text-[10px] font-medium text-muted-foreground">{label}</div>)}
+            </div>
+            <div className="min-w-0 flex-1 space-y-2">
+              {rows.map((row) => {
+                const domainDuration = row.domainEnd - row.domainStart;
+                const nowPercent = percentageAt(activeTime, row.domainStart, row.domainEnd);
+                const elapsedLabel = row.level <= 2 && row.activePeriod
+                  ? formatElapsedRemaining(row.activePeriod, activeTime)
+                  : null;
+                const metricTransform = nowPercent < 15 ? "translateX(0%)"
+                  : nowPercent > 85 ? "translateX(-100%)" : "translateX(-50%)";
 
-            return (
-              <div key={row.label} className="relative h-20 overflow-visible" aria-label={`${row.label} periods`}>
-                <div className="absolute inset-x-0 bottom-5 flex h-8 overflow-visible rounded-md bg-muted/50 ring-1 ring-inset ring-border/70">
-                  {row.periods.map((period) => {
-                    const bounds = periodBounds(period);
-                    const visibleStart = Math.max(bounds.start, row.domainStart);
-                    const visibleEnd = Math.min(bounds.end, row.domainEnd);
-                    const duration = Math.max(0, visibleEnd - visibleStart);
-                    const width = domainDuration > 0 ? duration / domainDuration * 100 : 0;
-                    if (width <= 0) return null;
+                return (
+                  <div key={row.label} className="relative h-20 overflow-visible" aria-label={`${row.label} periods`}>
+                    <div className="absolute inset-x-0 bottom-5 flex h-8 overflow-visible rounded-md bg-muted/50 ring-1 ring-inset ring-border/70">
+                      {row.periods.map((period) => {
+                        const bounds = periodBounds(period);
+                        const visibleStart = Math.max(bounds.start, row.domainStart);
+                        const visibleEnd = Math.min(bounds.end, row.domainEnd);
+                        const duration = Math.max(0, visibleEnd - visibleStart);
+                        const width = domainDuration > 0 ? duration / domainDuration * 100 : 0;
+                        if (width <= 0) return null;
 
-                    const active = isActiveAt(period, activeTime);
-                    const durationLabel = formatDuration(period);
+                        const active = isActiveAt(period, activeTime);
+                        const durationLabel = formatDuration(period);
 
-                    return (
+                        return (
+                          <div
+                            key={period.id}
+                            title={`${period.lord} · ${new Date(bounds.start).toLocaleDateString("en-GB")} – ${new Date(bounds.end).toLocaleDateString("en-GB")}`}
+                            className="relative h-full shrink-0"
+                            style={{ width: `${width}%` }}
+                          >
+                            <span className="absolute -top-6 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap text-xs font-medium text-muted-foreground">
+                              {durationLabel}
+                            </span>
+                            <div className={`flex h-full w-full items-center justify-center overflow-hidden border-r px-0.5 text-xs font-medium transition-colors duration-200 ${colorClassesFor(period, system)} ${active ? "ring-1 ring-inset ring-current/40" : ""}`}>
+                              <span className="truncate">
+                                {abbreviationFor(period, system)}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {row.periods.length > 0 && domainDuration > 0 && (
                       <div
-                        key={period.id}
-                        title={`${period.lord} · ${new Date(bounds.start).toLocaleDateString("en-GB")} – ${new Date(bounds.end).toLocaleDateString("en-GB")}`}
-                        className="relative h-full shrink-0"
-                        style={{ width: `${width}%` }}
+                        aria-label={`${row.label} current datetime`}
+                        className="pointer-events-none absolute bottom-0 top-0 z-10 border-l border-dashed border-primary"
+                        style={{ left: `${nowPercent}%` }}
+                      />
+                    )}
+                    {elapsedLabel && (
+                      <span
+                        className="absolute bottom-0 z-20 whitespace-nowrap rounded bg-card/95 px-1 text-[9px] font-medium text-muted-foreground"
+                        style={{ left: `${nowPercent}%`, transform: metricTransform }}
+                        title={`${row.label}: ${elapsedLabel}`}
                       >
-                        <span className="absolute -top-6 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap text-xs font-medium text-muted-foreground">
-                          {durationLabel}
-                        </span>
-                        <div className={`flex h-full w-full items-center justify-center overflow-hidden border-r px-0.5 text-xs font-medium transition-colors duration-200 ${colorClassesFor(period, system)} ${active ? "ring-1 ring-inset ring-current/40" : ""}`}>
-                          <span className="truncate">
-                            {abbreviationFor(period, system)}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                {row.periods.length > 0 && domainDuration > 0 && (
-                  <div
-                    aria-label={`${row.label} current datetime`}
-                    className="pointer-events-none absolute bottom-0 top-0 z-10 border-l border-dashed border-primary"
-                    style={{ left: `${nowPercent}%` }}
-                  />
-                )}
-                {elapsedLabel && (
-                  <span
-                    className="absolute bottom-0 z-20 whitespace-nowrap rounded bg-card/95 px-1 text-[9px] font-medium text-muted-foreground"
-                    style={{ left: `${nowPercent}%`, transform: metricTransform }}
-                    title={`${row.label}: ${elapsedLabel}`}
-                  >
-                    {elapsedLabel}
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                        {elapsedLabel}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
       </div>
-    </section>
+    </>
   );
 }

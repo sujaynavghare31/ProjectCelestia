@@ -1,13 +1,25 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import type { PanchangDay, PanchangHoraSlot, PanchangQuality, PanchangSlot } from "@/lib/astrology/panchang/PanchangEngine";
+import { isWithinPanchangTimeline } from "@/lib/astrology/panchang/timeline-utils";
 
 const qualityStyles: Record<PanchangQuality, string> = {
   auspicious: "bg-emerald-50 text-emerald-900 dark:bg-emerald-900/25 dark:text-emerald-100",
   inauspicious: "bg-rose-50 text-rose-900 dark:bg-rose-900/25 dark:text-rose-100",
   neutral: "bg-muted text-foreground",
+};
+const taraColors: Record<string, string> = {
+  Janma: "bg-violet-500",
+  Sampat: "bg-blue-500",
+  Vipat: "bg-rose-500",
+  Kshema: "bg-emerald-500",
+  Pratyari: "bg-amber-500",
+  Sadhaka: "bg-cyan-500",
+  Naidhana: "bg-orange-500",
+  Mitra: "bg-lime-500",
+  "Param Mitra": "bg-fuchsia-500",
 };
 
 function formatTime(value: string, timezone: string) {
@@ -52,33 +64,59 @@ function HoraGroup({
   title,
   horas,
   timezone,
+  activeTime,
 }: {
   title: string;
   horas: PanchangHoraSlot[];
   timezone: string;
+  activeTime: number | null;
 }) {
+  const currentHora = activeTime === null
+    ? undefined
+    : horas.find((hora) => activeTime >= Date.parse(hora.start) && activeTime < Date.parse(hora.end));
+
   return (
     <div>
       <h3 className="mb-2 text-xs font-semibold text-foreground">{title}</h3>
       <ol className="grid grid-cols-1 gap-1.5 md:grid-cols-3 lg:grid-cols-4">
-        {horas.map((hora) => (
-          <li key={`${title}-${hora.index}`} className="min-w-0 rounded-lg border border-border bg-muted/40 px-2.5 py-2">
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-[10px] text-muted-foreground">Hora {hora.index}</span>
-              <span className="truncate text-xs font-semibold text-card-foreground">{hora.planet}</span>
-            </div>
-            <p className="mt-1 truncate text-[10px] tabular-nums text-muted-foreground">
-              {formatTime(hora.start, timezone)} – {formatTime(hora.end, timezone)}
-            </p>
-          </li>
-        ))}
+        {horas.map((hora) => {
+          const isCurrent = currentHora?.index === hora.index;
+          return (
+            <li
+              key={`${title}-${hora.index}`}
+              aria-current={isCurrent ? "time" : undefined}
+              className={`min-w-0 rounded-lg border px-2.5 py-2 ${isCurrent
+                ? "border-amber-500 bg-amber-100 text-amber-950 ring-2 ring-amber-500/60 dark:border-amber-300 dark:bg-amber-400/20 dark:text-amber-100 dark:ring-amber-300/50"
+                : "border-border bg-muted/40"}`}
+            >
+              <div className="flex items-center justify-between gap-1">
+                <span className={`text-[10px] ${isCurrent ? "font-semibold text-amber-900 dark:text-amber-100" : "text-muted-foreground"}`}>Hora {hora.index}</span>
+                <span className={`truncate text-xs font-semibold ${isCurrent ? "" : "text-card-foreground"}`}>{hora.planet}</span>
+              </div>
+              {isCurrent && <p className="mt-1 text-[9px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-200">Current Hora</p>}
+              <p className={`mt-1 truncate text-[10px] tabular-nums ${isCurrent ? "text-amber-900/80 dark:text-amber-100/80" : "text-muted-foreground"}`}>
+                {formatTime(hora.start, timezone)} – {formatTime(hora.end, timezone)}
+              </p>
+            </li>
+          );
+        })}
       </ol>
     </div>
   );
 }
 
 function PanchangInsightsView({ data }: { data: PanchangDay }) {
+  const [now, setNow] = useState<Date | null>(null);
   const nakshatraHeaders = data.tarabalam.grid[0]?.janmaNakshatras ?? [];
+  useEffect(() => {
+    const update = () => setNow(new Date());
+    update();
+    const interval = window.setInterval(update, 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
+  const activeTime = now && isWithinPanchangTimeline(now.getTime(), data.timeline.start, data.timeline.end)
+    ? now.getTime()
+    : null;
   const solarSpecs = [
     { label: "Sun sign", value: `${data.astronomy.sunSign} · ${data.astronomy.sunDegree.toFixed(2)}°` },
     { label: "Moon sign", value: `${data.astronomy.moonSign} · ${data.astronomy.moonDegree.toFixed(2)}°` },
@@ -141,8 +179,8 @@ function PanchangInsightsView({ data }: { data: PanchangDay }) {
           <p className="mt-1 text-[11px] text-muted-foreground">Twelve equal periods from sunrise to sunset and twelve from sunset to next sunrise; durations follow the local day and night.</p>
         </div>
         <div className="grid gap-5 lg:grid-cols-2">
-          <HoraGroup title="Day" horas={data.hora.day} timezone={data.timezone} />
-          <HoraGroup title="Night" horas={data.hora.night} timezone={data.timezone} />
+          <HoraGroup title="Day" horas={data.hora.day} timezone={data.timezone} activeTime={activeTime} />
+          <HoraGroup title="Night" horas={data.hora.night} timezone={data.timezone} activeTime={activeTime} />
         </div>
       </section>
 
@@ -173,8 +211,13 @@ function PanchangInsightsView({ data }: { data: PanchangDay }) {
                       <span className="flex items-center justify-between gap-2"><span>{row.name}</span><QualityLabel quality={row.quality} /></span>
                     </th>
                     {row.janmaNakshatras.map(({ name, selected }) => (
-                      <td key={`${row.name}-${name}`} className="px-0.5 py-1.5" title={`${name}: ${row.name}${selected ? " for today's transit" : ""}`}>
-                        <span className={`mx-auto block size-3 rounded-full ${selected ? qualityStyles[row.quality] : "bg-muted"}`} />
+                      <td
+                        key={`${row.name}-${name}`}
+                        className="px-0.5 py-1.5"
+                        aria-label={`${name}: ${row.name}${selected ? " for today's transit" : ""}`}
+                        title={`${name}: ${row.name}${selected ? " for today's transit" : ""}`}
+                      >
+                        <span aria-hidden="true" className={`mx-auto block size-3 rounded-full ${selected ? `${taraColors[row.name] ?? "bg-primary"} ring-1 ring-foreground/30` : "bg-muted"}`} />
                       </td>
                     ))}
                   </tr>
