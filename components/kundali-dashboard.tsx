@@ -444,7 +444,7 @@ function ChartOverflowFrame({
 }) {
   return (
     <div className="relative flex w-full flex-col">
-      <div className="relative aspect-square w-full">
+      <div className="relative aspect-square w-full overflow-hidden rounded-xl">
         {children}
       </div>
       {overflow.length > 0 && (
@@ -605,7 +605,7 @@ function SvgChartComponent({
         };
       });
     return (
-      <div className="relative aspect-square w-full">
+      <div className="relative aspect-square w-full overflow-hidden rounded-xl">
         <PlacidusWheel ascendant={ascendant} planets={planets} points={points} cusps={cusps} referenceHouse={referenceHouse} overlay={overlay} labelPlanetsAsTransit={showTransitLabels} language={language} preferences={preferences} />
       </div>
     );
@@ -766,12 +766,23 @@ function SvgChartComponent({
               const name = chartPlanetDisplay(body, language, preferences.usePlanetIcons);
               const bodyY = bodyStartY + row * bodyLineHeight;
               const vargottama = body.name !== "Ascendant" && body.sign === getVargaSign(body, 9);
-              const labelWidth = name.length * 5 + (body.isTransit ? 8 : 0) + (body.motion === "R" ? 5 : 0) + 4;
+              const estimatedLabelWidth = name.length * 5 + (body.isTransit ? 8 : 0) + (body.motion === "R" ? 5 : 0) + 4;
+              const availableLabelWidth = Math.max(0, 2 * Math.min(x - 13, 347 - x));
+              const labelWidth = Math.min(estimatedLabelWidth, availableLabelWidth);
               return (
                 <g key={body.id} opacity={isHighlighted(body, vargottama) ? 1 : 0.4} filter={isHighlighted(body, vargottama) && hoveredPlanet !== null ? "drop-shadow(0 0 6px hsl(var(--foreground)))" : undefined} onMouseEnter={() => onBodyEnter(body)} onMouseLeave={() => setHoveredPlanet(null)}>
-                  {body.motion === "R" && <title>Retrograde Motion</title>}
+                  <title>{`${body.name} · ${formatPlanetDegree(body.degree)}${body.motion === "R" ? " · Retrograde" : ""}${vargottama ? " · Vargottama" : ""}`}</title>
                   {vargottama && <rect x={x - labelWidth / 2} y={bodyY - 9} width={labelWidth} height="12" rx="4" fill="none" stroke="#C05A3A" strokeWidth="1" />}
-                  <text x={x} y={bodyY} fill={bodyColor} fontSize={compactBottomBodies ? "8" : "10"} fontWeight={body.name === "Ascendant" ? "700" : "600"} textAnchor="middle">
+                  <text
+                    x={x}
+                    y={bodyY}
+                    fill={bodyColor}
+                    fontSize={compactBottomBodies ? "8" : "10"}
+                    fontWeight={body.name === "Ascendant" ? "700" : "600"}
+                    textAnchor="middle"
+                    textLength={estimatedLabelWidth > availableLabelWidth ? labelWidth : undefined}
+                    lengthAdjust="spacingAndGlyphs"
+                  >
                     {body.isTransit ? "T " : ""}{name}{body.motion === "R" && <tspan fill="hsl(var(--foreground))" fontSize="8" fontWeight="800" dy="-3">ᴿ</tspan>}
                   </text>
                 </g>
@@ -2357,7 +2368,7 @@ export function KundaliDashboard({
                 onTransitTimeChange={setTransitTime}
                 onTransitModeChange={handleTransitModeChange}
               />
-              <div className="relative w-full min-w-0 p-4 bg-card">
+              <div className="relative w-full min-w-0 bg-card p-2 sm:p-4">
                 <div className="relative mx-auto w-full max-w-[640px]">
                   {displayData ? <SvgChart style={chartStyle} ascendant={displayData.ascendant} planets={displayData.planets} points={displayData.points} houseCusps={displayData.houseCusps} varga={1} referenceHouse={referenceHouseNumber} overlay={chartMode === "birth" && overlayTransits ? transitData?.planets : undefined} showTransitLabels={chartMode === "transit" && overlayTransits} language={language} preferences={viewPreferences} /> : displayLoading ? <EphemerisLoader title="Calculating birth chart" description="Finding planetary positions and house cusps…" detail={`${profile.city || "Birth chart"} · Swiss Ephemeris`} activity="Calculating chart" tone="dashboard" compact /> : <div className="grid aspect-square w-full place-items-center text-xs text-muted-foreground">Chart unavailable</div>}
                   {overlayTransits && transitLoading && (
@@ -2368,11 +2379,11 @@ export function KundaliDashboard({
                   )}
                 </div>
               </div>
-              <div className="mt-3 flex flex-none flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-400">
+              <div className="mt-3 grid flex-none grid-cols-2 items-center gap-x-3 gap-y-2 text-[11px] text-slate-600 dark:text-slate-400 sm:flex sm:flex-wrap sm:justify-between sm:text-xs">
                 <span className="flex items-center gap-1.5"><span className={`size-2 rounded-full ${chartMode === "transit" ? "bg-cyan-600 dark:bg-cyan-400" : "bg-amber-600 dark:bg-amber-400"}`} /> {chartMode === "transit" ? `Transit · ${currentTransitLabel}` : "Birth chart"}</span>
                 <button type="button" className="flex items-center gap-1.5 rounded px-1 transition hover:bg-[hsl(var(--input))]/50" onMouseEnter={() => setHoveredPlanet("Vargottama")} onMouseLeave={() => setHoveredPlanet(null)} onFocus={() => setHoveredPlanet("Vargottama")} onBlur={() => setHoveredPlanet(null)}><span className="inline-block size-3 rounded-full border border-[#C05A3A]" /> Vargottama</button>
                 <span title="Retrograde Motion"><span className="font-bold text-rose-700 dark:text-rose-300">R</span> = retrograde</span>
-                <span className="min-w-0 break-words text-right" title={chartStyle === "placidus" ? `${referenceLabel} at 9 o’clock` : referenceLabel}>{chartStyle === "placidus" ? `${referenceLabel} at 9 o’clock` : referenceLabel}</span>
+                <span className="col-span-2 min-w-0 break-words text-right sm:col-span-1" title={chartStyle === "placidus" ? `${referenceLabel} at 9 o’clock` : referenceLabel}>{chartStyle === "placidus" ? `${referenceLabel} at 9 o’clock` : referenceLabel}</span>
               </div>
               <p className="mt-2 flex flex-wrap items-center gap-x-1.5 text-[10px] text-slate-600 dark:text-slate-400">
                 <span>{chartMode === "transit" ? transitLoading ? "Refreshing current sky…" : transitError ?? "Live transit positions" : overlayTransits ? transitLoading ? "Refreshing transit sky…" : transitError ?? `Transit positions · ${currentTransitLabel}` : "Birth chart positions"}</span>
@@ -2447,7 +2458,7 @@ export function KundaliDashboard({
                 </div>
               )}
               </div>
-              <div className="relative w-full min-w-0 p-4 bg-card">
+              <div className="relative w-full min-w-0 bg-card p-2 sm:p-4">
                 <div className="relative mx-auto w-full max-w-[640px]">
                   {auxiliaryAscendant && auxiliaryPlanets
                     ? <SvgChart style={chartStyle} ascendant={auxiliaryAscendant} planets={auxiliaryPlanets} points={auxiliaryPoints ?? []} houseCusps={auxiliaryCusps ?? []} varga={auxiliaryVarga} houseBasedPlacement={isBhavaChalitChart} referenceHouse={auxiliaryReferenceHouseNumber} overlay={undefined} language={language} preferences={viewPreferences} />
