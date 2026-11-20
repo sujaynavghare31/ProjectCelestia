@@ -41,23 +41,32 @@ async function createDatabaseUser(email: string, clerkUserId: string, username: 
   }
 }
 
-export async function getCurrentDatabaseUser() {
-  const { userId: clerkUserId } = await auth();
-  if (!clerkUserId) return null;
+export async function getCurrentDatabaseUser(
+  clerkUserId?: string | null,
+  onCurrentUserRequest?: (durationMs: number) => void,
+) {
+  const resolvedClerkUserId = clerkUserId === undefined ? (await auth()).userId : clerkUserId;
+  if (!resolvedClerkUserId) return null;
 
-  const existing = await prisma.user.findUnique({ where: { clerkId: clerkUserId } });
+  const existing = await prisma.user.findUnique({ where: { clerkId: resolvedClerkUserId } });
   if (existing) return existing;
 
-  const clerkUser = await currentUser();
+  const currentUserStartedAt = performance.now();
+  let clerkUser: Awaited<ReturnType<typeof currentUser>>;
+  try {
+    clerkUser = await currentUser();
+  } finally {
+    onCurrentUserRequest?.(performance.now() - currentUserStartedAt);
+  }
   if (!clerkUser) return null;
 
   const email = clerkUser.primaryEmailAddress?.emailAddress?.trim().toLowerCase()
-    ?? `${clerkUserId}@clerk.local`;
+    ?? `${resolvedClerkUserId}@clerk.local`;
   const linkedUser = await prisma.user.findUnique({ where: { email } });
   if (linkedUser) {
-    if (linkedUser.clerkId && linkedUser.clerkId !== clerkUserId) {
+    if (linkedUser.clerkId && linkedUser.clerkId !== resolvedClerkUserId) {
       if (process.env.NODE_ENV === "development") {
-        return createDatabaseUser(`${clerkUserId}@clerk.local`, clerkUserId, clerkUser.username);
+        return createDatabaseUser(`${resolvedClerkUserId}@clerk.local`, resolvedClerkUserId, clerkUser.username);
       }
 
       if (clerkUser.primaryEmailAddress?.verification?.status !== "verified") {
@@ -67,14 +76,14 @@ export async function getCurrentDatabaseUser() {
       // A verified email can safely reconnect an account after its Clerk identity changes.
       return prisma.user.update({
         where: { id: linkedUser.id },
-        data: { clerkId: clerkUserId },
+        data: { clerkId: resolvedClerkUserId },
       });
     }
     return prisma.user.update({
       where: { id: linkedUser.id },
-      data: { clerkId: clerkUserId },
+      data: { clerkId: resolvedClerkUserId },
     });
   }
 
-  return createDatabaseUser(email, clerkUserId, clerkUser.username);
+  return createDatabaseUser(email, resolvedClerkUserId, clerkUser.username);
 }

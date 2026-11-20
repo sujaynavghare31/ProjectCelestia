@@ -45,6 +45,15 @@ describe("getCurrentDatabaseUser", () => {
     vi.unstubAllEnvs();
   });
 
+  it("uses the supplied Clerk identity without another auth or current-user request", async () => {
+    mocks.findUnique.mockResolvedValue({ id: "database-user", clerkId: clerkUserId });
+
+    await expect(getCurrentDatabaseUser(clerkUserId)).resolves.toMatchObject({ id: "database-user" });
+
+    expect(mocks.auth).not.toHaveBeenCalled();
+    expect(mocks.currentUser).not.toHaveBeenCalled();
+  });
+
   it("isolates a local Clerk identity when its email belongs to a different Clerk account", async () => {
     vi.stubEnv("NODE_ENV", "development");
     mocks.findUnique

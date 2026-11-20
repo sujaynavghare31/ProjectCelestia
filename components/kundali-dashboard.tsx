@@ -2,6 +2,7 @@
 
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useAuth } from "@clerk/nextjs";
 import {
   Activity,
   AlertCircle,
@@ -45,6 +46,16 @@ import { createMidpointReport, visibleMidpointRows, visibleMidpointTrees } from 
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import EphemerisLoader from "@/components/dashboard-tabs/ephemeris-loader";
+import {
+  clearCachedSavedProfiles,
+  fetchSavedProfiles,
+  getCachedSavedProfiles,
+  removeCachedSavedProfile,
+  SavedProfilesRequestError,
+  SavedProfilesRequestSupersededError,
+  updateCachedSavedProfile,
+  type SavedProfile,
+} from "@/lib/saved-profiles-cache";
 
 const loadDashaTab = () => import("@/components/dashboard-tabs/DashaDashboard");
 const loadAspectsTab = () => import("@/components/dashboard-tabs/aspects-tab");
@@ -1489,20 +1500,6 @@ interface GeocodeResult {
 const CONTROL_CLASS = "h-9 rounded-lg border border-input bg-card px-2.5 text-xs text-card-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/40";
 const PANEL_CLASS = "min-w-0 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm md:rounded-2xl md:border-stone-200/80 md:shadow-[0_1px_3px_rgba(15,23,42,0.04)]";
 
-type SavedProfile = {
-  id: string;
-  chartName: string | null;
-  fullName: string;
-  dateOfBirth: string;
-  timeOfBirth: string;
-  sex: BirthProfile["sex"];
-  latitude: number;
-  longitude: number;
-  timezone: string;
-  city: string | null;
-  notes: string;
-};
-
 async function readProfileApiResponse<T>(response: Response): Promise<T> {
   try {
     return await response.json() as T;
@@ -1742,15 +1739,20 @@ function SavedChartsDialog({
           {actionError && <p role="alert" className="border-b border-border px-5 py-3 text-sm text-rose-800 dark:text-rose-200">{actionError}</p>}
           {actionMessage && <p role="status" className="border-b border-border px-5 py-3 text-sm text-emerald-700 dark:text-emerald-300">{actionMessage}</p>}
           {loading ? (
-            <div className="px-5 py-5">
-              <EphemerisLoader
-                title="Loading saved charts"
-                description="Retrieving your saved birth charts…"
-                detail="Saved charts"
-                activity="Loading charts"
-                tone="dashboard"
-                compact
-              />
+            <div role="status" aria-label="Loading saved charts" className="divide-y divide-border">
+              <p className="flex items-center gap-2 px-5 py-3 text-xs text-muted-foreground">
+                <LoaderCircle className="size-3.5 animate-spin text-primary" aria-hidden="true" />
+                Loading your saved charts
+              </p>
+              {Array.from({ length: 3 }, (_, index) => (
+                <div key={index} aria-hidden="true" className="flex items-center gap-3 px-5 py-4 sm:px-6">
+                  <div className="size-10 animate-pulse rounded-full bg-muted motion-reduce:animate-none" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="h-4 w-44 max-w-full animate-pulse rounded bg-muted motion-reduce:animate-none" />
+                    <div className="h-3 w-56 max-w-full animate-pulse rounded bg-muted motion-reduce:animate-none" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : visibleProfiles.length ? (
             <ul className="divide-y divide-border">
@@ -1870,6 +1872,7 @@ export function KundaliDashboard({
   navigationRequest?: DashboardNavigationRequest | null;
   isSignedIn?: boolean;
 }) {
+  const { userId: clerkUserId } = useAuth();
   const profile = useKundaliStore((state) => state.profile);
   const chartStyle = useKundaliStore((state) => state.chartStyle);
   const houseSystem = useKundaliStore((state) => state.houseSystem);
@@ -1932,6 +1935,7 @@ export function KundaliDashboard({
   const [savedProfilesOpen, setSavedProfilesOpen] = useState(false);
   const [savedProfilesLoading, setSavedProfilesLoading] = useState(false);
   const [savedProfilesQuery, setSavedProfilesQuery] = useState("");
+  const previousSavedProfilesUserId = useRef<string | null>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [saveDialogMode, setSaveDialogMode] = useState<"update" | "copy">("update");
   const [saveDialogName, setSaveDialogName] = useState("");
@@ -2112,6 +2116,14 @@ export function KundaliDashboard({
 
   useEffect(() => {
     if (!Number.isFinite(profile.lat) || !Number.isFinite(profile.lng)) return;
+    if (
+      chartMode === "birth"
+      && submittedProfile?.id
+      && submittedProfile.lat === profile.lat
+      && submittedProfile.lng === profile.lng
+      && submittedProfile.timezone === profile.timezone
+    ) return;
+
     let isMounted = true;
     const timeout = window.setTimeout(async () => {
       try {
@@ -2130,7 +2142,44 @@ export function KundaliDashboard({
       isMounted = false;
       window.clearTimeout(timeout);
     };
-  }, [profile.lat, profile.lng]);
+  }, [profile.lat, profile.lng, profile.timezone, chartMode, submittedProfile]);
+
+  useEffect(() => {
+    const previousUserId = previousSavedProfilesUserId.current;
+    if (previousUserId && previousUserId !== clerkUserId) {
+      clearCachedSavedProfiles(previousUserId);
+      setSavedProfiles([]);
+      setSavedProfilesOpen(false);
+      setSavedProfilesLoading(false);
+      setProfileActionError(null);
+    }
+    previousSavedProfilesUserId.current = clerkUserId ?? null;
+
+    if (!isSignedIn || !clerkUserId) {
+      setSavedProfiles([]);
+      return;
+    }
+
+    const cached = getCachedSavedProfiles(clerkUserId);
+    if (cached) setSavedProfiles(cached);
+    if (loading) return;
+
+    let active = true;
+    const timeout = window.setTimeout(() => {
+      void fetchSavedProfiles(clerkUserId)
+        .then((profiles) => {
+          if (active) setSavedProfiles(profiles);
+        })
+        .catch((requestError: unknown) => {
+          if (requestError instanceof SavedProfilesRequestSupersededError) return;
+          console.warn("[saved-charts] Background prefetch failed", requestError);
+        });
+    }, 900);
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
+  }, [clerkUserId, isSignedIn, loading]);
 
   useEffect(() => {
     if (!submittedProfile?.date || !submittedProfile.time) {
@@ -2317,9 +2366,11 @@ export function KundaliDashboard({
       }
       const result = await readProfileApiResponse<{ profile?: SavedProfile; error?: string }>(response);
       if (!response.ok || !result.profile) throw new Error(result.error ?? "Chart could not be saved.");
+      if (previousSavedProfilesUserId.current !== clerkUserId) return false;
       const saved = result.profile;
       setSavedProfileId(saved.id);
       setSavedProfiles((current) => [saved, ...current.filter(({ id }) => id !== saved.id)]);
+      if (clerkUserId) updateCachedSavedProfile(clerkUserId, saved);
       setSaveDialogName(saved.chartName || saved.fullName);
       setSaveToast(`${targetId ? "Updated" : "Saved"} "${saved.chartName || saved.fullName}"`);
       setSaveJustCompleted(true);
@@ -2385,22 +2436,35 @@ export function KundaliDashboard({
       return;
     }
 
+    if (!isSignedIn || !clerkUserId) {
+      redirectToSignIn();
+      return;
+    }
+
     setSavedProfilesQuery("");
     setSavedProfilesOpen(true);
-    setSavedProfilesLoading(true);
+    const cached = getCachedSavedProfiles(clerkUserId);
+    if (cached) setSavedProfiles(cached);
+    setSavedProfilesLoading(!cached);
     try {
-      const response = await fetch("/api/profiles");
-      if (response.status === 401) {
+      const profiles = await fetchSavedProfiles(clerkUserId);
+      if (previousSavedProfilesUserId.current === clerkUserId) setSavedProfiles(profiles);
+    } catch (reason) {
+      if (previousSavedProfilesUserId.current !== clerkUserId) return;
+      if (reason instanceof SavedProfilesRequestSupersededError) return;
+      if (reason instanceof SavedProfilesRequestError && reason.status === 401) {
+        clearCachedSavedProfiles(clerkUserId);
+        setSavedProfiles([]);
         redirectToSignIn();
         return;
       }
-      const result = await readProfileApiResponse<{ profiles?: SavedProfile[]; error?: string }>(response);
-      if (!response.ok || !Array.isArray(result.profiles)) throw new Error(result.error ?? "Saved charts could not be loaded.");
-      setSavedProfiles(result.profiles);
-    } catch (reason) {
-      setProfileActionError(reason instanceof Error ? reason.message : "Saved charts could not be loaded. Please try again.");
+      if (cached) {
+        console.warn("[saved-charts] Background refresh failed; showing cached charts", reason);
+      } else {
+        setProfileActionError(reason instanceof Error ? reason.message : "Saved charts could not be loaded. Please try again.");
+      }
     } finally {
-      setSavedProfilesLoading(false);
+      if (previousSavedProfilesUserId.current === clerkUserId) setSavedProfilesLoading(false);
     }
   };
   const deleteSavedProfile = async (saved: SavedProfile) => {
@@ -2415,7 +2479,9 @@ export function KundaliDashboard({
       }
       const result = await readProfileApiResponse<{ id?: string; error?: string }>(response);
       if (!response.ok || result.id !== saved.id) throw new Error(result.error ?? "Chart could not be removed.");
+      if (previousSavedProfilesUserId.current !== clerkUserId) return;
       setSavedProfiles((current) => current.filter(({ id }) => id !== saved.id));
+      if (clerkUserId) removeCachedSavedProfile(clerkUserId, saved.id);
       if (savedProfileId === saved.id) setSavedProfileId(null);
       setProfileActionMessage(`${saved.chartName || saved.fullName} was removed from your saved charts.`);
     } catch (reason) {
@@ -2446,6 +2512,8 @@ export function KundaliDashboard({
     setSubmittedProfile({ ...nextProfile, name: nextProfile.name.trim() || "Birth chart" });
     setProfileCollapsed(true);
     setChartMode("birth");
+    setData(null);
+    setLoading(true);
     setError(null);
     setProfileActionMessage(`Loaded ${saved.chartName || saved.fullName}.`);
     setSavedProfilesOpen(false);
@@ -2658,7 +2726,7 @@ export function KundaliDashboard({
                 <Save aria-hidden="true" className="size-3.5" />
                 {saveButtonLabel}
               </button>
-              <button type="button" onClick={toggleSavedProfiles} disabled={savedProfilesLoading} aria-expanded={savedProfilesOpen} className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60">
+              <button type="button" onClick={toggleSavedProfiles} aria-expanded={savedProfilesOpen} className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
                 <FolderOpen aria-hidden="true" className="size-3.5" />
                 {savedProfilesOpen ? "Close saved" : "Load saved"}
               </button>
@@ -2795,7 +2863,7 @@ export function KundaliDashboard({
                     </div>
                   )}
                 </div>
-                <button type="button" onClick={toggleSavedProfiles} disabled={savedProfilesLoading} aria-expanded={savedProfilesOpen} className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-border bg-background px-1 text-[11px] font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60 lg:min-h-9">
+                <button type="button" onClick={toggleSavedProfiles} aria-expanded={savedProfilesOpen} className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-border bg-background px-1 text-[11px] font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:min-h-9">
                   <FolderOpen aria-hidden="true" className="size-3.5 shrink-0" />
                   {savedProfilesOpen ? "Close saved" : "Load saved"}
                 </button>

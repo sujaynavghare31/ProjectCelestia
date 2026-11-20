@@ -93,6 +93,7 @@ model Profile {
 
   @@unique([userId, chartName])
   @@index([userId])
+  @@index([userId, updatedAt(sort: Desc)])
 }
 
 model Feedback {

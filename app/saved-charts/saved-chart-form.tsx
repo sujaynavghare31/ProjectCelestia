@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { Crosshair, LoaderCircle, MapPin } from "lucide-react";
+import { clearCachedSavedProfiles } from "@/lib/saved-profiles-cache";
 
 interface GeocodeResult {
   label: string;
@@ -16,6 +18,7 @@ type CreateProfileAction = (formData: FormData) => void | Promise<void>;
 const INPUT_CLASS = "mt-2 h-10 w-full rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/40";
 
 export default function SavedChartForm({ action }: { action: CreateProfileAction }) {
+  const { userId } = useAuth();
   const [city, setCity] = useState("");
   const [locationSelected, setLocationSelected] = useState(false);
   const [latitude, setLatitude] = useState("");
@@ -124,7 +127,13 @@ export default function SavedChartForm({ action }: { action: CreateProfileAction
   };
 
   return (
-    <form action={action} className="mt-6 grid gap-4 sm:grid-cols-2">
+    <form
+      action={action}
+      onSubmit={() => {
+        if (userId) clearCachedSavedProfiles(userId);
+      }}
+      className="mt-6 grid gap-4 sm:grid-cols-2"
+    >
       <label className="text-sm font-medium">
         Chart name <span className="font-normal text-muted-foreground">(optional)</span>
         <input name="chartName" maxLength={100} placeholder="Enter Jataka's name" className={INPUT_CLASS} />

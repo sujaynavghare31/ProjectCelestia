@@ -2,13 +2,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChartSex } from "../../../lib/generated/prisma/enums";
 
 const mocks = vi.hoisted(() => ({
+  auth: vi.fn(),
   ClerkAccountConflictError: class ClerkAccountConflictError extends Error {},
   getCurrentDatabaseUser: vi.fn(),
+  findUserWithProfiles: vi.fn(),
   findMany: vi.fn(),
   create: vi.fn(),
   updateMany: vi.fn(),
   findFirst: vi.fn(),
   deleteMany: vi.fn(),
+}));
+
+vi.mock("@clerk/nextjs/server", () => ({
+  auth: mocks.auth,
 }));
 
 vi.mock("@/lib/clerk-user", () => ({
@@ -18,6 +24,9 @@ vi.mock("@/lib/clerk-user", () => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
+    user: {
+      findUnique: mocks.findUserWithProfiles,
+    },
     profile: {
       findMany: mocks.findMany,
       create: mocks.create,
@@ -61,7 +70,9 @@ function deleteRequest(id?: string) {
 describe("/api/profiles", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.auth.mockResolvedValue({ userId: "clerk-user-1" });
     mocks.getCurrentDatabaseUser.mockResolvedValue({ id: "user-1" });
+    mocks.findUserWithProfiles.mockResolvedValue({ profiles: [] });
   });
 
   afterEach(() => {
@@ -69,12 +80,36 @@ describe("/api/profiles", () => {
   });
 
   it("returns all saved chart fields when loading profiles", async () => {
-    mocks.findMany.mockResolvedValue([savedProfile]);
+    mocks.findUserWithProfiles.mockResolvedValue({ profiles: [savedProfile] });
 
     const response = await GET();
     const result = await response.json();
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("server-timing")).toMatch(/auth;dur=[\d.]+, db;dur=[\d.]+, clerk-profile;dur=[\d.]+, total;dur=[\d.]+/);
+    expect(mocks.getCurrentDatabaseUser).not.toHaveBeenCalled();
+    expect(mocks.findUserWithProfiles).toHaveBeenCalledWith({
+      where: { clerkId: "clerk-user-1" },
+      select: {
+        profiles: {
+          orderBy: { updatedAt: "desc" },
+          select: {
+            id: true,
+            chartName: true,
+            fullName: true,
+            dateOfBirth: true,
+            timeOfBirth: true,
+            sex: true,
+            latitude: true,
+            longitude: true,
+            timezone: true,
+            city: true,
+            notes: true,
+          },
+        },
+      },
+    });
     expect(result.profiles[0]).toEqual({
       id: "profile-1",
       chartName: "Sample chart",
@@ -88,6 +123,7 @@ describe("/api/profiles", () => {
       city: "Sample City",
       notes: "Synthetic chart notes",
     });
+    expect(result.userId).toBe("clerk-user-1");
   });
 
   it("persists and returns all chart details when saving a new profile", async () => {
@@ -199,7 +235,7 @@ describe("/api/profiles", () => {
   });
 
   it("returns a JSON error instead of an empty failure response when profile loading fails", async () => {
-    mocks.getCurrentDatabaseUser.mockRejectedValue(new Error("Database unavailable"));
+    mocks.findUserWithProfiles.mockRejectedValue(new Error("Database unavailable"));
 
     const response = await GET();
 
@@ -210,6 +246,7 @@ describe("/api/profiles", () => {
   });
 
   it("returns an actionable conflict when the Clerk email cannot be safely reconnected", async () => {
+    mocks.findUserWithProfiles.mockResolvedValue(null);
     mocks.getCurrentDatabaseUser.mockRejectedValue(new mocks.ClerkAccountConflictError(
       "This email is already linked to another account. Sign in with the original account or verify this email to reconnect it.",
     ));
@@ -220,6 +257,32 @@ describe("/api/profiles", () => {
     expect(await response.json()).toEqual({
       error: "This email is already linked to another account. Sign in with the original account or verify this email to reconnect it.",
     });
+  });
+
+  it("uses account reconciliation only when no local Clerk identity row exists", async () => {
+    mocks.findUserWithProfiles.mockResolvedValue(null);
+    mocks.findMany.mockResolvedValue([savedProfile]);
+
+    const response = await GET();
+
+    expect(response.status).toBe(200);
+    expect(mocks.getCurrentDatabaseUser).toHaveBeenCalledWith("clerk-user-1", expect.any(Function));
+    expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { userId: "user-1" },
+      orderBy: { updatedAt: "desc" },
+    }));
+    expect(response.headers.get("server-timing")).toMatch(/clerk-profile;dur=[\d.]+/);
+  });
+
+  it("does not query the database when Clerk authentication is missing", async () => {
+    mocks.auth.mockResolvedValue({ userId: null });
+
+    const response = await GET();
+
+    expect(response.status).toBe(401);
+    expect(response.headers.get("server-timing")).toMatch(/auth;dur=[\d.]+, db;dur=0\.00/);
+    expect(mocks.getCurrentDatabaseUser).not.toHaveBeenCalled();
+    expect(mocks.findUserWithProfiles).not.toHaveBeenCalled();
   });
 
   it("deletes a saved chart only for the signed-in user", async () => {

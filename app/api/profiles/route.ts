@@ -1,35 +1,49 @@
 import { NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { metric } from "@vercel/functions";
 import { ChartSex } from "../../../lib/generated/prisma/enums";
 import { ClerkAccountConflictError, getCurrentDatabaseUser } from "@/lib/clerk-user";
 import { prisma } from "@/lib/prisma";
 
 type ProfileMethod = "GET" | "POST" | "DELETE";
-type ProfileHandler = () => Promise<NextResponse>;
+type ProfileTimings = { auth: number; db: number; clerkProfile: number };
+type ProfileHandler = (timings: ProfileTimings) => Promise<NextResponse>;
 
 async function withProfileMetrics(method: ProfileMethod, handler: ProfileHandler) {
   const startedAt = performance.now();
+  const timings: ProfileTimings = { auth: 0, db: 0, clerkProfile: 0 };
   let outcome: "success" | "rejected" | "error" = "success";
+  let response: NextResponse;
 
   try {
-    const response = await handler();
+    response = await handler(timings);
     if (!response.ok) outcome = response.status >= 500 ? "error" : "rejected";
-    return response;
   } catch (error) {
     outcome = "error";
     if (error instanceof ClerkAccountConflictError) {
       outcome = "rejected";
-      return NextResponse.json({ error: error.message }, { status: 409 });
+      response = NextResponse.json({ error: error.message }, { status: 409 });
+    } else {
+      console.error(`[profiles] ${method} request failed`, error);
+      response = NextResponse.json(
+        { error: "Saved charts are temporarily unavailable. Please try again." },
+        { status: 500 },
+      );
     }
-    console.error(`[profiles] ${method} request failed`, error);
-    return NextResponse.json(
-      { error: "Saved charts are temporarily unavailable. Please try again." },
-      { status: 500 },
-    );
   } finally {
     metric("profiles.request", 1, { method, outcome });
     metric("profiles.duration_ms", performance.now() - startedAt, { method });
   }
+
+  if (method === "GET") {
+    const duration = (value: number) => value.toFixed(2);
+    response.headers.set(
+      "Server-Timing",
+      `auth;dur=${duration(timings.auth)}, db;dur=${duration(timings.db)}, clerk-profile;dur=${duration(timings.clerkProfile)}, total;dur=${duration(performance.now() - startedAt)}`,
+    );
+    response.headers.set("Cache-Control", "private, no-store");
+  }
+  return response;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -68,30 +82,73 @@ function serializeProfile(profile: {
   };
 }
 
-async function getProfiles() {
-  const user = await getCurrentDatabaseUser();
-  const userId = user?.id;
-  if (!userId) return NextResponse.json({ error: "Sign in to load saved charts." }, { status: 401 });
+async function getProfiles(timings: ProfileTimings) {
+  const authStartedAt = performance.now();
+  let clerkUserId: string | null | undefined;
+  try {
+    clerkUserId = (await auth()).userId;
+  } finally {
+    timings.auth = performance.now() - authStartedAt;
+  }
+  if (!clerkUserId) return NextResponse.json({ error: "Sign in to load saved charts." }, { status: 401 });
 
-  const profiles = await prisma.profile.findMany({
-    where: { userId },
-    orderBy: { updatedAt: "desc" },
-    select: {
-      id: true,
-      chartName: true,
-      fullName: true,
-      dateOfBirth: true,
-      timeOfBirth: true,
-      sex: true,
-      latitude: true,
-      longitude: true,
-      timezone: true,
-      city: true,
-      notes: true,
-    },
-  });
+  const dbStartedAt = performance.now();
+  try {
+    const savedCharts = await prisma.user.findUnique({
+      where: { clerkId: clerkUserId },
+      select: {
+        profiles: {
+          orderBy: { updatedAt: "desc" },
+          select: {
+            id: true,
+            chartName: true,
+            fullName: true,
+            dateOfBirth: true,
+            timeOfBirth: true,
+            sex: true,
+            latitude: true,
+            longitude: true,
+            timezone: true,
+            city: true,
+            notes: true,
+          },
+        },
+      },
+    });
+    let profiles = savedCharts?.profiles ?? [];
 
-  return NextResponse.json({ profiles: profiles.map(serializeProfile) });
+    if (!savedCharts) {
+      const user = await getCurrentDatabaseUser(clerkUserId, (durationMs) => {
+        timings.clerkProfile += durationMs;
+      });
+      if (!user) return NextResponse.json({ error: "Sign in to load saved charts." }, { status: 401 });
+
+      profiles = await prisma.profile.findMany({
+        where: { userId: user.id },
+        orderBy: { updatedAt: "desc" },
+        select: {
+          id: true,
+          chartName: true,
+          fullName: true,
+          dateOfBirth: true,
+          timeOfBirth: true,
+          sex: true,
+          latitude: true,
+          longitude: true,
+          timezone: true,
+          city: true,
+          notes: true,
+        },
+      });
+    }
+
+    return NextResponse.json({
+      userId: clerkUserId,
+      profiles: profiles.map(serializeProfile),
+    });
+  } finally {
+    timings.db = Math.max(0, performance.now() - dbStartedAt - timings.clerkProfile);
+  }
 }
 
 export function GET() {

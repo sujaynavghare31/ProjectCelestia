@@ -1,11 +1,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { auth } from "@clerk/nextjs/server";
 import { ChartSex } from "@/lib/generated/prisma/enums";
 import { getCurrentDatabaseUser } from "@/lib/clerk-user";
 import { prisma } from "@/lib/prisma";
 import RemoveChartButton from "./remove-chart-button";
 import SavedChartForm from "./saved-chart-form";
+import ProfileCacheInvalidatingForm from "./profile-cache-invalidating-form";
 
 async function createProfile(formData: FormData) {
   "use server";
@@ -91,14 +93,53 @@ async function deleteProfile(formData: FormData) {
 }
 
 export default async function SavedChartsPage() {
-  const user = await getCurrentDatabaseUser();
-  const userId = user?.id;
-  if (!userId) redirect("/login?callbackUrl=/saved-charts");
+  const { userId: clerkUserId } = await auth();
+  if (!clerkUserId) redirect("/login?callbackUrl=/saved-charts");
 
-  const profiles = await prisma.profile.findMany({
-    where: { userId },
-    orderBy: { updatedAt: "desc" },
+  const savedCharts = await prisma.user.findUnique({
+    where: { clerkId: clerkUserId },
+    select: {
+      profiles: {
+        orderBy: { updatedAt: "desc" },
+        select: {
+          id: true,
+          chartName: true,
+          fullName: true,
+          dateOfBirth: true,
+          timeOfBirth: true,
+          sex: true,
+          latitude: true,
+          longitude: true,
+          timezone: true,
+          city: true,
+          notes: true,
+        },
+      },
+    },
   });
+  let profiles = savedCharts?.profiles ?? [];
+
+  if (!savedCharts) {
+    const user = await getCurrentDatabaseUser(clerkUserId);
+    if (!user) redirect("/login?callbackUrl=/saved-charts");
+    profiles = await prisma.profile.findMany({
+      where: { userId: user.id },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        chartName: true,
+        fullName: true,
+        dateOfBirth: true,
+        timeOfBirth: true,
+        sex: true,
+        latitude: true,
+        longitude: true,
+        timezone: true,
+        city: true,
+        notes: true,
+      },
+    });
+  }
 
   return (
     <main className="min-h-screen bg-background px-4 py-10 text-foreground sm:px-8">
@@ -138,19 +179,19 @@ export default async function SavedChartsPage() {
                       {profile.dateOfBirth.toLocaleDateString(undefined, { dateStyle: "long", timeZone: "UTC" })} · {profile.timeOfBirth}
                     </p>
                     <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">{profile.latitude.toFixed(4)}, {profile.longitude.toFixed(4)} · {profile.sex === ChartSex.NOT_APPLICABLE ? "Gender not specified" : profile.sex.toLowerCase()}</p>
-                    <form action={deleteProfile} className="mt-4">
+                    <ProfileCacheInvalidatingForm action={deleteProfile} className="mt-4">
                       <input type="hidden" name="profileId" value={profile.id} />
                       <RemoveChartButton />
-                    </form>
+                    </ProfileCacheInvalidatingForm>
                   </div>
-                  <form action={saveProfileNotes} className="min-w-0">
+                  <ProfileCacheInvalidatingForm action={saveProfileNotes} className="min-w-0">
                     <input type="hidden" name="profileId" value={profile.id} />
                     <label className="block text-sm font-medium">
                       Personal notes
                       <textarea name="notes" rows={3} maxLength={10000} defaultValue={profile.notes} placeholder="Add context, observations, or questions…" className="mt-2 w-full resize-y rounded-lg border border-border bg-background px-3 py-2.5 text-sm leading-6 outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/40" />
                     </label>
                     <button type="submit" className="mt-3 h-9 rounded-lg border border-border bg-background px-3 text-sm font-medium transition hover:border-primary/40 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">Save notes</button>
-                  </form>
+                  </ProfileCacheInvalidatingForm>
                 </article>
               ))}
             </div>
