@@ -200,4 +200,15 @@ describe("calculateAvasthaReport", () => {
       expect(planet.baladi.reasons.length).toBeGreaterThan(0);
     }
   });
+
+  it("keeps the chart report available when a name initial has no configured Ankas value", () => {
+    const report = calculateAvasthaReport({ ...makeInput(), nameFirstLetter: "Ira" });
+    const result = byPlanet(report, "Sun").shayanadi;
+
+    expect(result).toBeDefined();
+    expect(result?.cheshta).toBeUndefined();
+    expect(result?.reasons).toContain(
+      "No Ankas value is configured for initial I; the name-based Cheshta result is omitted.",
+    );
+  });
 });

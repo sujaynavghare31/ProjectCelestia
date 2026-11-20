@@ -1201,6 +1201,13 @@ const JAIMINI_KARAKA_NAMES: Record<string, string> = {
   DK: "Darakaraka",
 };
 
+const PLANETARY_ROW_ZEBRA = [
+  "bg-[#F1F8FD]",
+  "bg-[#FFF2F5]",
+  "bg-[#FFFBEA]",
+  "bg-[#F7F1EB]",
+];
+
 function PlanetTable({
   data,
   decimal,
@@ -1231,14 +1238,14 @@ function PlanetTable({
           <tr>{["Graha", "Jaimini karaka", "Sign", "Nakshatra", "Pada", "Longitude", "Motion", "Declination", "Dignity", "STATES (AVASTHAS)"].map((heading, index) => <th key={heading} className={`${index === 0 ? "sticky left-0 z-20 bg-card" : ""} whitespace-nowrap px-1.5 py-2 font-medium`}>{heading}</th>)}</tr>
         </thead>
         <tbody className="divide-y divide-slate-200 dark:divide-slate-800/50">
-          {rows.map((position) => {
+          {rows.map((position, index) => {
             const isAscendant = position.name === "Ascendant";
-            const isGoldPosition = isAscendant || position.name === "Sun" || position.name === "Moon";
             const vargottama = position.name !== "Ascendant" && position.sign === getVargaSign(position, 9);
             const detailedAvastha = data.avasthaReport?.planets.find((report) => report.planet === position.name);
+            const rowTone = PLANETARY_ROW_ZEBRA[index % PLANETARY_ROW_ZEBRA.length];
             return (
-              <tr key={position.id} className={`bg-transparent text-[hsl(var(--foreground))] transition-colors hover:bg-[hsl(var(--border)/0.2)] ${isGoldPosition ? "text-[hsl(var(--champagne-gold))]" : ""}`}>
-                <td className="sticky left-0 z-10 min-w-[108px] bg-card px-1.5 py-1.5 font-semibold">
+              <tr key={position.id} className={`${rowTone} text-slate-900 transition-colors hover:brightness-[0.98]`}>
+                <td className={`sticky left-0 z-10 min-w-[108px] px-1.5 py-1.5 font-semibold ${rowTone}`}>
                   <span className="block whitespace-nowrap">{preferences.usePlanetIcons && <PlanetMark name={position.name} label={position.symbol} enabled />} {planetName(position.name, language, position.name)}</span>
                   {(detailedAvastha?.isCombust || vargottama) && (
                     <div className="mt-0.5 flex flex-wrap items-center gap-1">
@@ -1247,7 +1254,7 @@ function PlanetTable({
                     </div>
                   )}
                 </td>
-                <td className="whitespace-nowrap px-1.5 py-1.5 font-semibold text-[hsl(var(--champagne-gold))]">{position.jaimini ? <abbr title={JAIMINI_KARAKA_NAMES[position.jaimini] ?? position.jaimini} className="no-underline">{JAIMINI_KARAKA_NAMES[position.jaimini] ?? position.jaimini}</abbr> : "—"}</td>
+                <td className="whitespace-nowrap px-1.5 py-1.5 font-semibold text-slate-800">{position.jaimini ? <abbr title={JAIMINI_KARAKA_NAMES[position.jaimini] ?? position.jaimini} className="no-underline">{JAIMINI_KARAKA_NAMES[position.jaimini] ?? position.jaimini}</abbr> : "—"}</td>
                 <td className="px-1.5 py-1.5">
                   <div className="whitespace-nowrap">
                     {preferences.useSignIcons ? <SignMark sign={position.sign} label={signName(position.signName, language)} enabled /> : signName(position.signName, language)}
@@ -1261,13 +1268,13 @@ function PlanetTable({
                 </td>
                 <td className="whitespace-nowrap px-1.5 py-1.5">{position.nakshatraName}</td>
                 <td className="px-1.5 py-1.5 text-center">{position.pada}</td>
-                <td className="whitespace-nowrap px-1.5 py-1.5 text-right text-[hsl(var(--muted-foreground))]"><DegreeValue position={position} decimal={decimal} /></td>
+                <td className="whitespace-nowrap px-1.5 py-1.5 text-right text-slate-700"><DegreeValue position={position} decimal={decimal} /></td>
                 <td className="px-1.5 py-1.5">
                   {nodeType === "true" && (position.name === "Rahu" || position.name === "Ketu") && position.motion === "D"
                     ? <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium ${motionStyle(position.motion)}`}><span>Direct</span><span role="img" aria-label="Rahu/Ketu is in direct motion for this specific ephemeris calculation time." title="Rahu/Ketu is in direct motion for this specific ephemeris calculation time."><Info className="size-4" /></span></span>
                     : <span className={`inline-flex whitespace-nowrap rounded px-2 py-0.5 text-xs font-medium ${motionStyle(position.motion)}`}>{position.motion === "R" ? "Retrograde" : "Direct"}</span>}
                 </td>
-                <td className={`whitespace-nowrap px-1.5 py-1.5 text-right font-mono text-[hsl(var(--muted-foreground))] ${Math.abs(position.declination) > 23.45 ? "font-semibold text-[hsl(var(--retrograde-crimson))]" : ""}`} title={Math.abs(position.declination) > 23.45 ? "Out of Bounds (OOB) Declination" : undefined}>{declinationToDms(position.declination)}</td>
+                <td className={`whitespace-nowrap px-1.5 py-1.5 text-right font-mono text-slate-700 ${Math.abs(position.declination) > 23.45 ? "font-semibold text-[hsl(var(--retrograde-crimson))]" : ""}`} title={Math.abs(position.declination) > 23.45 ? "Out of Bounds (OOB) Declination" : undefined}>{declinationToDms(position.declination)}</td>
                 <td className="whitespace-nowrap px-1.5 py-1.5"><span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${dignityStyle(position.dignity)}`}>{position.dignity}</span></td>
                 <td className="px-1.5 py-1.5">
                   {detailedAvastha ? (
@@ -1285,89 +1292,71 @@ function PlanetTable({
         </tbody>
       </table>
       </div>
-      <div className="grid gap-2 p-2 md:hidden" aria-label="Planetary positions">
-        {rows.map((position) => {
-          const isAscendant = position.name === "Ascendant";
-          const vargottama = position.name !== "Ascendant" && position.sign === getVargaSign(position, 9);
-          const detailedAvastha = data.avasthaReport?.planets.find((report) => report.planet === position.name);
-          const motionLabel = nodeType === "true" && (position.name === "Rahu" || position.name === "Ketu") && position.motion === "D"
-            ? "Direct"
-            : position.motion === "R" ? "Retrograde" : "Direct";
+      <div className="min-w-0 md:hidden">
+        <p className="px-3 pb-2 text-[11px] text-muted-foreground">Swipe horizontally to see all planetary details.</p>
+        <div role="region" aria-label="Planetary positions; scroll horizontally to view all columns" tabIndex={0} className="overflow-x-auto overscroll-x-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+          <table className="w-full min-w-[980px] text-left text-xs">
+            <thead className="sticky top-0 z-20 bg-card text-[10px] uppercase tracking-wide text-muted-foreground">
+              <tr>
+                {["Graha", "Jaimini karaka", "Sign", "Nakshatra · Pada", "Longitude", "Motion", "Declination", "Dignity", "States (Avasthas)"].map((heading, index) => (
+                  <th key={heading} className={`${index === 0 ? "sticky left-0 z-30 bg-card" : ""} whitespace-nowrap px-3 py-2 font-semibold`}>{heading}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((position, index) => {
+                const vargottama = position.name !== "Ascendant" && position.sign === getVargaSign(position, 9);
+                const detailedAvastha = data.avasthaReport?.planets.find((report) => report.planet === position.name);
+                const motionLabel = nodeType === "true" && (position.name === "Rahu" || position.name === "Ketu") && position.motion === "D"
+                  ? "Direct"
+                  : position.motion === "R" ? "Retrograde" : "Direct";
+                const rowTone = PLANETARY_ROW_ZEBRA[index % PLANETARY_ROW_ZEBRA.length];
 
-          return (
-            <article key={position.id} className="min-w-0 rounded-lg border border-border bg-background p-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <h3 className="break-words text-sm font-semibold text-foreground">
-                    {preferences.usePlanetIcons && <PlanetMark name={position.name} label={position.symbol} enabled />}
-                    {planetName(position.name, language, position.name)}
-                  </h3>
-                  {(detailedAvastha?.isCombust || vargottama) && (
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {detailedAvastha?.isCombust && <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-medium text-accent-foreground">Combusted</span>}
-                      {vargottama && <span className="rounded bg-accent px-1.5 py-0.5 text-[10px] font-medium text-accent-foreground">Vargottama</span>}
-                    </div>
-                  )}
-                </div>
-                {position.jaimini && (
-                  <span className="shrink-0 rounded-full bg-accent/70 px-2 py-1 text-[10px] font-semibold text-accent-foreground">
-                    {JAIMINI_KARAKA_NAMES[position.jaimini] ?? position.jaimini}
-                  </span>
-                )}
-              </div>
-              <dl className="mt-3 grid grid-cols-2 gap-2">
-                <div className="min-w-0 rounded-md bg-muted/50 px-2.5 py-2">
-                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Sign</dt>
-                  <dd className="mt-0.5 break-words text-xs font-medium">
-                    {preferences.useSignIcons ? <SignMark sign={position.sign} label={signName(position.signName, language)} enabled /> : signName(position.signName, language)}
-                  </dd>
-                  {(dagdhaSigns.includes(position.sign) || interceptedSigns.includes(position.sign)) && (
-                    <dd className="mt-1 flex flex-wrap gap-1">
-                      {dagdhaSigns.includes(position.sign) && <span className="rounded bg-rose-100 px-1 py-0.5 text-[10px] font-semibold text-rose-800 dark:bg-rose-400/10 dark:text-rose-300">Dagdha Rashi</span>}
-                      {interceptedSigns.includes(position.sign) && <span className="rounded bg-accent px-1 py-0.5 text-[10px] font-semibold text-accent-foreground">Intercepted</span>}
-                    </dd>
-                  )}
-                </div>
-                <div className="min-w-0 rounded-md bg-muted/50 px-2.5 py-2">
-                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Nakshatra · Pada</dt>
-                  <dd className="mt-0.5 break-words text-xs font-medium">{position.nakshatraName} · {position.pada}</dd>
-                </div>
-                <div className="min-w-0 rounded-md bg-muted/50 px-2.5 py-2">
-                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Longitude</dt>
-                  <dd className="mt-0.5 break-words text-xs font-mono"><DegreeValue position={position} decimal={decimal} /></dd>
-                </div>
-                <div className="min-w-0 rounded-md bg-muted/50 px-2.5 py-2">
-                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Motion · Declination</dt>
-                  <dd className="mt-0.5 break-words text-xs">
-                    <span className={`inline-flex rounded px-1.5 py-0.5 font-medium ${motionStyle(position.motion)}`}>{motionLabel}</span>
-                    <span className={`mt-1 block font-mono text-muted-foreground ${Math.abs(position.declination) > 23.45 ? "font-semibold text-[hsl(var(--retrograde-crimson))]" : ""}`} title={Math.abs(position.declination) > 23.45 ? "Out of Bounds (OOB) Declination" : undefined}>{declinationToDms(position.declination)}</span>
-                  </dd>
-                </div>
-                <div className="min-w-0 rounded-md bg-muted/50 px-2.5 py-2">
-                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Dignity</dt>
-                  <dd className="mt-0.5"><span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${dignityStyle(position.dignity)}`}>{position.dignity}</span></dd>
-                </div>
-                <div className="min-w-0 rounded-md bg-muted/50 px-2.5 py-2">
-                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Jaimini karaka</dt>
-                  <dd className="mt-0.5 break-words text-xs font-semibold">{JAIMINI_KARAKA_NAMES[position.jaimini ?? ""] ?? position.jaimini ?? "—"}</dd>
-                </div>
-                <div className="col-span-2 min-w-0 rounded-md bg-muted/50 px-2.5 py-2">
-                  <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">States (Avasthas)</dt>
-                  <dd className="mt-0.5 break-words text-xs leading-5 text-muted-foreground">
-                    {detailedAvastha ? (
-                      <>
-                        <span className="block">Baladi: {detailedAvastha.baladi.state}</span>
-                        <span className="block" title={detailedAvastha.jagradadi.reasons.join(" ")}>Jagradadi: {detailedAvastha.jagradadi.state}</span>
-                        {detailedAvastha.shayanadi && <span className="block">Shayanadi: {detailedAvastha.shayanadi.state}</span>}
-                        {!!detailedAvastha.lajjitadi?.length && <span className="block">Lajjitadi: {detailedAvastha.lajjitadi.map(({ state }) => state).join(", ")}</span>}
-                      </>
-                    ) : "—"}
-                  </dd>
-                </div>
-              </dl>
-            </article>
-          );
-        })}
+                return (
+                  <tr key={position.id} className={`${rowTone} border-t border-slate-900/5 text-foreground transition-colors hover:brightness-[0.98]`}>
+                    <th scope="row" className={`sticky left-0 z-10 min-w-[110px] whitespace-nowrap px-3 py-2 text-left font-semibold ${rowTone}`}>
+                      {preferences.usePlanetIcons && <PlanetMark name={position.name} label={position.symbol} enabled />}
+                      {planetName(position.name, language, position.name)}
+                      {(detailedAvastha?.isCombust || vargottama) && (
+                        <span className="mt-1 flex flex-wrap gap-1">
+                          {detailedAvastha?.isCombust && <span className="rounded bg-white/80 px-1 py-0.5 text-[10px] font-medium text-slate-800">Combusted</span>}
+                          {vargottama && <span className="rounded bg-white/80 px-1 py-0.5 text-[10px] font-medium text-slate-800">Vargottama</span>}
+                        </span>
+                      )}
+                    </th>
+                    <td className="whitespace-nowrap px-3 py-2 font-medium">{JAIMINI_KARAKA_NAMES[position.jaimini ?? ""] ?? position.jaimini ?? "—"}</td>
+                    <td className="whitespace-nowrap px-3 py-2">
+                      {preferences.useSignIcons ? <SignMark sign={position.sign} label={signName(position.signName, language)} enabled /> : signName(position.signName, language)}
+                      {(dagdhaSigns.includes(position.sign) || interceptedSigns.includes(position.sign)) && (
+                        <span className="mt-1 flex gap-1">
+                          {dagdhaSigns.includes(position.sign) && <span className="rounded bg-rose-100 px-1 py-0.5 text-[10px] font-semibold text-rose-800">Dagdha</span>}
+                          {interceptedSigns.includes(position.sign) && <span className="rounded bg-white/80 px-1 py-0.5 text-[10px] font-semibold text-slate-800">Intercepted</span>}
+                        </span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2">{position.nakshatraName} · {position.pada}</td>
+                    <td className="whitespace-nowrap px-3 py-2 text-right font-mono"><DegreeValue position={position} decimal={decimal} /></td>
+                    <td className="whitespace-nowrap px-3 py-2">
+                      <span className={`inline-flex rounded px-2 py-0.5 font-medium ${motionStyle(position.motion)}`}>{motionLabel}</span>
+                    </td>
+                    <td className={`whitespace-nowrap px-3 py-2 text-right font-mono ${Math.abs(position.declination) > 23.45 ? "font-semibold text-[hsl(var(--retrograde-crimson))]" : ""}`} title={Math.abs(position.declination) > 23.45 ? "Out of Bounds (OOB) Declination" : undefined}>{declinationToDms(position.declination)}</td>
+                    <td className="whitespace-nowrap px-3 py-2"><span className={`inline-flex rounded-full px-2 py-0.5 font-medium ${dignityStyle(position.dignity)}`}>{position.dignity}</span></td>
+                    <td className="min-w-[220px] px-3 py-2 text-slate-700">
+                      {detailedAvastha ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span>Baladi: {detailedAvastha.baladi.state}</span>
+                          <span title={detailedAvastha.jagradadi.reasons.join(" ")}>Jagradadi: {detailedAvastha.jagradadi.state}</span>
+                          {detailedAvastha.shayanadi && <span>Shayanadi: {detailedAvastha.shayanadi.state}</span>}
+                          {!!detailedAvastha.lajjitadi?.length && <span>Lajjitadi: {detailedAvastha.lajjitadi.map(({ state }) => state).join(", ")}</span>}
+                        </div>
+                      ) : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </>
   );
@@ -1468,44 +1457,26 @@ async function readProfileApiResponse<T>(response: Response): Promise<T> {
 
 function SaveChartDialog({
   open,
-  loading,
   saving,
-  profiles,
-  mode,
-  targetId,
   chartName,
-  loadError,
   saveError,
   onClose,
-  onRetryLoad,
-  onModeChange,
-  onTargetChange,
-  onChartNameChange,
   onSave,
 }: {
   open: boolean;
-  loading: boolean;
   saving: boolean;
-  profiles: SavedProfile[];
-  mode: "new" | "update";
-  targetId: string | null;
   chartName: string;
-  loadError: string | null;
   saveError: string | null;
   onClose: () => void;
-  onRetryLoad: () => void;
-  onModeChange: (mode: "new" | "update") => void;
-  onTargetChange: (id: string) => void;
-  onChartNameChange: (name: string) => void;
   onSave: () => void;
 }) {
-  const firstFocusableRef = useRef<HTMLInputElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    firstFocusableRef.current?.focus();
+    closeButtonRef.current?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !saving) onClose();
     };
@@ -1533,10 +1504,11 @@ function SaveChartDialog({
       >
         <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
           <div>
-            <h2 id="save-chart-dialog-title" className="text-base font-semibold">Save chart</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Choose whether to create a new saved chart or update one you already have.</p>
+            <h2 id="save-chart-dialog-title" className="text-base font-semibold">Save new chart</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Save the chart details you entered above to your account.</p>
           </div>
           <button
+            ref={closeButtonRef}
             type="button"
             aria-label="Close save chart dialog"
             onClick={onClose}
@@ -1548,87 +1520,21 @@ function SaveChartDialog({
         </header>
 
         <div className="space-y-4 px-5 py-5 sm:px-6">
-          {loadError && (
-            <div role="alert" className="rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
-              <p>{loadError}</p>
-              <button type="button" onClick={onRetryLoad} disabled={loading} className="mt-2 font-semibold underline underline-offset-2 disabled:opacity-60">
-                Try again
-              </button>
-            </div>
-          )}
           {saveError && (
             <p role="alert" className="rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
               {saveError}
             </p>
           )}
-          <fieldset className="space-y-2">
-            <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Save option</legend>
-            <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${mode === "new" ? "border-primary/40 bg-primary/5" : "border-border hover:border-primary/30"}`}>
-              <input
-                ref={firstFocusableRef}
-                type="radio"
-                name="save-chart-mode"
-                checked={mode === "new"}
-                onChange={() => onModeChange("new")}
-                className="mt-0.5 size-4 accent-primary"
-              />
-              <span>
-                <span className="block text-sm font-medium">Save as a new chart</span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">Keep the existing saved charts unchanged.</span>
-              </span>
-            </label>
-            <label className={`flex items-start gap-3 rounded-xl border p-3 transition ${mode === "update" ? "border-primary/40 bg-primary/5" : "border-border hover:border-primary/30"} ${profiles.length ? "cursor-pointer" : "cursor-not-allowed opacity-55"}`}>
-              <input
-                type="radio"
-                name="save-chart-mode"
-                checked={mode === "update"}
-                onChange={() => profiles.length && onModeChange("update")}
-                disabled={!profiles.length}
-                className="mt-0.5 size-4 accent-primary"
-              />
-              <span>
-                <span className="block text-sm font-medium">Update an existing chart</span>
-                <span className="mt-0.5 block text-xs text-muted-foreground">{profiles.length ? "Replace its birth details and notes with the current profile." : "Save a chart first to enable updates."}</span>
-              </span>
-            </label>
-          </fieldset>
-
-          {mode === "update" && (
-            <label className="block text-sm font-medium">
-              Chart to update
-              <select
-                value={targetId ?? ""}
-                onChange={(event) => onTargetChange(event.target.value)}
-                className={`${CONTROL_CLASS} mt-2 h-10 w-full text-sm`}
-                disabled={loading || saving}
-              >
-                <option value="" disabled>Select a saved chart</option>
-                {profiles.map((saved) => (
-                  <option key={saved.id} value={saved.id}>{saved.chartName || saved.fullName}</option>
-                ))}
-              </select>
-            </label>
-          )}
-
-          <label className="block text-sm font-medium">
-            Chart name <span className="font-normal text-muted-foreground">(optional)</span>
-            <input
-              type="text"
-              maxLength={100}
-              value={chartName}
-              onChange={(event) => onChartNameChange(event.target.value)}
-              placeholder="e.g. My birth chart"
-              className={`${CONTROL_CLASS} mt-2 h-10 w-full text-sm`}
-              disabled={saving}
-            />
-          </label>
+          <p className="rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-sm">
+            Chart name: <span className="font-semibold">{chartName || "Birth chart"}</span>
+          </p>
         </div>
 
         <footer className="flex flex-col-reverse gap-2 border-t border-border px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
           <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-lg border border-border px-4 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50">Cancel</button>
-          <button type="button" onClick={onSave} disabled={saving || loading || (mode === "update" && !targetId)} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#C64F30] px-4 text-sm font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40 disabled:cursor-wait disabled:opacity-60">
+          <button type="button" onClick={onSave} disabled={saving} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#C64F30] px-4 text-sm font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40 disabled:cursor-wait disabled:opacity-60">
             {saving && <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />}
-            {saving ? "Saving…" : mode === "update" ? "Update chart" : "Save new chart"}
+            {saving ? "Saving…" : "Save chart"}
           </button>
         </footer>
       </section>
@@ -1903,11 +1809,6 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
   const [savedProfilesLoading, setSavedProfilesLoading] = useState(false);
   const [savedProfilesQuery, setSavedProfilesQuery] = useState("");
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [saveDialogLoading, setSaveDialogLoading] = useState(false);
-  const [saveDialogMode, setSaveDialogMode] = useState<"new" | "update">("new");
-  const [saveDialogTargetId, setSaveDialogTargetId] = useState<string | null>(null);
-  const [saveDialogName, setSaveDialogName] = useState("");
-  const [saveDialogLoadError, setSaveDialogLoadError] = useState<string | null>(null);
   const [saveDialogError, setSaveDialogError] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileActionError, setProfileActionError] = useState<string | null>(null);
@@ -2237,7 +2138,7 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
     }
     window.location.assign(`/login?callbackUrl=${encodeURIComponent("/#kundali-charts")}`);
   };
-  const saveProfile = async (targetId: string | null = savedProfileId, chartName = profile.name) => {
+  const saveProfile = async (chartName = profile.name) => {
     setProfileActionError(null);
     setProfileActionMessage(null);
     setSaveDialogError(null);
@@ -2258,7 +2159,7 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
         body: JSON.stringify({
           ...profile,
           name: chartName === "Current transit" ? "" : chartName,
-          id: targetId,
+          id: null,
         }),
       });
       if (response.status === 401) {
@@ -2282,45 +2183,14 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
   const openSaveDialog = async () => {
     setProfileActionError(null);
     setProfileActionMessage(null);
-    setSaveDialogLoadError(null);
     setSaveDialogError(null);
-    setSaveDialogName(profile.name === "Current transit" ? "" : profile.name);
-    setSaveDialogMode(savedProfileId ? "update" : "new");
-    setSaveDialogTargetId(savedProfileId);
     setSaveDialogOpen(true);
-    if (savedProfiles.length) return;
-
-    setSaveDialogLoading(true);
-    try {
-      const response = await fetch("/api/profiles");
-      if (response.status === 401) {
-        setSaveDialogOpen(false);
-        redirectToSignIn();
-        return;
-      }
-      const result = await readProfileApiResponse<{ profiles?: SavedProfile[]; error?: string }>(response);
-      if (!response.ok || !Array.isArray(result.profiles)) throw new Error(result.error ?? "Saved charts could not be loaded.");
-      setSavedProfiles(result.profiles);
-      if (savedProfileId && result.profiles.some(({ id }) => id === savedProfileId)) {
-        setSaveDialogMode("update");
-        setSaveDialogTargetId(savedProfileId);
-      }
-    } catch (reason) {
-      setSaveDialogLoadError(reason instanceof Error ? reason.message : "Saved charts could not be loaded. Please try again.");
-    } finally {
-      setSaveDialogLoading(false);
-    }
   };
   const confirmSaveProfile = async () => {
-    const targetId = saveDialogMode === "update" ? saveDialogTargetId : null;
-    if (await saveProfile(targetId, saveDialogName.trim())) setSaveDialogOpen(false);
+    if (await saveProfile(profile.name)) setSaveDialogOpen(false);
   };
   const startFirstChartSave = () => {
     setSavedProfilesOpen(false);
-    setSaveDialogMode("new");
-    setSaveDialogTargetId(null);
-    setSaveDialogName(profile.name === "Current transit" ? "" : profile.name);
-    setSaveDialogLoadError(null);
     setSaveDialogError(null);
     setSaveDialogOpen(true);
   };
@@ -2579,7 +2449,7 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
               <p className="text-xs font-semibold">Chart profile</p>
             </div>
             <div className="flex items-center gap-1.5">
-              <button type="button" onClick={openSaveDialog} disabled={savingProfile || saveDialogLoading} className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60">
+              <button type="button" onClick={openSaveDialog} disabled={savingProfile} className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60">
                 <Save aria-hidden="true" className="size-3.5" />
                 {savingProfile ? "Saving…" : "Save chart"}
               </button>
@@ -2681,7 +2551,7 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
               <button type="submit" className="inline-flex h-11 w-full min-w-0 self-end items-center justify-center gap-1.5 rounded-lg bg-[#C64F30] px-1 text-xs font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40">
                 Calculate chart
               </button>
-              <button type="button" onClick={openSaveDialog} disabled={savingProfile || saveDialogLoading} className="hidden min-h-11 w-full self-end items-center justify-center gap-1 rounded-lg border border-border bg-background px-1 text-[11px] font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60 lg:inline-flex">
+              <button type="button" onClick={openSaveDialog} disabled={savingProfile} className="hidden min-h-11 w-full self-end items-center justify-center gap-1 rounded-lg border border-border bg-background px-1 text-[11px] font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60 lg:inline-flex">
                 <Save aria-hidden="true" className="size-3.5 shrink-0" />
                 {savingProfile ? "Saving…" : "Save chart"}
               </button>
@@ -2739,34 +2609,10 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
 
         <SaveChartDialog
           open={saveDialogOpen}
-          loading={saveDialogLoading}
           saving={savingProfile}
-          profiles={savedProfiles}
-          mode={saveDialogMode}
-          targetId={saveDialogTargetId}
-          chartName={saveDialogName}
-          loadError={saveDialogLoadError}
+          chartName={profile.name === "Current transit" ? "" : profile.name}
           saveError={saveDialogError}
           onClose={() => setSaveDialogOpen(false)}
-          onRetryLoad={() => void openSaveDialog()}
-          onModeChange={(mode) => {
-            setSaveDialogMode(mode);
-            if (mode === "new") {
-              setSaveDialogTargetId(null);
-              setSaveDialogName("");
-            } else {
-              const nextTargetId = saveDialogTargetId ?? savedProfiles[0]?.id ?? null;
-              setSaveDialogTargetId(nextTargetId);
-              const target = savedProfiles.find(({ id }) => id === nextTargetId);
-              setSaveDialogName(target?.chartName ?? target?.fullName ?? "");
-            }
-          }}
-          onTargetChange={(id) => {
-            setSaveDialogTargetId(id);
-            const target = savedProfiles.find((saved) => saved.id === id);
-            setSaveDialogName(target?.chartName ?? target?.fullName ?? "");
-          }}
-          onChartNameChange={setSaveDialogName}
           onSave={confirmSaveProfile}
         />
 

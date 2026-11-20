@@ -161,7 +161,12 @@ async function saveProfile(request: Request) {
   if (sex !== "male" && sex !== "female" && sex !== "not-applicable") {
     return NextResponse.json({ error: "Choose a valid gender option." }, { status: 400 });
   }
-  if (id.length > 100) return NextResponse.json({ error: "This saved chart could not be found." }, { status: 400 });
+  if (id) {
+    return NextResponse.json(
+      { error: "Updating saved charts is no longer supported. Delete the chart and save a new one instead." },
+      { status: 400 },
+    );
+  }
 
   const profileData = {
     chartName: name || null,
@@ -176,27 +181,15 @@ async function saveProfile(request: Request) {
     notes,
   };
 
-  let profileId = id;
-  if (id) {
-    try {
-      const updated = await prisma.profile.updateMany({ where: { id, userId }, data: profileData });
-      if (updated.count !== 1) return NextResponse.json({ error: "This saved chart could not be found in your account." }, { status: 404 });
-    } catch (error) {
-      if (isUniqueConstraintError(error)) {
-        return NextResponse.json({ error: "A chart with this name already exists. Choose a different name." }, { status: 409 });
-      }
-      throw error;
+  let profileId: string;
+  try {
+    const created = await prisma.profile.create({ data: { ...profileData, userId }, select: { id: true } });
+    profileId = created.id;
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      return NextResponse.json({ error: "A chart with this name already exists. Choose a different chart name." }, { status: 409 });
     }
-  } else {
-    try {
-      const created = await prisma.profile.create({ data: { ...profileData, userId }, select: { id: true } });
-      profileId = created.id;
-    } catch (error) {
-      if (isUniqueConstraintError(error)) {
-        return NextResponse.json({ error: "A chart with this name already exists. Load it first to update it." }, { status: 409 });
-      }
-      throw error;
-    }
+    throw error;
   }
 
   const saved = await prisma.profile.findFirst({
@@ -217,7 +210,7 @@ async function saveProfile(request: Request) {
   });
   if (!saved) return NextResponse.json({ error: "Chart save could not be confirmed." }, { status: 500 });
 
-  return NextResponse.json({ profile: serializeProfile(saved) }, { status: id ? 200 : 201 });
+  return NextResponse.json({ profile: serializeProfile(saved) }, { status: 201 });
 }
 
 export function POST(request: Request) {

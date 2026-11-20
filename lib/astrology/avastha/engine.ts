@@ -450,7 +450,12 @@ function shayanadi(planet: DerivedPlanet, chart: ChartContext, moonNakshatra: nu
   if (!nameFirstLetter) return result;
   const key = nameFirstLetter.trim().toUpperCase().slice(0, 1);
   const ankas = chart.config.nameLetterAnkas[key];
-  if (ankas === undefined) throw new Error(`No configured Ankas value exists for initial '${key}'.`);
+  if (ankas === undefined) {
+    return {
+      ...result,
+      reasons: [...reasons, `No Ankas value is configured for initial ${key}; the name-based Cheshta result is omitted.`],
+    };
+  }
   const z = ((remainder * remainder + ankas) % 12) || 12;
   const w = (z + CHESHTA_CONSTANT[planet.planet]) % 3;
   const cheshta = w === 1 ? "Drishti" : w === 2 ? "Cheshta" : "Vicheshta";

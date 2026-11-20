@@ -138,6 +138,27 @@ describe("/api/profiles", () => {
     });
   });
 
+  it("rejects attempts to overwrite an existing profile", async () => {
+    const response = await POST(request({
+      name: "Sample chart",
+      sex: "male",
+      date: "2000-01-02",
+      time: "11:22:33",
+      lat: 40.7128,
+      lng: -74.006,
+      timezone: "America/New_York",
+      city: "Sample City",
+      notes: "Synthetic chart notes",
+      id: "profile-1",
+    }));
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Updating saved charts is no longer supported. Delete the chart and save a new one instead.",
+    });
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
   it("returns a JSON error instead of an empty failure response when profile loading fails", async () => {
     mocks.getCurrentDatabaseUser.mockRejectedValue(new Error("Database unavailable"));
 
