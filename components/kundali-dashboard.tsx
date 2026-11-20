@@ -1,7 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useAuth } from "@clerk/nextjs";
 import {
   Activity,
@@ -22,7 +21,6 @@ import {
   Search,
   Save,
   StickyNote,
-  Trash2,
   X,
 } from "lucide-react";
 import type { CarterZodiac, ChartSettings, ChartStyle, CelestialLanguage, EphemerisResponse, HouseSystem, MidpointPreferences, PlanetPosition, ViewPreferences } from "@/lib/kundali-types";
@@ -30,7 +28,6 @@ import PlacidusWheel from "@/components/PlacidusWheel";
 import ChartControls from "@/components/ChartControls";
 import { getBirthDateTimeDefaults, getCurrentBirthDateTime, useKundaliStore, type BirthProfile } from "@/lib/kundali-store";
 import { limitCoordinatePrecision, parseCoordinateDraft } from "@/lib/coordinate-input";
-import { matchesSavedProfileQuery } from "@/lib/saved-profile-search";
 import { formatPlanetDegree, planetChartDisplayName, planetName, signName } from "@/lib/astrology/localization";
 import { splitHouseBodies } from "@/lib/astrology/chart-layout";
 import { dagdhaRashis } from "@/lib/astrology/dagdha-rashi";
@@ -44,8 +41,9 @@ import dynamic from "next/dynamic";
 import { readAnalysisPreferences, writeAnalysisPreferences } from "@/lib/astrology/analysis-preferences";
 import { createMidpointReport, visibleMidpointRows, visibleMidpointTrees } from "@/lib/astrology/midpoint-chart";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import EphemerisLoader from "@/components/dashboard-tabs/ephemeris-loader";
+import CelestiaLoader from "@/components/ui/CelestiaLoader";
+import JamakkolTab from "@/components/dashboard-tabs/jamakkol-tab";
 import {
   clearCachedSavedProfiles,
   fetchSavedProfiles,
@@ -57,30 +55,54 @@ import {
   type SavedProfile,
 } from "@/lib/saved-profiles-cache";
 
-const loadDashaTab = () => import("@/components/dashboard-tabs/DashaDashboard");
-const loadAspectsTab = () => import("@/components/dashboard-tabs/aspects-tab");
-const loadAshtakavargaTab = () => import("@/components/dashboard-tabs/ashtakavarga-tab");
-const loadStrengthAnalysisTab = () => import("@/components/dashboard-tabs/strength-analysis-tab");
-const loadMedicalTab = () => import("@/components/dashboard-tabs/medical-tab");
-const loadTransitCalendarTab = () => import("@/components/dashboard-tabs/transit-calendar-tab");
-const loadMidpointsTab = () => import("@/components/dashboard-tabs/midpoints-tab");
-const loadJamakkolTab = () => import("@/components/dashboard-tabs/jamakkol-tab");
-const loadShodashvargaTab = () => import("@/components/dashboard-tabs/shodashvarga-tab");
-const loadCarterCuspsPanel = () => import("@/components/dashboard-tabs/carter-cusps-panel");
-const loadJaiminiDashboard = () => import("@/src/components/jaimini/JaiminiDashboard");
-const DashaTab = lazy(loadDashaTab);
-const AspectsTab = lazy(loadAspectsTab);
-const AshtakavargaTab = lazy(loadAshtakavargaTab);
-const StrengthAnalysisTab = lazy(loadStrengthAnalysisTab);
-const MedicalTab = lazy(loadMedicalTab);
-const TransitCalendarTab = dynamic(loadTransitCalendarTab, {
-  loading: () => <SecondaryTabSkeleton />,
+const ChartSettingsDrawer = dynamic(
+  () => import("@/components/kundali-dashboard-dialogs").then((module) => module.ChartSettingsDrawer),
+  { loading: () => <CelestiaLoader label="Loading Chart Settings…" compact tone="dashboard" /> },
+);
+const SaveChartDialog = dynamic(
+  () => import("@/components/kundali-dashboard-dialogs").then((module) => module.SaveChartDialog),
+  { loading: () => <CelestiaLoader label="Loading saved chart form…" compact tone="dashboard" /> },
+);
+const SavedChartsDialog = dynamic(
+  () => import("@/components/kundali-dashboard-dialogs").then((module) => module.SavedChartsDialog),
+  { loading: () => <CelestiaLoader label="Loading Saved Charts…" compact tone="dashboard" /> },
+);
+const DashaTab = dynamic(() => import("@/components/dashboard-tabs/DashaDashboard"), {
+  loading: () => <CelestiaLoader label="Preparing Dasha Systems…" sublabel="Loading planetary period calculations…" tone="dashboard" />,
 });
-const MidpointsTab = lazy(loadMidpointsTab);
-const JamakkolTab = lazy(loadJamakkolTab);
-const ShodashvargaTab = lazy(loadShodashvargaTab);
-const CarterCuspsPanel = lazy(loadCarterCuspsPanel);
-const JaiminiDashboard = lazy(loadJaiminiDashboard);
+const AspectsTab = dynamic(() => import("@/components/dashboard-tabs/aspects-tab"), {
+  loading: () => <CelestiaLoader label="Mapping Drishti & Aspects…" sublabel="Preparing planetary aspect analysis…" tone="dashboard" />,
+});
+const AshtakavargaTab = dynamic(() => import("@/components/dashboard-tabs/ashtakavarga-tab"), {
+  loading: () => <CelestiaLoader label="Calculating Ashtakavarga…" sublabel="Loading bindu tables and strengths…" tone="dashboard" />,
+});
+const StrengthAnalysisTab = dynamic(() => import("@/components/dashboard-tabs/strength-analysis-tab"), {
+  loading: () => <CelestiaLoader label="Calculating planetary strength…" sublabel="Preparing Shadbala and Bhavabala tables…" tone="dashboard" />,
+});
+const MedicalTab = dynamic(() => import("@/components/dashboard-tabs/medical-tab"), {
+  loading: () => <CelestiaLoader label="Preparing Medical Astrology…" sublabel="Loading chart indicators…" tone="dashboard" />,
+});
+const TransitCalendarTab = dynamic(() => import("@/components/dashboard-tabs/transit-calendar-tab"), {
+  loading: () => <CelestiaLoader label="Loading Transit Calendar…" sublabel="Preparing planetary transit windows…" tone="calendar" />,
+});
+const MidpointsTab = dynamic(() => import("@/components/dashboard-tabs/midpoints-tab"), {
+  loading: () => <CelestiaLoader label="Computing Midpoints…" sublabel="Mapping midpoint activations…" tone="dashboard" />,
+});
+const ShodashvargaTab = dynamic(() => import("@/components/dashboard-tabs/shodashvarga-tab"), {
+  loading: () => <CelestiaLoader label="Preparing 16 Divisional Charts…" sublabel="Loading the Shodashvarga views…" tone="dashboard" />,
+});
+const CarterCuspsPanel = dynamic(() => import("@/components/dashboard-tabs/carter-cusps-panel"), {
+  loading: () => <CelestiaLoader label="Preparing Carter Cusps…" sublabel="Loading house cusp analysis…" compact tone="dashboard" />,
+});
+const JaiminiDashboard = dynamic(() => import("@/src/components/jaimini/JaiminiDashboard"), {
+  loading: () => <CelestiaLoader label="Computing Jaimini Karakas…" sublabel="Preparing Chara Dasha analysis…" tone="dashboard" />,
+});
+const RetainedTab = memo(
+  function RetainedTab({ active, children }: { active: boolean; children: ReactNode }) {
+    return <div hidden={!active}>{children}</div>;
+  },
+  (previous, next) => !previous.active && !next.active,
+);
 
 const DIVISIONAL_CHARTS = {
   2: { name: "Hora", significance: "Wealth & Sustenance" },
@@ -112,11 +134,7 @@ type ChartOption = {
 
 const KPAstrology = dynamic(() => import("@/components/kp/KPAstrology"), {
   loading: () => (
-    <EphemerisLoader
-      title="Opening KP Astrology"
-      description="Preparing the KP chart and sub-lord analysis…"
-      detail="Krishnamurti ayanamsa · KP"
-    />
+    <CelestiaLoader label="Computing KP Sub-Lords…" sublabel="Preparing Krishnamurti chart analysis…" tone="dashboard" />
   ),
 });
 const AUXILIARY_CHARTS: ChartOption[] = [
@@ -317,454 +335,6 @@ function PanchangStrip({ date, planets, houseSystem }: { date: string; planets: 
   );
 }
 
-function BirthTimeAdjuster({ onAdjust }: { onAdjust: (seconds: number) => void }) {
-  const adjustments = [
-    { seconds: -300, label: "−5 min", description: "Subtract 5 minutes" },
-    { seconds: -60, label: "−1 min", description: "Subtract 1 minute" },
-    { seconds: 60, label: "+1 min", description: "Add 1 minute" },
-    { seconds: 300, label: "+5 min", description: "Add 5 minutes" },
-  ];
-
-  return (
-    <div role="group" aria-label="Birth time rectification" className="inline-flex h-[58px] shrink-0 items-center gap-1 rounded-lg border border-border bg-card p-1.5">
-      <span className="px-1 text-[10px] font-semibold text-muted-foreground" title="Birth time rectification">BTR</span>
-      <div className="flex h-full items-center gap-1">
-        {adjustments.map(({ seconds, label, description }) => (
-          <button key={seconds} type="button" onClick={() => onAdjust(seconds)} className="h-11 rounded-md px-2 text-[10px] font-semibold tabular-nums text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:h-10" aria-label={description} title={description}>
-            {label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-const CHART_STYLE_LABELS: Record<ChartStyle, string> = {
-  diamond: "North",
-  south: "South",
-  east: "East",
-  placidus: "Placidus",
-};
-
-type BooleanPreferenceKey = {
-  [K in keyof ViewPreferences]-?: ViewPreferences[K] extends boolean ? K : never;
-}[keyof ViewPreferences];
-
-type PreferenceOption = {
-  key: BooleanPreferenceKey;
-  label: string;
-  description?: string;
-  disabledFor?: ChartStyle[];
-};
-
-const CHART_ELEMENT_OPTIONS: PreferenceOption[] = [
-  { key: "showHouseLabels", label: "House labels", description: "Show house numbers around the chart." },
-  { key: "showSignNumbers", label: "Sign numbers", description: "Use Aries = 1 through Pisces = 12." },
-];
-
-const CELESTIAL_BODY_OPTIONS: PreferenceOption[] = [
-  { key: "showOuterPlanets", label: "Outer planets", description: "Include Uranus, Neptune, and Pluto." },
-  { key: "showUpagrahas", label: "Upagrahas", description: "Include Mandi and Gulika; Mandi marks Saturn’s segment midpoint, while Gulika marks its start." },
-  { key: "showAsteroids", label: "Asteroids & points", description: "Include Chiron and Lilith." },
-  { key: "showFortune", label: "Part of Fortune", description: "Include the calculated Fortuna point." },
-];
-
-const VISUAL_STYLE_OPTIONS: PreferenceOption[] = [
-  { key: "usePlanetIcons", label: "Planet glyphs", description: "Use astrological symbols instead of names." },
-  { key: "useSignIcons", label: "Sign glyphs", description: "Use zodiac symbols instead of sign names." },
-  { key: "showEqualHouses", label: "Equal-house guides", description: "Overlay 30° house divisions.", disabledFor: ["diamond", "south", "east"] },
-  { key: "showSignDivisions", label: "Sign divisions", description: "Overlay 30° sign boundaries.", disabledFor: ["diamond", "south", "east"] },
-];
-
-function ChartSettingsDrawer({
-  open,
-  onClose,
-  settings,
-  chartStyle,
-  showBirthTimeAdjuster,
-  onAdjustTime,
-  onApply,
-}: {
-  open: boolean;
-  onClose: () => void;
-  settings: ChartSettings;
-  chartStyle: ChartStyle;
-  showBirthTimeAdjuster: boolean;
-  onAdjustTime: (seconds: number) => void;
-  onApply: (settings: ChartSettings) => void;
-}) {
-  const drawerRef = useRef<HTMLElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const [draft, setDraft] = useState(settings);
-
-  useEffect(() => {
-    if (!open) return;
-    setDraft(settings);
-    const activeElement = document.activeElement;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    closeButtonRef.current?.focus();
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !event.defaultPrevented) {
-        onClose();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const focusable = drawerRef.current?.querySelectorAll<HTMLElement>(
-        "button:not([disabled]), input:not([disabled]), [role='combobox'], [tabindex]:not([tabindex='-1'])",
-      );
-      if (!focusable?.length) return;
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
-      if (activeElement instanceof HTMLElement) activeElement.focus();
-    };
-  }, [onClose, open, settings]);
-
-  if (!open || typeof document === "undefined") return null;
-
-  const setPreference = <K extends keyof ViewPreferences>(key: K, value: ViewPreferences[K]) => {
-    setDraft((current) => ({
-      ...current,
-      viewPreferences: { ...current.viewPreferences, [key]: value },
-    }));
-  };
-  const renderPreferenceOptions = (options: PreferenceOption[]) => (
-    <div className="grid gap-2 md:grid-cols-2">
-      {options.map(({ key, label, description, disabledFor }) => {
-        const unavailable = disabledFor?.includes(chartStyle) ?? false;
-        const helperText = unavailable
-          ? `Not available for ${CHART_STYLE_LABELS[chartStyle]} charts.`
-          : description;
-        return (
-          <div key={key} className={`flex min-h-[72px] items-start justify-between gap-3 rounded-xl border border-border bg-card p-3 transition ${unavailable ? "" : "hover:border-stone-300 dark:hover:border-stone-600"}`}>
-            <span className="min-w-0">
-              <span className="block text-xs font-medium">{label}</span>
-              {helperText && <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{helperText}</span>}
-            </span>
-            <Switch
-              aria-label={label}
-              checked={draft.viewPreferences[key]}
-              disabled={unavailable}
-              onCheckedChange={(checked) => setPreference(key, checked)}
-              className="mt-0.5"
-            />
-          </div>
-        );
-      })}
-    </div>
-  );
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[100] flex justify-end bg-[#46332B]/40 backdrop-blur-[2px]"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <aside
-        ref={drawerRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="chart-settings-title"
-        className="flex h-full w-full flex-col border-l border-border bg-background text-foreground shadow-2xl sm:max-w-md xl:max-w-xl"
-        style={{
-          paddingTop: "max(1rem, env(safe-area-inset-top, 0px))",
-          paddingRight: "max(1rem, env(safe-area-inset-right, 0px))",
-          paddingBottom: "max(1rem, env(safe-area-inset-bottom, 0px))",
-          paddingLeft: "max(1rem, env(safe-area-inset-left, 0px))",
-        }}
-      >
-        <header className="flex items-start justify-between gap-4 border-b border-border px-1 py-4 sm:px-2 sm:py-5">
-          <div>
-            <h2 id="chart-settings-title" className="text-base font-semibold">Chart Settings</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Tune calculations and chart labels.</p>
-          </div>
-          <button
-            ref={closeButtonRef}
-            type="button"
-            aria-label="Close chart settings"
-            onClick={onClose}
-            className="grid size-11 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:size-9"
-          >
-            <X className="size-4" />
-          </button>
-        </header>
-        <div className="min-h-0 flex-1 space-y-7 overflow-y-auto px-1 py-5 sm:px-2 sm:py-6">
-          <section aria-labelledby="general-settings-title">
-            <h3 id="general-settings-title" className="border-b border-border pb-2 text-sm font-semibold">Core calculations</h3>
-            <div className="mt-4 space-y-5">
-              <fieldset>
-                <legend className="mb-2 text-xs font-medium text-foreground">Zodiac system</legend>
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                  {([
-                    ["sidereal", "Sidereal · Nirayana", "Uses an ayanamsa offset."],
-                    ["tropical", "Tropical · Sayana", "Uses the seasonal zodiac."],
-                  ] as const).map(([mode, label, description]) => (
-                    <label key={mode} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${draft.zodiacMode === mode ? "border-primary/30 bg-accent text-accent-foreground" : "border-border bg-card hover:border-primary/40"}`}>
-                      <input
-                        type="radio"
-                        name="chart-zodiac-mode"
-                        value={mode}
-                        checked={draft.zodiacMode === mode}
-                        onChange={() => setDraft((current) => ({ ...current, zodiacMode: mode }))}
-                        className="mt-0.5 size-4 accent-primary"
-                      />
-                      <span>
-                        <span className="block text-xs font-semibold">{label}</span>
-                        <span className="mt-1 block text-xs text-muted-foreground">{description}</span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="block text-xs font-medium text-foreground">
-                  House cusp system
-                  <Select
-                    value={draft.houseSystem}
-                    onValueChange={(value) => setDraft((current) => ({ ...current, houseSystem: value as HouseSystem }))}
-                  >
-                    <SelectTrigger aria-label="House cusp system" className="mt-1.5 h-11 w-full md:h-10">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="z-[110] !bg-card !text-foreground shadow-md">
-                      <SelectItem value="placidus">Placidus</SelectItem>
-                      <SelectItem value="carter">Carter (Poli-Equatorial)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </label>
-                <label className="block text-xs font-medium text-foreground">
-                  Ayanamsa
-                  <Select
-                    value={draft.ayanamsa}
-                    onValueChange={(value) => setDraft((current) => ({ ...current, ayanamsa: value }))}
-                    disabled={draft.zodiacMode === "tropical"}
-                  >
-                    <SelectTrigger aria-label="Ayanamsa" className="mt-1.5 h-11 w-full md:h-10">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="z-[110] !bg-card !text-foreground shadow-md">
-                      <SelectItem value="lahiri">Lahiri</SelectItem>
-                      <SelectItem value="true-citra">True Citra</SelectItem>
-                      <SelectItem value="ss-citra">S.S. Citra</SelectItem>
-                      <SelectItem value="ss-revati">S.S. Revati</SelectItem>
-                      <SelectItem value="true-revati">True Revati</SelectItem>
-                      <SelectItem value="true-pushya">True Pushya</SelectItem>
-                      <SelectItem value="true-mula">True Mula</SelectItem>
-                      <SelectItem value="de-luce">De Luce</SelectItem>
-                      <SelectItem value="usha-shashi">Usha/Shashi</SelectItem>
-                      <SelectItem value="djwhal-khul">Djwhal Khul</SelectItem>
-                      <SelectItem value="jn-bhasin">J.N. Bhasin</SelectItem>
-                      <SelectItem value="babylonian-kugler-1">Babylonian/Kugler 1</SelectItem>
-                      <SelectItem value="babylonian-kugler-2">Babylonian/Kugler 2</SelectItem>
-                      <SelectItem value="babylonian-kugler-3">Babylonian/Kugler 3</SelectItem>
-                      <SelectItem value="babylonian-huber">Babylonian/Huber</SelectItem>
-                      <SelectItem value="babylonian-eta-piscium">Babylonian/Eta Piscium</SelectItem>
-                      <SelectItem value="babylonian-aldebaran">Babylonian/Aldebaran 15 Tau</SelectItem>
-                      <SelectItem value="hipparchos">Hipparchos</SelectItem>
-                      <SelectItem value="sassanian">Sassanian</SelectItem>
-                      <SelectItem value="galactic-center-0-sag">Galactic Center 0 Sagittarius</SelectItem>
-                      <SelectItem value="j2000">J2000</SelectItem>
-                      <SelectItem value="j1900">J1900</SelectItem>
-                      <SelectItem value="b1950">B1950</SelectItem>
-                      <SelectItem value="suryasiddhanta">Suryasiddhanta</SelectItem>
-                      <SelectItem value="suryasiddhanta-mean-sun">Suryasiddhanta, mean Sun</SelectItem>
-                      <SelectItem value="aryabhata">Aryabhata</SelectItem>
-                      <SelectItem value="aryabhata-mean-sun">Aryabhata, mean Sun</SelectItem>
-                      <SelectItem value="aryabhata-522">Aryabhata 522</SelectItem>
-                      <SelectItem value="babylonian-britton">Babylonian/Britton</SelectItem>
-                      <SelectItem value="vedic-sheoran">Vedic/Sheoran</SelectItem>
-                      <SelectItem value="galactic-center-cochrane">Cochrane Galactic Center</SelectItem>
-                      <SelectItem value="galactic-equator-fiorenza">Galactic Equator (Fiorenza)</SelectItem>
-                      <SelectItem value="galactic-equator-iau1958">Galactic Equator (IAU1958)</SelectItem>
-                      <SelectItem value="galactic-equator">Galactic Equator</SelectItem>
-                      <SelectItem value="galactic-equator-mid-mula">Galactic Equator mid-Mula</SelectItem>
-                      <SelectItem value="skydram">Skydram</SelectItem>
-                      <SelectItem value="dhruva-galactic-center-mula">Dhruva/Galactic Center/Mula</SelectItem>
-                      <SelectItem value="galactic-center-gil-brand">Galactic Center (Gil Brand)</SelectItem>
-                      <SelectItem value="vettius-valens">Vettius Valens</SelectItem>
-                      <SelectItem value="raman">B.V. Raman</SelectItem>
-                      <SelectItem value="krishnamurti">Krishnamurti</SelectItem>
-                      <SelectItem value="fagan-bradley">Fagan–Bradley</SelectItem>
-                      <SelectItem value="yukteshwar">Yukteshwar</SelectItem>
-                      <SelectItem value="custom">Custom Ayanamsa</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </label>
-                <label className="block text-xs font-medium text-foreground">
-                  Language &amp; initials
-                  <Select
-                    value={draft.language}
-                    onValueChange={(value) => setDraft((current) => ({ ...current, language: value as CelestialLanguage }))}
-                    disabled={draft.viewPreferences.usePlanetIcons}
-                  >
-                    <SelectTrigger aria-label="Chart language" className="mt-1.5 h-11 w-full md:h-10">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="z-[110] !bg-card !text-foreground shadow-md">
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="hi">Hindi</SelectItem>
-                      <SelectItem value="mr">Marathi</SelectItem>
-                      <SelectItem value="initials">English · initials</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {draft.viewPreferences.usePlanetIcons && <span className="mt-1.5 block text-xs text-muted-foreground">Unavailable while planet glyphs are enabled.</span>}
-                </label>
-              </div>
-              {draft.zodiacMode === "sidereal" && draft.ayanamsa === "custom" && (
-                <label className="block max-w-sm text-xs font-medium text-foreground">
-                  Custom ayanamsa degrees
-                  <input
-                    aria-label="Custom ayanamsa degrees"
-                    type="number"
-                    step="0.0001"
-                    min="-360"
-                    max="360"
-                    value={draft.customAyanamsaDegrees}
-                    onChange={(event) => setDraft((current) => ({ ...current, customAyanamsaDegrees: Number(event.target.value) }))}
-                    className={`${CONTROL_CLASS} mt-1.5 h-11 w-full text-sm md:h-10`}
-                  />
-                </label>
-              )}
-            </div>
-          </section>
-          <section aria-labelledby="display-preferences-title">
-            <h3 id="display-preferences-title" className="border-b border-border pb-2 text-sm font-semibold">Display preferences</h3>
-            <p className="mt-2 text-xs text-muted-foreground">Choose which labels, bodies, and structural guides appear.</p>
-            <div className="mt-3 space-y-5">
-              <div>
-                <h4 className="mb-2 text-xs font-semibold text-muted-foreground">House and sign labels</h4>
-                {renderPreferenceOptions(CHART_ELEMENT_OPTIONS)}
-              </div>
-              <div className="rounded-xl border border-border bg-card p-3">
-                <div className="flex items-start justify-between gap-3">
-                  <span className="min-w-0">
-                    <span className="block text-xs font-medium">Bhava cusp labels</span>
-                    <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">Show each house cusp in the sign where it starts.</span>
-                  </span>
-                  <Switch
-                    aria-label="Bhava cusp labels"
-                    checked={draft.viewPreferences.showBhavaCusps}
-                    onCheckedChange={(checked) => setPreference("showBhavaCusps", checked)}
-                  />
-                </div>
-                <fieldset disabled={!draft.viewPreferences.showBhavaCusps} className="mt-3 grid gap-3 sm:grid-cols-3 disabled:opacity-50">
-                  <label className="text-xs font-medium">
-                    Cusp sign labels
-                    <select
-                      value={draft.viewPreferences.cuspLabelSignStyle}
-                      onChange={(event) => setPreference("cuspLabelSignStyle", event.target.value as ChartSettings["viewPreferences"]["cuspLabelSignStyle"])}
-                      className={`${CONTROL_CLASS} mt-1.5 h-11 w-full text-sm md:h-10`}
-                    >
-                      <option value="short">Short · Vi</option>
-                      <option value="full">Full · Virgo</option>
-                      <option value="number">Number · 6</option>
-                      <option value="hindi">Hindi · कन्या</option>
-                      <option value="glyph">Glyph · ♍︎</option>
-                    </select>
-                  </label>
-                  <label className="text-xs font-medium">
-                    Cusp degree format
-                    <select
-                      value={draft.viewPreferences.cuspLabelDegreeFormat}
-                      onChange={(event) => setPreference("cuspLabelDegreeFormat", event.target.value as ChartSettings["viewPreferences"]["cuspLabelDegreeFormat"])}
-                      className={`${CONTROL_CLASS} mt-1.5 h-11 w-full text-sm md:h-10`}
-                    >
-                      <option value="dms">DMS · 22°47′10″</option>
-                      <option value="dm">Degrees/minutes</option>
-                      <option value="decimal">Decimal · 22.79°</option>
-                      <option value="compact">Compact</option>
-                    </select>
-                  </label>
-                  <label className="text-xs font-medium">
-                    Cusp placement
-                    <select
-                      value={draft.viewPreferences.cuspLabelStyle}
-                      onChange={(event) => setPreference("cuspLabelStyle", event.target.value as ChartSettings["viewPreferences"]["cuspLabelStyle"])}
-                      className={`${CONTROL_CLASS} mt-1.5 h-11 w-full text-sm md:h-10`}
-                    >
-                      <option value="line">On the line</option>
-                      <option value="box">In the sign box</option>
-                    </select>
-                  </label>
-                </fieldset>
-              </div>
-              <div>
-                <h4 className="mb-2 text-xs font-semibold text-muted-foreground">Additional bodies</h4>
-                {renderPreferenceOptions(CELESTIAL_BODY_OPTIONS)}
-                <div className="mt-2 rounded-xl border border-border bg-card p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="min-w-0">
-                      <span className="block text-xs font-medium">Arudha Padas</span>
-                      <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">Show Bhava Padas (AL, UL, A2–A11) calculated via Jaimini/Parashara rules.</span>
-                    </span>
-                    <Switch
-                      aria-label="Arudha Padas"
-                      checked={draft.viewPreferences.showArudhaPadas}
-                      onCheckedChange={(checked) => setPreference("showArudhaPadas", checked)}
-                      className="mt-0.5"
-                    />
-                  </div>
-                  {draft.viewPreferences.showArudhaPadas && (
-                    <div className="mt-3 inline-flex rounded-lg border border-border bg-muted p-1" role="radiogroup" aria-label="Arudha Pada display">
-                      {([
-                        ["all", "All 12 Padas"],
-                        ["al_ul_only", "AL & UL only"],
-                      ] as const).map(([mode, label]) => (
-                        <button
-                          key={mode}
-                          type="button"
-                          role="radio"
-                          aria-checked={draft.viewPreferences.arudhaPadaMode === mode}
-                          onClick={() => setPreference("arudhaPadaMode", mode)}
-                          className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${draft.viewPreferences.arudhaPadaMode === mode ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:text-foreground"}`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div>
-                <h4 className="mb-2 text-xs font-semibold text-muted-foreground">Visual style</h4>
-                {renderPreferenceOptions(VISUAL_STYLE_OPTIONS)}
-              </div>
-            </div>
-          </section>
-          {showBirthTimeAdjuster && (
-            <section aria-labelledby="birth-time-adjustments-title">
-              <h3 id="birth-time-adjustments-title" className="border-b border-border pb-2 text-sm font-semibold">Birth time adjustments</h3>
-              <p className="mt-2 text-xs text-muted-foreground">Adjust the birth time to compare nearby chart calculations.</p>
-              <div className="mt-3"><BirthTimeAdjuster onAdjust={onAdjustTime} /></div>
-            </section>
-          )}
-        </div>
-        <footer className="flex flex-col gap-3 border-t border-border px-1 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-2">
-          <p className="text-xs text-muted-foreground">Your changes stay pending until applied.</p>
-          <div className="flex shrink-0 gap-2">
-            <button type="button" onClick={onClose} className="min-h-11 flex-1 rounded-lg border border-border px-3 text-xs font-medium text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:min-h-9 sm:flex-none">Cancel</button>
-            <button type="button" onClick={() => { onApply(draft); onClose(); }} className="min-h-11 flex-1 rounded-lg bg-[#C64F30] px-3.5 text-xs font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40 focus-visible:ring-offset-2 sm:min-h-9 sm:flex-none">Apply Changes</button>
-          </div>
-        </footer>
-      </aside>
-    </div>,
-    document.body,
-  );
-}
-
 function getBirthTithiNumber(planets: PlanetPosition[]) {
   const sun = planets.find((planet) => planet.name === "Sun");
   const moon = planets.find((planet) => planet.name === "Moon");
@@ -923,7 +493,7 @@ function ChartOverflowFrame({
   );
 }
 
-export function SvgChart({
+function SvgChartComponent({
   style,
   ascendant,
   planets,
@@ -1243,6 +813,8 @@ export function SvgChart({
   );
 }
 
+export const SvgChart = memo(SvgChartComponent);
+
 function DegreeValue({ position, decimal }: { position: PlanetPosition; decimal: boolean }) {
   return <span className="font-mono tabular-nums">{decimal ? `${position.degree.toFixed(4)}°` : degreeToDms(position.degree)}</span>;
 }
@@ -1274,7 +846,7 @@ const PLANETARY_ROW_ZEBRA = [
   "bg-[#FAF8F5] dark:bg-muted/20",
 ];
 
-function PlanetTable({
+function PlanetTableComponent({
   data,
   decimal,
   language,
@@ -1432,6 +1004,8 @@ function PlanetTable({
   );
 }
 
+const PlanetTable = memo(PlanetTableComponent);
+
 type AuxiliaryType = "divisional" | "transit" | "solar" | "tajika" | "progressions";
 type DashaSystem = "vimshottari" | "chara" | "ashtottari" | "yogini" | "kalachakra";
 type DashaSeed = "moon" | "ascendant" | "sun" | "ascendant-lord";
@@ -1452,40 +1026,16 @@ const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
   { id: "medical", label: "Medical Astrology" },
   { id: "transit-calendar", label: "Transit Calendar" },
 ];
+const midpointReportCache = new Map<string, ReturnType<typeof createMidpointReport>>();
 
 function dashboardTabFromLocation(): DashboardTab {
   const value = new URLSearchParams(window.location.search).get("tab");
   return value === "jamakkol" || DASHBOARD_TABS.some(({ id }) => id === value) ? value as DashboardTab : "core";
 }
 
-function preloadDashboardTab(tab: DashboardTab) {
-  if (tab === "kp") return;
-  const loaders = {
-    dasha: loadDashaTab,
-    aspects: loadAspectsTab,
-    midpoints: loadMidpointsTab,
-    ashtakavarga: () => Promise.all([loadAshtakavargaTab(), loadStrengthAnalysisTab()]),
-    medical: loadMedicalTab,
-    "transit-calendar": loadTransitCalendarTab,
-    jamakkol: loadJamakkolTab,
-    shodashvarga: loadShodashvargaTab,
-    jaimini: loadJaiminiDashboard,
-  };
-  if (tab === "core") return;
-  void loaders[tab]().catch((error: unknown) => {
-    console.error(`[kundali] Unable to preload ${tab} tab`, error);
-  });
-}
-
 function SecondaryTabSkeleton() {
   return (
-    <EphemerisLoader
-      title="Opening astrology analysis"
-      description="Preparing the calculations and chart views…"
-      detail="Kundali analysis"
-      activity="Loading analysis"
-      tone="dashboard"
-    />
+    <CelestiaLoader label="Preparing astrology analysis…" sublabel="Loading the selected chart and calculations…" tone="dashboard" />
   );
 }
 
@@ -1509,327 +1059,6 @@ async function readProfileApiResponse<T>(response: Response): Promise<T> {
       : `The saved charts service returned an invalid response (${response.status}).`;
     throw new Error(message);
   }
-}
-
-function SaveChartDialog({
-  open,
-  saving,
-  chartName,
-  chartSummary,
-  existingChart,
-  mode,
-  saveError,
-  onClose,
-  onChartNameChange,
-  onModeChange,
-  onSave,
-}: {
-  open: boolean;
-  saving: boolean;
-  chartName: string;
-  chartSummary: string;
-  existingChart: boolean;
-  mode: "update" | "copy";
-  saveError: string | null;
-  onClose: () => void;
-  onChartNameChange: (name: string) => void;
-  onModeChange: (mode: "update" | "copy") => void;
-  onSave: (mode: "update" | "copy", name: string) => void;
-}) {
-  const nameInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    nameInputRef.current?.focus();
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !saving) onClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [onClose, open, saving]);
-
-  if (!open || typeof document === "undefined") return null;
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-[#46332B]/45 p-3 backdrop-blur-[2px] sm:p-6"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !saving) onClose();
-      }}
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="save-chart-dialog-title"
-        className="w-full max-w-[calc(100vw-2rem)] rounded-2xl border border-border bg-card text-card-foreground shadow-2xl sm:max-w-lg"
-      >
-        <header className="flex items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
-          <div>
-            <h2 id="save-chart-dialog-title" className="text-base font-semibold">
-              {existingChart && mode === "update" ? "Update saved chart" : existingChart ? "Save a new copy" : "Name your chart"}
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {existingChart ? "Choose whether to update this chart or save a separate copy." : "Add a name so you can find this chart again."}
-            </p>
-          </div>
-          <button
-            type="button"
-            aria-label="Close save chart dialog"
-            onClick={onClose}
-            disabled={saving}
-            className="grid size-8 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50"
-          >
-            <X className="size-4" aria-hidden="true" />
-          </button>
-        </header>
-
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            onSave(mode, chartName.trim());
-          }}
-        >
-          <div className="space-y-4 px-5 py-5 sm:px-6">
-            {saveError && (
-              <p role="alert" className="rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
-                {saveError}
-              </p>
-            )}
-            {existingChart && (
-              <fieldset className="grid gap-2 sm:grid-cols-2">
-                <legend className="sr-only">Save action</legend>
-                <label className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium ${mode === "update" ? "border-[#C05A3A]/40 bg-[#C05A3A]/5" : "border-border"}`}>
-                  <input type="radio" name="save-action" value="update" checked={mode === "update"} onChange={() => onModeChange("update")} className="accent-[#C05A3A]" />
-                  Update existing
-                </label>
-                <label className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium ${mode === "copy" ? "border-[#C05A3A]/40 bg-[#C05A3A]/5" : "border-border"}`}>
-                  <input type="radio" name="save-action" value="copy" checked={mode === "copy"} onChange={() => onModeChange("copy")} className="accent-[#C05A3A]" />
-                  Save as new copy
-                </label>
-              </fieldset>
-            )}
-            <label htmlFor="save-chart-name" className="block text-sm font-medium">
-              Chart name
-              <input
-                ref={nameInputRef}
-                id="save-chart-name"
-                type="text"
-                maxLength={100}
-                required
-                autoFocus
-                value={chartName}
-                onChange={(event) => onChartNameChange(event.target.value)}
-                placeholder="e.g. My birth chart"
-                className="mt-1.5 h-11 w-full rounded-lg border border-input bg-background px-3 text-base outline-none focus:border-[#C05A3A] focus:ring-2 focus:ring-[#C05A3A]/30 sm:text-sm"
-                disabled={saving}
-              />
-            </label>
-            <p className="truncate rounded-lg bg-muted/50 px-3 py-2 text-sm text-muted-foreground" title={chartSummary}>
-              {chartSummary}
-            </p>
-          </div>
-
-          <footer className="flex flex-col-reverse gap-2 border-t border-border px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
-            <button type="button" onClick={onClose} disabled={saving} className="h-10 rounded-lg border border-border px-4 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-50">Cancel</button>
-            <button type="submit" disabled={saving || !chartName.trim()} className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#C05A3A] px-4 text-sm font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C05A3A]/40 disabled:cursor-wait disabled:opacity-60">
-              {saving && <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />}
-              {saving ? "Saving…" : existingChart && mode === "update" ? "Update existing" : existingChart ? "Save as new copy" : "Save chart"}
-            </button>
-          </footer>
-        </form>
-      </section>
-    </div>,
-    document.body,
-  );
-}
-
-function SavedChartsDialog({
-  open,
-  loading,
-  profiles,
-  query,
-  deletingId,
-  actionError,
-  actionMessage,
-  onQueryChange,
-  onClose,
-  onCreateFirstChart,
-  onSelect,
-  onDelete,
-}: {
-  open: boolean;
-  loading: boolean;
-  profiles: SavedProfile[];
-  query: string;
-  deletingId: string | null;
-  actionError: string | null;
-  actionMessage: string | null;
-  onQueryChange: (query: string) => void;
-  onClose: () => void;
-  onCreateFirstChart: () => void;
-  onSelect: (profile: SavedProfile) => void;
-  onDelete: (profile: SavedProfile) => void;
-}) {
-  const searchRef = useRef<HTMLInputElement>(null);
-  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    searchRef.current?.focus();
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [onClose, open]);
-
-  if (!open || typeof document === "undefined") return null;
-
-  const visibleProfiles = profiles.filter((profile) => matchesSavedProfileQuery(profile, query));
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-[105] flex items-center justify-center bg-[#46332B]/45 p-3 backdrop-blur-[2px] sm:p-6"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="saved-charts-dialog-title"
-        className="flex max-h-[min(720px,calc(100vh-1.5rem))] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-2xl sm:max-h-[min(760px,calc(100vh-3rem))]"
-      >
-        <header className="flex items-start justify-between gap-4 border-b border-[#E8D3C5] bg-[#FCE9DC] px-5 py-4 text-[#563528] dark:border-[#59443B] dark:bg-[#382D29] dark:text-[#F7E5D9] sm:px-6">
-          <div>
-            <h2 id="saved-charts-dialog-title" className="text-lg font-semibold">All saved charts</h2>
-            <p className="mt-1 text-sm text-[#714F3D] dark:text-[#E5C8B7]">Choose a profile to open in your chart workspace.</p>
-          </div>
-          <button type="button" aria-label="Close saved charts" onClick={onClose} className="grid size-8 shrink-0 place-items-center rounded-lg border border-[#D9BAA6] transition hover:bg-[#F6DAC8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A6522B]/40 dark:border-[#70574B] dark:hover:bg-[#493A34] dark:focus-visible:ring-[#F2B993]/50">
-            <X className="size-4" aria-hidden="true" />
-          </button>
-        </header>
-
-        <div className="border-b border-border bg-card p-4 sm:p-5">
-          <label className="relative block">
-            <span className="sr-only">Search saved charts</span>
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-            <input
-              ref={searchRef}
-              type="search"
-              value={query}
-              onChange={(event) => onQueryChange(event.target.value)}
-              placeholder="Search names, notes, birth date, time, or any detail"
-              className="h-11 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/30"
-            />
-          </label>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {actionError && <p role="alert" className="border-b border-border px-5 py-3 text-sm text-rose-800 dark:text-rose-200">{actionError}</p>}
-          {actionMessage && <p role="status" className="border-b border-border px-5 py-3 text-sm text-emerald-700 dark:text-emerald-300">{actionMessage}</p>}
-          {loading ? (
-            <div role="status" aria-label="Loading saved charts" className="divide-y divide-border">
-              <p className="flex items-center gap-2 px-5 py-3 text-xs text-muted-foreground">
-                <LoaderCircle className="size-3.5 animate-spin text-primary" aria-hidden="true" />
-                Loading your saved charts
-              </p>
-              {Array.from({ length: 3 }, (_, index) => (
-                <div key={index} aria-hidden="true" className="flex items-center gap-3 px-5 py-4 sm:px-6">
-                  <div className="size-10 animate-pulse rounded-full bg-muted motion-reduce:animate-none" />
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <div className="h-4 w-44 max-w-full animate-pulse rounded bg-muted motion-reduce:animate-none" />
-                    <div className="h-3 w-56 max-w-full animate-pulse rounded bg-muted motion-reduce:animate-none" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : visibleProfiles.length ? (
-            <ul className="divide-y divide-border">
-              {visibleProfiles.map((saved) => (
-                <li key={saved.id}>
-                  <div className="flex items-center gap-2 px-5 py-4 sm:px-6">
-                    <button type="button" onClick={() => onSelect(saved)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg py-1 text-left transition hover:bg-muted/70 focus-visible:bg-muted/70 focus-visible:outline-none">
-                      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-                        <Orbit className="size-5" aria-hidden="true" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold">{saved.chartName || saved.fullName}</span>
-                        <span className="mt-1 block truncate text-xs text-muted-foreground">{saved.city || "Coordinates"} · {saved.dateOfBirth} · {saved.timeOfBirth}</span>
-                      </span>
-                      <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                    </button>
-                    {confirmingDeleteId === saved.id ? (
-                      <div className="flex shrink-0 items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => onDelete(saved)}
-                          disabled={deletingId !== null}
-                          className="h-9 rounded-lg bg-rose-700 px-3 text-xs font-semibold text-white transition hover:bg-rose-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 disabled:cursor-wait disabled:opacity-60"
-                        >
-                          {deletingId === saved.id ? "Removing…" : "Remove"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setConfirmingDeleteId(null)}
-                          disabled={deletingId !== null}
-                          className="h-9 rounded-lg border border-border px-3 text-xs font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setConfirmingDeleteId(saved.id)}
-                        disabled={deletingId !== null}
-                        aria-label={`Remove ${saved.chartName || saved.fullName}`}
-                        className="grid size-9 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 disabled:opacity-60 dark:hover:border-rose-800 dark:hover:bg-rose-950/30 dark:hover:text-rose-200"
-                      >
-                        <Trash2 className="size-4" aria-hidden="true" />
-                      </button>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <div className="px-5 py-12 text-center sm:px-6">
-              <span className="mx-auto grid size-11 place-items-center rounded-full bg-[#F9E8DD] text-[#A6522B] dark:bg-[#45342D] dark:text-[#F2B993]">
-                <Orbit className="size-6" aria-hidden="true" />
-              </span>
-              <p className="mt-3 text-sm font-medium">{profiles.length ? "No matching charts" : "You don’t have any saved charts yet"}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{profiles.length ? "Try a different search." : "Save your first chart and continue your journey with Jyotishi."}</p>
-              {!profiles.length && (
-                <button
-                  type="button"
-                  onClick={onCreateFirstChart}
-                  className="mt-4 inline-flex min-h-10 items-center justify-center rounded-lg bg-[#C64F30] px-4 text-sm font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40 focus-visible:ring-offset-2"
-                >
-                  Save your first chart
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        <footer className="border-t border-border bg-muted/40 px-5 py-3 text-center text-xs text-muted-foreground sm:px-6">
-          {profiles.length} {profiles.length === 1 ? "saved chart" : "saved charts"}
-        </footer>
-      </section>
-    </div>,
-    document.body,
-  );
 }
 
 const PROFILE_DRAFT_STORAGE_KEY = "project-celestia:profile-draft";
@@ -1900,6 +1129,9 @@ export function KundaliDashboard({
   const adjustTime = useKundaliStore((state) => state.adjustTime);
   const [data, setData] = useState<EphemerisResponse | null>(null);
   const [dashboardTab, setDashboardTab] = useState<DashboardTab>("core");
+  const [selectedDashboardTab, setSelectedDashboardTab] = useState<DashboardTab>("core");
+  const [visitedTabs, setVisitedTabs] = useState<Set<DashboardTab>>(() => new Set(["core"]));
+  const [isTabTransitionPending, startTabTransition] = useTransition();
   const [submittedProfile, setSubmittedProfile] = useState<BirthProfile | null>(null);
   const [profileCollapsed, setProfileCollapsed] = useState(false);
   const [transitData, setTransitData] = useState<EphemerisResponse | null>(null);
@@ -2003,14 +1235,22 @@ export function KundaliDashboard({
   }, [analysisPreferencesLoaded, houseSystem, carterZodiac, midpointPreferences, viewPreferences.showArudhaPadas, viewPreferences.arudhaPadaMode]);
 
   useEffect(() => {
-    const syncTab = () => setDashboardTab(dashboardTabFromLocation());
+    const syncTab = () => {
+      const nextTab = dashboardTabFromLocation();
+      setSelectedDashboardTab(nextTab);
+      setVisitedTabs((visited) => new Set(visited).add(nextTab));
+      startTabTransition(() => setDashboardTab(nextTab));
+    };
     syncTab();
     window.addEventListener("popstate", syncTab);
     return () => window.removeEventListener("popstate", syncTab);
   }, []);
 
   useEffect(() => {
-    if (navigationRequest) setDashboardTab(navigationRequest.tab);
+    if (!navigationRequest) return;
+    setSelectedDashboardTab(navigationRequest.tab);
+    setVisitedTabs((visited) => new Set(visited).add(navigationRequest.tab));
+    startTabTransition(() => setDashboardTab(navigationRequest.tab));
   }, [navigationRequest]);
 
   useEffect(() => {
@@ -2162,24 +1402,7 @@ export function KundaliDashboard({
 
     const cached = getCachedSavedProfiles(clerkUserId);
     if (cached) setSavedProfiles(cached);
-    if (loading) return;
-
-    let active = true;
-    const timeout = window.setTimeout(() => {
-      void fetchSavedProfiles(clerkUserId)
-        .then((profiles) => {
-          if (active) setSavedProfiles(profiles);
-        })
-        .catch((requestError: unknown) => {
-          if (requestError instanceof SavedProfilesRequestSupersededError) return;
-          console.warn("[saved-charts] Background prefetch failed", requestError);
-        });
-    }, 900);
-    return () => {
-      active = false;
-      window.clearTimeout(timeout);
-    };
-  }, [clerkUserId, isSignedIn, loading]);
+  }, [clerkUserId, isSignedIn]);
 
   useEffect(() => {
     if (!submittedProfile?.date || !submittedProfile.time) {
@@ -2576,11 +1799,13 @@ export function KundaliDashboard({
     setSubmittedProfile((current) => current ? { ...current, date: adjustedProfile.date, time: adjustedProfile.time } : current);
   };
   const selectDashboardTab = (nextTab: DashboardTab) => {
-    setDashboardTab(nextTab);
+    setSelectedDashboardTab(nextTab);
+    setVisitedTabs((visited) => new Set(visited).add(nextTab));
     const url = new URL(window.location.href);
     if (nextTab === "core") url.searchParams.delete("tab");
     else url.searchParams.set("tab", nextTab);
     window.history.pushState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    startTabTransition(() => setDashboardTab(nextTab));
   };
 
   const sourceDisplayData = chartMode === "transit" ? transitData : data;
@@ -2622,7 +1847,7 @@ export function KundaliDashboard({
   const displayLoading = chartMode === "transit" ? transitLoading : loading;
   const displayError = chartMode === "transit" ? transitError : error;
   const kharaPoints = useMemo(() => {
-    if (!displayData) return [];
+    if (dashboardTab !== "core" || !displayData) return [];
     const references = [
       { name: "Lagna", position: displayData.ascendant },
       ...displayData.planets
@@ -2633,7 +1858,7 @@ export function KundaliDashboard({
       name,
       ...calculateKharaPoints(position),
     }));
-  }, [displayData]);
+  }, [dashboardTab, displayData]);
   useEffect(() => {
     if (displayData && !displayLoading) setProfileCollapsed(true);
   }, [displayData, displayLoading]);
@@ -2648,10 +1873,31 @@ export function KundaliDashboard({
       displayData.ascendant.longitude,
     );
   }, [displayData, viewPreferences.cuspLabelDegreeFormat, viewPreferences.cuspLabelSignStyle]);
-  const midpointReport = useMemo(
-    () => createMidpointReport(displayData, midpointPreferences),
-    [displayData, midpointPreferences],
-  );
+  const midpointReport = useMemo(() => {
+    if (dashboardTab !== "midpoints" || !displayData) return null;
+    const cacheKey = JSON.stringify([
+      displayData.input.date,
+      displayData.input.time,
+      displayData.input.lat,
+      displayData.input.lng,
+      displayData.input.timezone,
+      displayData.input.ayanamsa,
+      displayData.input.zodiacMode,
+      displayData.input.customAyanamsaDegrees,
+      displayData.input.nodeType,
+      houseSystem,
+      carterZodiac,
+      midpointPreferences,
+    ]);
+    if (midpointReportCache.has(cacheKey)) return midpointReportCache.get(cacheKey) ?? null;
+    const report = createMidpointReport(displayData, midpointPreferences);
+    midpointReportCache.set(cacheKey, report);
+    if (midpointReportCache.size > 16) {
+      const oldestKey = midpointReportCache.keys().next().value;
+      if (oldestKey) midpointReportCache.delete(oldestKey);
+    }
+    return report;
+  }, [dashboardTab, displayData, houseSystem, carterZodiac, midpointPreferences]);
   const midpointRows = useMemo(
     () => midpointReport ? visibleMidpointRows(midpointReport, midpointPreferences) : [],
     [midpointReport, midpointPreferences],
@@ -2901,36 +2147,40 @@ export function KundaliDashboard({
           {coordinateTimezoneError && <p role="status" className="mt-1 truncate text-[11px] text-rose-700 dark:text-rose-300">{coordinateTimezoneError}</p>}
         </section>
 
-        <SavedChartsDialog
-          open={savedProfilesOpen}
-          loading={savedProfilesLoading}
-          profiles={savedProfiles}
-          query={savedProfilesQuery}
-          deletingId={deletingProfileId}
-          actionError={profileActionError}
-          actionMessage={profileActionMessage}
-          onQueryChange={setSavedProfilesQuery}
-          onClose={() => setSavedProfilesOpen(false)}
-          onCreateFirstChart={startFirstChartSave}
-          onSelect={selectSavedProfile}
-          onDelete={(saved) => void deleteSavedProfile(saved)}
-        />
+        {savedProfilesOpen && (
+          <SavedChartsDialog
+            open={savedProfilesOpen}
+            loading={savedProfilesLoading}
+            profiles={savedProfiles}
+            query={savedProfilesQuery}
+            deletingId={deletingProfileId}
+            actionError={profileActionError}
+            actionMessage={profileActionMessage}
+            onQueryChange={setSavedProfilesQuery}
+            onClose={() => setSavedProfilesOpen(false)}
+            onCreateFirstChart={startFirstChartSave}
+            onSelect={selectSavedProfile}
+            onDelete={(saved) => void deleteSavedProfile(saved)}
+          />
+        )}
 
-        <SaveChartDialog
-          open={saveDialogOpen}
-          saving={savingProfile}
-          chartName={saveDialogName}
-          chartSummary={`${formatBirthDate(profile.date)} · ${profile.time} · ${profile.city || "Coordinates"}`}
-          existingChart={Boolean(savedProfileId)}
-          mode={saveDialogMode}
-          saveError={saveDialogError}
-          onClose={() => setSaveDialogOpen(false)}
-          onChartNameChange={setSaveDialogName}
-          onModeChange={setSaveDialogMode}
-          onSave={confirmSaveProfile}
-        />
+        {saveDialogOpen && (
+          <SaveChartDialog
+            open={saveDialogOpen}
+            saving={savingProfile}
+            chartName={saveDialogName}
+            chartSummary={`${formatBirthDate(profile.date)} · ${profile.time} · ${profile.city || "Coordinates"}`}
+            existingChart={Boolean(savedProfileId)}
+            mode={saveDialogMode}
+            saveError={saveDialogError}
+            onClose={() => setSaveDialogOpen(false)}
+            onChartNameChange={setSaveDialogName}
+            onModeChange={setSaveDialogMode}
+            onSave={confirmSaveProfile}
+          />
+        )}
 
-        {dashboardTab !== "jamakkol" && (
+        {selectedDashboardTab !== "jamakkol" && (
           <nav role="tablist" aria-label="Kundali analysis" className="no-scrollbar flex w-full snap-x snap-mandatory gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 shadow-sm md:items-center md:rounded-2xl md:border-stone-200/80 md:bg-white md:p-1.5 md:shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
             {DASHBOARD_TABS.map(({ id, label }) => (
               <button
@@ -2938,12 +2188,10 @@ export function KundaliDashboard({
                 id={`kundali-tab-${id}`}
                 type="button"
                 role="tab"
-                aria-selected={dashboardTab === id}
+                aria-selected={selectedDashboardTab === id}
                 aria-controls="kundali-tab-panel"
                 onClick={() => selectDashboardTab(id)}
-                onMouseEnter={() => preloadDashboardTab(id)}
-                onFocus={() => preloadDashboardTab(id)}
-                className={`min-h-11 shrink-0 snap-start rounded-lg px-2 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:min-h-0 md:rounded-xl md:px-3.5 md:py-2 md:text-[13.5px] md:transition-colors md:whitespace-nowrap ${dashboardTab === id ? "border border-primary/30 bg-accent text-accent-foreground shadow-sm md:border-[#EBC7B8] md:bg-[#FDF2EC] md:font-semibold md:text-[#B84E2E] md:shadow-[0_1px_2px_rgba(192,90,58,0.08)]" : "text-muted-foreground hover:bg-muted hover:text-foreground md:font-medium md:text-slate-600 md:hover:bg-stone-100/80 md:hover:text-slate-900"}`}
+                className={`min-h-11 shrink-0 snap-start rounded-lg px-2 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:min-h-0 md:rounded-xl md:px-3.5 md:py-2 md:text-[13.5px] md:transition-colors md:whitespace-nowrap ${selectedDashboardTab === id ? "border border-primary/30 bg-accent text-accent-foreground shadow-sm md:border-[#EBC7B8] md:bg-[#FDF2EC] md:font-semibold md:text-[#B84E2E] md:shadow-[0_1px_2px_rgba(192,90,58,0.08)]" : "text-muted-foreground hover:bg-muted hover:text-foreground md:font-medium md:text-slate-600 md:hover:bg-stone-100/80 md:hover:text-slate-900"}`}
               >
                 {label}
               </button>
@@ -2953,28 +2201,32 @@ export function KundaliDashboard({
 
         <div
           id="kundali-tab-panel"
-          role={dashboardTab === "jamakkol" ? "region" : "tabpanel"}
-          aria-label={dashboardTab === "jamakkol" ? "Jamakkol analysis" : undefined}
-          aria-labelledby={dashboardTab === "jamakkol" ? "main-navigation-jamakkol" : `kundali-tab-${dashboardTab}`}
+          role={selectedDashboardTab === "jamakkol" ? "region" : "tabpanel"}
+          aria-label={selectedDashboardTab === "jamakkol" ? "Jamakkol analysis" : undefined}
+          aria-labelledby={selectedDashboardTab === "jamakkol" ? "main-navigation-jamakkol" : `kundali-tab-${selectedDashboardTab}`}
+          aria-busy={isTabTransitionPending}
           className="min-w-0"
         >
-        {dashboardTab === "kp" && (
-          <KPAstrology
-            profile={submittedProfile ?? profile}
-            language={language}
-            viewPreferences={viewPreferences}
-            ChartRenderer={SvgChart}
+        {isTabTransitionPending && dashboardTab !== selectedDashboardTab && (
+          <CelestiaLoader
+            label={`Opening ${DASHBOARD_TABS.find(({ id }) => id === selectedDashboardTab)?.label ?? "Jamakkol"}…`}
+            sublabel="Loading the selected chart and calculations…"
+            tone="dashboard"
           />
         )}
-        {dashboardTab === "jaimini" && (
-          <Suspense fallback={
-            <EphemerisLoader
-              tone="dashboard"
-              title="Opening Jaimini analysis"
-              description="Loading chart calculations and interpretations…"
-              detail={`${profile.city || "Birth chart"} · Jaimini`}
+        <div hidden={isTabTransitionPending && dashboardTab !== selectedDashboardTab}>
+        <RetainedTab active={dashboardTab === "kp"}>
+          {visitedTabs.has("kp") && (
+            <KPAstrology
+              profile={submittedProfile ?? profile}
+              language={language}
+              viewPreferences={viewPreferences}
+              ChartRenderer={SvgChart}
             />
-          }>
+          )}
+        </RetainedTab>
+        <RetainedTab active={dashboardTab === "jaimini"}>
+          {visitedTabs.has("jaimini") && (
             <JaiminiDashboard
               profile={submittedProfile ?? profile}
               data={chartMode === "birth" ? data : null}
@@ -2983,10 +2235,10 @@ export function KundaliDashboard({
               error={error}
               onCalculateBirthChart={calculateBirthChart}
             />
-          </Suspense>
-        )}
-        {dashboardTab === "jamakkol" && (
-          <Suspense fallback={<SecondaryTabSkeleton />}>
+          )}
+        </RetainedTab>
+        <RetainedTab active={dashboardTab === "jamakkol"}>
+          {visitedTabs.has("jamakkol") && (
             <JamakkolTab
               profile={submittedProfile ?? profile}
               data={chartMode === "transit" ? transitData : data}
@@ -2995,10 +2247,10 @@ export function KundaliDashboard({
               transitTime={transitTime}
               transitMode={transitMode}
             />
-          </Suspense>
-        )}
-        {dashboardTab === "shodashvarga" && (
-          <Suspense fallback={<SecondaryTabSkeleton />}>
+          )}
+        </RetainedTab>
+        <RetainedTab active={dashboardTab === "shodashvarga"}>
+          {visitedTabs.has("shodashvarga") && (
             <ShodashvargaTab
               data={displayData}
               charts={SHODASHVARGA_CHARTS}
@@ -3013,10 +2265,10 @@ export function KundaliDashboard({
               error={displayError}
               ChartRenderer={SvgChart}
             />
-          </Suspense>
-        )}
-        {dashboardTab === "dasha" && (
-          <Suspense fallback={<SecondaryTabSkeleton />}>
+          )}
+        </RetainedTab>
+        <RetainedTab active={dashboardTab === "dasha"}>
+          {visitedTabs.has("dasha") && (
             <DashaTab
               data={data}
               system={dashaSystem}
@@ -3026,15 +2278,15 @@ export function KundaliDashboard({
               lagnaMode={dashaLagnaMode}
               onLagnaModeChange={setDashaLagnaMode}
             />
-          </Suspense>
-        )}
-        {dashboardTab === "aspects" && (
-          <Suspense fallback={<SecondaryTabSkeleton />}>
+          )}
+        </RetainedTab>
+        <RetainedTab active={dashboardTab === "aspects"}>
+          {visitedTabs.has("aspects") && (
             <AspectsTab data={displayData} language={language} useSignIcons={viewPreferences.useSignIcons} />
-          </Suspense>
-        )}
-        {dashboardTab === "midpoints" && (
-          <Suspense fallback={<SecondaryTabSkeleton />}>
+          )}
+        </RetainedTab>
+        <RetainedTab active={dashboardTab === "midpoints"}>
+          {visitedTabs.has("midpoints") && (
             <MidpointsTab
               report={midpointReport}
               preferences={midpointPreferences}
@@ -3042,9 +2294,10 @@ export function KundaliDashboard({
               decimal={decimalDegrees}
               unavailableReason={midpointUnavailableReason}
             />
-          </Suspense>
-        )}
-        {dashboardTab === "core" && (
+          )}
+        </RetainedTab>
+        <RetainedTab active={dashboardTab === "core"}>
+          {visitedTabs.has("core") && (
         <div className="flex flex-col gap-4">
         {displayError && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 size-4 shrink-0" /><span>{displayError}</span></div>}
         <div className="order-2 lg:order-1">
@@ -3277,19 +2530,18 @@ export function KundaliDashboard({
         </div>
 
         </div>
-        )}
-        {dashboardTab === "ashtakavarga" && (
-          <Suspense fallback={<SecondaryTabSkeleton />}>
+          )}
+        </RetainedTab>
+        <RetainedTab active={dashboardTab === "ashtakavarga"}>
+          {visitedTabs.has("ashtakavarga") && (
             <div className="space-y-5">
               <AshtakavargaTab data={displayData} language={language} useSignIcons={viewPreferences.useSignIcons} />
-              <Suspense fallback={<SecondaryTabSkeleton />}>
-                <StrengthAnalysisTab data={displayData} />
-              </Suspense>
+              <StrengthAnalysisTab data={displayData} />
             </div>
-          </Suspense>
-        )}
-        {dashboardTab === "medical" && (
-          <Suspense fallback={<SecondaryTabSkeleton />}>
+          )}
+        </RetainedTab>
+        <RetainedTab active={dashboardTab === "medical"}>
+          {visitedTabs.has("medical") && (
             <MedicalTab
               data={data}
               transitData={transitData}
@@ -3297,24 +2549,35 @@ export function KundaliDashboard({
               transitLoading={transitLoading}
               transitError={transitError}
             />
-          </Suspense>
-        )}
-        {dashboardTab === "transit-calendar" && (
-          <Suspense fallback={<SecondaryTabSkeleton />}>
-            <TransitCalendarTab natalPlanets={data?.planets ?? []} />
-          </Suspense>
-        )}
+          )}
+        </RetainedTab>
+        <RetainedTab active={dashboardTab === "transit-calendar"}>
+          {visitedTabs.has("transit-calendar") && (
+            <TransitCalendarTab
+              natalPlanets={data?.planets ?? []}
+              active={dashboardTab === "transit-calendar"}
+              profile={profile}
+              ayanamsa={ayanamsa}
+              zodiacMode={zodiacMode}
+              customAyanamsaDegrees={customAyanamsaDegrees}
+              nodeType={nodeType}
+            />
+          )}
+        </RetainedTab>
+        </div>
         </div>
       </div>
-      <ChartSettingsDrawer
-        open={chartSettingsOpen}
-        onClose={closeChartSettings}
-        settings={chartSettings}
-        chartStyle={chartStyle}
-        showBirthTimeAdjuster={chartMode === "birth"}
-        onAdjustTime={adjustBirthTime}
-        onApply={setChartSettings}
-      />
+      {chartSettingsOpen && (
+        <ChartSettingsDrawer
+          open={chartSettingsOpen}
+          onClose={closeChartSettings}
+          settings={chartSettings}
+          chartStyle={chartStyle}
+          showBirthTimeAdjuster={chartMode === "birth"}
+          onAdjustTime={adjustBirthTime}
+          onApply={setChartSettings}
+        />
+      )}
       {chartMaximized && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[#2A211E]/85 p-3 backdrop-blur-md sm:p-6" onMouseDown={(event) => {
           if (event.target === event.currentTarget) setChartMaximized(false);

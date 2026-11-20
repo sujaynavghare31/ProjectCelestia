@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useTheme } from "next-themes";
 import { UserButton, useAuth } from "@clerk/nextjs";
 import {
@@ -33,15 +33,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { KundaliDashboard } from "@/components/kundali-dashboard";
-import PanchangDashboard from "@/components/panchang/PanchangDashboard";
-import About from "@/components/About";
-import NumerologyPrimer from "@/components/numerology/NumerologyPrimer";
 import type { CelestialLanguage } from "@/lib/kundali-types";
 import { useKundaliStore } from "@/lib/kundali-store";
 import { TABLES, chaldeanSum, computeProfile, digitSum, kuaOf, masterReduce, pythSum, reduce, relationLabel } from "@/lib/numerology";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { isLocalClerkFallback } from "@/lib/clerk-config";
-import EphemerisLoader from "@/components/dashboard-tabs/ephemeris-loader";
+import CelestiaLoader from "@/components/ui/CelestiaLoader";
 
 const gridNumbers = [4, 9, 2, 3, 5, 7, 8, 1, 6];
 
@@ -85,6 +82,7 @@ const navigationItems = [
   { id: "kundali", label: "Kundali", icon: Compass },
   { id: "numerology", label: "Numerology", icon: Sparkles },
   { id: "jamakkol", label: "Jamakkol", icon: Orbit },
+  { id: "match", label: "Match Making", icon: Heart },
   { id: "about", label: "About", icon: Info },
 ] as const;
 const mobileNavigationItems = [
@@ -92,25 +90,33 @@ const mobileNavigationItems = [
   { id: "kundali", label: "Kundali", icon: Compass },
   { id: "numerology", label: "Numerology", icon: Sparkles },
   { id: "jamakkol", label: "Jamakkol", icon: Orbit },
+  { id: "match", label: "Match", icon: Heart },
 ] as const;
 
 function NumerologyTabLoading() {
   return (
-    <EphemerisLoader
-      title="Opening numerology analysis"
-      description="Preparing your numerology insights…"
-      detail="Numerology"
-      activity="Loading analysis"
-      tone="dashboard"
-    />
+    <CelestiaLoader label="Loading Numerology…" sublabel="Preparing your numerology insights…" tone="dashboard" />
   );
 }
 
+const PanchangDashboard = dynamic(() => import("@/components/panchang/PanchangDashboard"), {
+  loading: () => <CelestiaLoader label="Loading Panchang…" sublabel="Preparing today's calendar and insights…" tone="dashboard" />,
+});
+const About = dynamic(() => import("@/components/About"), {
+  loading: () => <CelestiaLoader label="Loading About…" sublabel="Preparing Project Celestia information…" tone="dashboard" />,
+});
+const NumerologyPrimer = dynamic(() => import("@/components/numerology/NumerologyPrimer"), {
+  loading: NumerologyTabLoading,
+});
 const CoreEssenceTab = dynamic(() => import("@/components/numerology/CoreEssenceTab"), { loading: NumerologyTabLoading });
 const EnterpriseCommerceTab = dynamic(() => import("@/components/numerology/EnterpriseCommerceTab"), { loading: NumerologyTabLoading });
 const SynergyBondsTab = dynamic(() => import("@/components/numerology/SynergyBondsTab"), { loading: NumerologyTabLoading });
 const NumerologyWorkbench = dynamic(() => import("@/components/numerology/NumerologyWorkbench"), {
   loading: NumerologyTabLoading,
+});
+const MatchTab = dynamic(() => import("@/components/match/MatchTab"), {
+  ssr: false,
+  loading: () => <CelestiaLoader label="Opening match making…" sublabel="Preparing Kundli Milan analysis…" tone="dashboard" />,
 });
 
 function parseBirthDate(value: string) {
@@ -205,6 +211,8 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
   const dateOfBirth = birthProfile.date;
   const [kuaGender, setKuaGender] = useState<"male" | "female">("male");
   const [activeTab, setActiveTab] = useState("kundali");
+  const [selectedTab, setSelectedTab] = useState("kundali");
+  const [, startTabTransition] = useTransition();
   const [activeNavigation, setActiveNavigation] = useState("kundali");
   const [utilitiesOpen, setUtilitiesOpen] = useState(false);
   const [dashboardNavigationRequest, setDashboardNavigationRequest] = useState<{ tab: "core" | "jamakkol"; id: number } | null>(null);
@@ -214,8 +222,12 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
 
   useEffect(() => {
     setMounted(true);
-    if (new URLSearchParams(window.location.search).get("tab") === "jamakkol") {
-      setActiveNavigation("jamakkol");
+    const tab = new URLSearchParams(window.location.search).get("tab");
+    if (tab === "jamakkol") setActiveNavigation("jamakkol");
+    if (tab === "match") {
+      setActiveNavigation("match");
+      setActiveTab("match");
+      setSelectedTab("match");
     }
   }, []);
 
@@ -318,7 +330,9 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
   const navigate = (destination: typeof navigationItems[number]["id"]) => {
     setUtilitiesOpen(false);
     setActiveNavigation(destination);
-    setActiveTab(destination === "jamakkol" ? "kundali" : destination);
+    const nextTab = destination === "jamakkol" ? "kundali" : destination;
+    setSelectedTab(nextTab);
+    startTabTransition(() => setActiveTab(nextTab));
     if (destination === "jamakkol" || destination === "kundali") {
       setDashboardNavigationRequest((current) => ({
         tab: destination === "jamakkol" ? "jamakkol" : "core",
@@ -447,7 +461,7 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
           </div>
           <nav
             aria-label="Primary navigation"
-            className="relative z-50 grid w-full basis-full grid-cols-4 gap-1 border-t border-stone-200/80 bg-white py-2 dark:border-stone-700/80 dark:bg-slate-950 md:hidden"
+            className="relative z-50 grid w-full basis-full grid-cols-5 gap-1 border-t border-stone-200/80 bg-white py-2 dark:border-stone-700/80 dark:bg-slate-950 md:hidden"
           >
             {mobileNavigationItems.map(({ id, label, icon: Icon }) => {
               const active = activeNavigation === id;
@@ -509,7 +523,7 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
         <div id="dashboard-scroll" className="cosmic-grid min-w-0 overflow-x-hidden p-3 sm:p-6 lg:p-8">
           <div className="mx-auto w-full max-w-[1440px] 2xl:max-w-[1600px]">
           <div id="dashboard-home" className="pt-0">
-            {activeTab === "numerology" && (
+            {selectedTab === "numerology" && (
               <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
                 <div>
                   <h1 className="font-serif text-2xl font-semibold tracking-wide sm:text-[30px]">Vibrational Analysis Suite</h1>
@@ -519,11 +533,20 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
               </div>
             )}
 
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="min-w-0 max-w-full overflow-x-clip">
+            <Tabs
+              value={selectedTab}
+              onValueChange={(nextTab) => {
+                setSelectedTab(nextTab);
+                setActiveNavigation(nextTab);
+                startTabTransition(() => setActiveTab(nextTab));
+              }}
+              className="min-w-0 max-w-full overflow-x-clip"
+            >
               <TabsList aria-label="Dashboard sections" className="hidden">
                 <TabsTrigger value="panchang"><CalendarDays className="size-3.5" /> Panchang</TabsTrigger>
                 <TabsTrigger value="kundali"><Compass className="size-3.5" /> Kundali &amp; Charts</TabsTrigger>
                 <TabsTrigger value="numerology"><Sparkles className="size-3.5" /> Numerology</TabsTrigger>
+                <TabsTrigger value="match"><Heart className="size-3.5" /> Match Making</TabsTrigger>
                 <TabsTrigger value="about"><Info className="size-3.5" /> About</TabsTrigger>
               </TabsList>
 
@@ -806,6 +829,7 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
 
               <TabsContent value="kundali" className="mt-3 focus-visible:outline-none"><KundaliDashboard navigationRequest={dashboardNavigationRequest} isSignedIn={isSignedIn} /></TabsContent>
               <TabsContent value="panchang" className="mt-6 focus-visible:outline-none"><PanchangDashboard /></TabsContent>
+              <TabsContent value="match" className="mt-3 focus-visible:outline-none"><MatchTab /></TabsContent>
               <TabsContent value="about" className="mt-0 focus-visible:outline-none"><About /></TabsContent>
             </Tabs>
           </div>

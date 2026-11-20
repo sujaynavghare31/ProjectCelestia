@@ -1,0 +1,238 @@
+[
+ {
+  "pair": "B=1990-05-15T08:30:00@Mumbai;G=1993-11-02T19:45:00@Delhi",
+  "boy": {
+   "Sun": 30.3136040364278,
+   "Moon": 268.819923896887,
+   "Mars": 324.32336798214,
+   "Mercury": 14.3405460824952,
+   "Jupiter": 75.7325332494065,
+   "Venus": 348.666447517871,
+   "Saturn": 271.506515590449,
+   "Rahu": 286.777757263935,
+   "Ketu": 106.777757263935,
+   "Lagna": 65.4366499459869
+  },
+  "girl": {
+   "Sun": 196.399802093304,
+   "Moon": 50.5435004380289,
+   "Mars": 211.484867328308,
+   "Mercury": 204.408937848678,
+   "Jupiter": 184.566634627732,
+   "Venus": 178.097789209437,
+   "Saturn": 299.915759510439,
+   "Rahu": 219.407405251725,
+   "Ketu": 39.4074052517251,
+   "Lagna": 53.4289713477728
+  },
+  "kootas": [
+   1,
+   2,
+   3,
+   0,
+   0.5,
+   6,
+   0,
+   0
+  ],
+  "total": 12.5,
+  "adjusted": 12.5,
+  "doshas": [
+   "Present",
+   "Present",
+   "No dosha",
+   "Manglik \u2014 cancelled",
+   "Manglik \u2014 cancelled",
+   "No dosha",
+   "OK",
+   "OK",
+   "Not present",
+   "Good",
+   "5 / 5",
+   "4 / 5"
+  ],
+  "papa": [
+   7.5,
+   6.5
+  ],
+  "porutham": "6 / 10",
+  "verdict": "NOT RECOMMENDED \u2014 low compatibility; consult an astrologer before proceeding."
+ },
+ {
+  "pair": "B=1988-01-24T23:10:00@Chennai;G=1991-07-09T05:20:00@Bengaluru",
+  "boy": {
+   "Sun": 280.266510929916,
+   "Moon": 355.626813559375,
+   "Mars": 227.039477851351,
+   "Mercury": 298.557795066073,
+   "Jupiter": 358.744144703495,
+   "Venus": 317.3343102609,
+   "Saturn": 244.361623641916,
+   "Rahu": 330.626549099521,
+   "Ketu": 150.626549099521,
+   "Lagna": 174.595953454021
+  },
+  "girl": {
+   "Sun": 82.5684152078905,
+   "Moon": 43.0657812475831,
+   "Mars": 122.254603078334,
+   "Mercury": 104.187042870552,
+   "Jupiter": 112.215879687068,
+   "Venus": 124.832215088288,
+   "Saturn": 281.070537260431,
+   "Rahu": 265.224254535708,
+   "Ketu": 85.2242545357078,
+   "Lagna": 72.8779833102349
+  },
+  "kootas": [
+   1,
+   1,
+   1.5,
+   3,
+   0.5,
+   6,
+   7,
+   0
+  ],
+  "total": 20,
+  "adjusted": 20,
+  "doshas": [
+   "Present",
+   "No dosha",
+   "No dosha",
+   "Not Manglik",
+   "Manglik (strong)",
+   "Mismatch \u2014 dosha",
+   "OK",
+   "OK",
+   "Not present",
+   "Good",
+   "5 / 5",
+   "0.5 / 5"
+  ],
+  "papa": [
+   7.5,
+   8
+  ],
+  "porutham": "8 / 10",
+  "verdict": "PROCEED WITH CAUTION \u2014 acceptable score but dosha(s) present; remedies and a detailed chart reading advised."
+ },
+ {
+  "pair": "B=1995-03-30T14:05:00@Kolkata;G=1997-12-12T02:40:00@Pune",
+  "boy": {
+   "Sun": 345.384787861108,
+   "Moon": 336.824319512225,
+   "Mars": 109.556038335496,
+   "Mercury": 330.877034389675,
+   "Jupiter": 231.594566378661,
+   "Venus": 308.765087429581,
+   "Saturn": 324.148823814195,
+   "Rahu": 191.857144480185,
+   "Ketu": 11.8571444801851,
+   "Lagna": 114.680303685732
+  },
+  "girl": {
+   "Sun": 236.048400467511,
+   "Moon": 27.0670655804146,
+   "Mars": 271.181019147199,
+   "Mercury": 247.938217582403,
+   "Jupiter": 294.529522363234,
+   "Venus": 276.015934835941,
+   "Saturn": 349.711905695552,
+   "Rahu": 140.964678847621,
+   "Ketu": 320.96467884762,
+   "Lagna": 176.989184056195
+  },
+  "kootas": [
+   1,
+   1,
+   1.5,
+   3,
+   5,
+   0,
+   0,
+   8
+  ],
+  "total": 19.5,
+  "adjusted": 26.5,
+  "doshas": [
+   "No dosha",
+   "Cancelled",
+   "Cancelled",
+   "Manglik \u2014 cancelled",
+   "Manglik \u2014 cancelled",
+   "No dosha",
+   "OK",
+   "OK",
+   "Not present",
+   "Good",
+   "1 / 5",
+   "0.5 / 5"
+  ],
+  "papa": [
+   8,
+   6.5
+  ],
+  "porutham": "7 / 10",
+  "verdict": "RECOMMENDED \u2014 good compatibility."
+ },
+ {
+  "pair": "B=1984-09-03T06:00:00@Jaipur;G=1986-02-18T12:15:00@Lucknow",
+  "boy": {
+   "Sun": 137.056271312229,
+   "Moon": 234.220328916013,
+   "Mars": 225.490455307731,
+   "Mercury": 127.589892731407,
+   "Jupiter": 249.496964095495,
+   "Venus": 158.580485122667,
+   "Saturn": 198.13951975009,
+   "Rahu": 37.4005983437461,
+   "Ketu": 217.400598343746,
+   "Lagna": 134.664936682416
+  },
+  "girl": {
+   "Sun": 305.658550589734,
+   "Moon": 51.3745515760923,
+   "Mars": 225.678315629837,
+   "Mercury": 319.063626139765,
+   "Jupiter": 305.760797445312,
+   "Venus": 312.78247264902,
+   "Saturn": 225.292516528816,
+   "Rahu": 8.61630300036594,
+   "Ketu": 188.616303000366,
+   "Lagna": 49.9238098835835
+  },
+  "kootas": [
+   1,
+   1,
+   1.5,
+   2,
+   3,
+   0,
+   7,
+   8
+  ],
+  "total": 23.5,
+  "adjusted": 23.5,
+  "doshas": [
+   "No dosha",
+   "No dosha",
+   "Cancelled",
+   "Manglik \u2014 cancelled",
+   "Manglik \u2014 cancelled",
+   "No dosha",
+   "OK",
+   "OK",
+   "Not present",
+   "Good",
+   "0 / 5",
+   "0.5 / 5"
+  ],
+  "papa": [
+   8,
+   6.5
+  ],
+  "porutham": "8 / 10",
+  "verdict": "RECOMMENDED \u2014 good compatibility."
+ }
+]

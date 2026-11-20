@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { RotateCcw, Sparkles, Sun } from "lucide-react";
-import { useKundaliStore } from "@/lib/kundali-store";
-import type { PlanetPosition } from "@/lib/kundali-types";
-import { CALENDAR_BODIES, deriveTransitEvents, fetchTransitSamples, type TransitSample } from "@/lib/astrology/transit-calendar";
+import type { BirthProfile } from "@/lib/kundali-store";
+import type { NodeType, PlanetPosition, ZodiacMode } from "@/lib/kundali-types";
+import { CALENDAR_BODIES, deriveTransitEvents, fetchTransitSamples, getCachedTransitSamples, type TransitSample } from "@/lib/astrology/transit-calendar";
 import EphemerisLoader from "@/components/dashboard-tabs/ephemeris-loader";
 
 const YEARS = [2025, 2026, 2027] as const;
@@ -80,35 +80,62 @@ function MonthlyCard({
   );
 }
 
-export default function TransitCalendarTab({ natalPlanets }: { natalPlanets: PlanetPosition[] }) {
-  const profile = useKundaliStore((state) => state.profile);
-  const ayanamsa = useKundaliStore((state) => state.ayanamsa);
-  const zodiacMode = useKundaliStore((state) => state.zodiacMode);
-  const customAyanamsaDegrees = useKundaliStore((state) => state.customAyanamsaDegrees);
-  const nodeType = useKundaliStore((state) => state.nodeType);
+export default function TransitCalendarTab({
+  natalPlanets,
+  active,
+  profile,
+  ayanamsa,
+  zodiacMode,
+  customAyanamsaDegrees,
+  nodeType,
+}: {
+  natalPlanets: PlanetPosition[];
+  active: boolean;
+  profile: Pick<BirthProfile, "lat" | "lng" | "timezone" | "city">;
+  ayanamsa: string;
+  zodiacMode: ZodiacMode;
+  customAyanamsaDegrees: number;
+  nodeType: NodeType;
+}) {
   const [year, setYear] = useState<number>(new Date().getFullYear() >= 2025 && new Date().getFullYear() <= 2027 ? new Date().getFullYear() : 2026);
   const [samples, setSamples] = useState<TransitSample[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const loadedKey = useRef<string | null>(null);
+  const requestKey = JSON.stringify([year, profile.lat, profile.lng, profile.timezone, ayanamsa, zodiacMode, customAyanamsaDegrees, nodeType]);
 
   useEffect(() => {
-    let active = true;
+    if (!active || loadedKey.current === requestKey) return;
+    const settings = { ayanamsa, zodiacMode, customAyanamsaDegrees, nodeType };
+    const cachedSamples = getCachedTransitSamples(year, profile, settings);
+    if (cachedSamples) {
+      loadedKey.current = requestKey;
+      setSamples(cachedSamples);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    let isRequestActive = true;
     setLoading(true);
     setError(null);
-    fetchTransitSamples(year, profile, { ayanamsa, zodiacMode, customAyanamsaDegrees, nodeType })
+    fetchTransitSamples(year, profile, settings)
       .then((nextSamples) => {
-        if (active) setSamples(nextSamples);
+        if (isRequestActive) {
+          loadedKey.current = requestKey;
+          setSamples(nextSamples);
+        }
       })
       .catch((requestError: unknown) => {
-        if (active) setError(requestError instanceof Error ? requestError.message : "Unable to load transit calendar.");
+        if (isRequestActive) setError(requestError instanceof Error ? requestError.message : "Unable to load transit calendar.");
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (isRequestActive) setLoading(false);
       });
     return () => {
-      active = false;
+      isRequestActive = false;
     };
-  }, [ayanamsa, customAyanamsaDegrees, nodeType, profile, year, zodiacMode]);
+  }, [active, ayanamsa, customAyanamsaDegrees, nodeType, profile, requestKey, year, zodiacMode]);
 
   const events = useMemo(() => deriveTransitEvents(samples, natalPlanets), [natalPlanets, samples]);
   const latest = useMemo(() => latestByPlanet(samples), [samples]);

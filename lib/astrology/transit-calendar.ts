@@ -62,6 +62,17 @@ function readStoredCache(key: string) {
   }
 }
 
+export function getCachedTransitSamples(
+  year: number,
+  profile: Pick<EphemerisRequest, "lat" | "lng" | "timezone">,
+  settings: TransitCalendarSettings,
+) {
+  const key = getCacheKey(year, profile, settings);
+  const cached = memoryCache.get(key) ?? readStoredCache(key);
+  if (cached) memoryCache.set(key, cached);
+  return cached ?? null;
+}
+
 function writeStoredCache(key: string, samples: TransitSample[]) {
   if (typeof window === "undefined") return;
   try {
