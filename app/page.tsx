@@ -363,7 +363,7 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
         type="button"
         onClick={() => navigate(id)}
         aria-current={active ? "page" : undefined}
-        className={`flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${compact ? "min-w-max px-2 text-xs xl:px-3 xl:text-sm" : "w-full px-3"} ${active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+        className={`flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${compact ? "min-w-max px-1.5 text-xs xl:px-2.5 xl:text-sm" : "w-full px-3"} ${active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
       >
         <Icon className="size-4 shrink-0" aria-hidden="true" />
         {label}
@@ -378,7 +378,7 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
 
   return (
     <main className="relative z-0 flex min-h-screen min-w-0 flex-col overflow-x-clip bg-background text-foreground">
-        <header className="relative z-50 flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-white px-3 py-2 dark:bg-slate-950 sm:px-6 md:z-30 md:flex-nowrap md:bg-card lg:min-h-[60px] lg:px-4 lg:py-0 2xl:px-6">
+        <header className="relative z-50 flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-white px-3 py-2 dark:bg-slate-950 sm:px-6 md:z-30 md:flex-nowrap md:bg-card lg:min-h-[60px] lg:gap-1.5 lg:px-4 lg:py-0 2xl:px-6">
           <a href="#kundali-charts" onClick={(event) => { event.preventDefault(); navigate("kundali"); }} className="flex min-w-0 items-center gap-2.5" aria-label="Project Celestia Kundali dashboard">
             <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
               <svg viewBox="0 0 36 36" aria-hidden="true" className="size-5">

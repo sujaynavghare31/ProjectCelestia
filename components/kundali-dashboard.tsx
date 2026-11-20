@@ -7,7 +7,6 @@ import {
   AlertCircle,
   ArrowDownUp,
   ArrowRight,
-  FolderOpen,
   ChevronDown,
   Clock3,
   Compass,
@@ -16,17 +15,18 @@ import {
   Info,
   LoaderCircle,
   MapPin,
+  Maximize2,
   Minimize2,
   Orbit,
   Search,
   Save,
-  StickyNote,
   X,
 } from "lucide-react";
 import type { CarterZodiac, ChartSettings, ChartStyle, CelestialLanguage, EphemerisResponse, HouseSystem, MidpointPreferences, PlanetPosition, ViewPreferences } from "@/lib/kundali-types";
 import PlacidusWheel from "@/components/PlacidusWheel";
 import ChartControls from "@/components/ChartControls";
 import { getBirthDateTimeDefaults, getCurrentBirthDateTime, useKundaliStore, type BirthProfile } from "@/lib/kundali-store";
+import { PROFILE_DRAFT_STORAGE_KEY } from "@/lib/astrology/profile-draft";
 import { limitCoordinatePrecision, parseCoordinateDraft } from "@/lib/coordinate-input";
 import { formatPlanetDegree, planetChartDisplayName, planetName, signName } from "@/lib/astrology/localization";
 import { splitHouseBodies } from "@/lib/astrology/chart-layout";
@@ -46,11 +46,6 @@ import CelestiaLoader from "@/components/ui/CelestiaLoader";
 import JamakkolTab from "@/components/dashboard-tabs/jamakkol-tab";
 import {
   clearCachedSavedProfiles,
-  fetchSavedProfiles,
-  getCachedSavedProfiles,
-  removeCachedSavedProfile,
-  SavedProfilesRequestError,
-  SavedProfilesRequestSupersededError,
   updateCachedSavedProfile,
   type SavedProfile,
 } from "@/lib/saved-profiles-cache";
@@ -62,10 +57,6 @@ const ChartSettingsDrawer = dynamic(
 const SaveChartDialog = dynamic(
   () => import("@/components/kundali-dashboard-dialogs").then((module) => module.SaveChartDialog),
   { loading: () => <CelestiaLoader label="Loading saved chart form…" compact tone="dashboard" /> },
-);
-const SavedChartsDialog = dynamic(
-  () => import("@/components/kundali-dashboard-dialogs").then((module) => module.SavedChartsDialog),
-  { loading: () => <CelestiaLoader label="Loading Saved Charts…" compact tone="dashboard" /> },
 );
 const DashaTab = dynamic(() => import("@/components/dashboard-tabs/DashaDashboard"), {
   loading: () => <CelestiaLoader label="Preparing Dasha Systems…" sublabel="Loading planetary period calculations…" tone="dashboard" />,
@@ -1072,8 +1063,6 @@ async function readProfileApiResponse<T>(response: Response): Promise<T> {
   }
 }
 
-const PROFILE_DRAFT_STORAGE_KEY = "project-celestia:profile-draft";
-
 function parseProfileDraft(value: string): BirthProfile | null {
   const parsed: unknown = JSON.parse(value);
   if (typeof parsed !== "object" || parsed === null) return null;
@@ -1167,17 +1156,11 @@ export function KundaliDashboard({
   const [dashaSeed, setDashaSeed] = useState<DashaSeed>("moon");
   const [dashaLagnaMode, setDashaLagnaMode] = useState<DashaLagnaMode>("maha-lord");
   const [notesExpanded, setNotesExpanded] = useState(false);
-  const notesPopoverRef = useRef<HTMLDivElement>(null);
   const [chartMode, setChartMode] = useState<"transit" | "birth">("transit");
   const [transitDate, setTransitDate] = useState(() => getCurrentBirthDateTime().date);
   const [transitTime, setTransitTime] = useState(() => getCurrentBirthDateTime().time);
   const [transitMode, setTransitMode] = useState<"current" | "specific">("current");
   const [savedProfileId, setSavedProfileId] = useState<string | null>(null);
-  const [savedProfiles, setSavedProfiles] = useState<SavedProfile[]>([]);
-  const [deletingProfileId, setDeletingProfileId] = useState<string | null>(null);
-  const [savedProfilesOpen, setSavedProfilesOpen] = useState(false);
-  const [savedProfilesLoading, setSavedProfilesLoading] = useState(false);
-  const [savedProfilesQuery, setSavedProfilesQuery] = useState("");
   const previousSavedProfilesUserId = useRef<string | null>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [saveDialogMode, setSaveDialogMode] = useState<"update" | "copy">("update");
@@ -1283,7 +1266,7 @@ export function KundaliDashboard({
     }
 
     setProfile(draft);
-    setSavedProfileId(null);
+    setSavedProfileId(draft.id || null);
     setLocationSearch(draft.city);
     setLatitudeDraft(draft.lat.toFixed(2));
     setLongitudeDraft(draft.lng.toFixed(2));
@@ -1292,7 +1275,9 @@ export function KundaliDashboard({
     setSubmittedProfile({ ...draft, name: draft.name.trim() || "Birth chart" });
     setProfileCollapsed(true);
     setChartMode("birth");
-    setProfileActionMessage("Your chart details were restored. Choose Save chart to add them to your account.");
+    setProfileActionMessage(draft.id
+      ? `Loaded ${draft.name || "saved chart"}. Choose Update chart to save changes.`
+      : "Your chart details were restored. Choose Save chart to add them to your account.");
   }, [setProfile]);
 
   useEffect(() => {
@@ -1313,21 +1298,12 @@ export function KundaliDashboard({
   }, [profile.city]);
 
   useEffect(() => {
-    if (profile.notes && window.matchMedia("(max-width: 1023px)").matches) setNotesExpanded(true);
-  }, [profile.notes]);
-
-  useEffect(() => {
     if (!notesExpanded) return;
-    const handlePointerDown = (event: PointerEvent) => {
-      if (notesPopoverRef.current && !notesPopoverRef.current.contains(event.target as Node)) setNotesExpanded(false);
-    };
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setNotesExpanded(false);
     };
-    document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [notesExpanded]);
@@ -1399,20 +1375,9 @@ export function KundaliDashboard({
     const previousUserId = previousSavedProfilesUserId.current;
     if (previousUserId && previousUserId !== clerkUserId) {
       clearCachedSavedProfiles(previousUserId);
-      setSavedProfiles([]);
-      setSavedProfilesOpen(false);
-      setSavedProfilesLoading(false);
       setProfileActionError(null);
     }
     previousSavedProfilesUserId.current = clerkUserId ?? null;
-
-    if (!isSignedIn || !clerkUserId) {
-      setSavedProfiles([]);
-      return;
-    }
-
-    const cached = getCachedSavedProfiles(clerkUserId);
-    if (cached) setSavedProfiles(cached);
   }, [clerkUserId, isSignedIn]);
 
   useEffect(() => {
@@ -1603,7 +1568,6 @@ export function KundaliDashboard({
       if (previousSavedProfilesUserId.current !== clerkUserId) return false;
       const saved = result.profile;
       setSavedProfileId(saved.id);
-      setSavedProfiles((current) => [saved, ...current.filter(({ id }) => id !== saved.id)]);
       if (clerkUserId) updateCachedSavedProfile(clerkUserId, saved);
       setSaveDialogName(saved.chartName || saved.fullName);
       setSaveToast(`${targetId ? "Updated" : "Saved"} "${saved.chartName || saved.fullName}"`);
@@ -1632,15 +1596,9 @@ export function KundaliDashboard({
     setProfileActionError(null);
     setProfileActionMessage(null);
     setSaveDialogError(null);
-    const savedProfile = savedProfiles.find(({ id }) => id === savedProfileId);
     const enteredChartName = profile.name.trim() === "Current transit" ? "" : profile.name.trim();
     setSaveDialogMode("update");
-    setSaveDialogName(
-      enteredChartName ||
-      savedProfile?.chartName ||
-      savedProfile?.fullName ||
-      "",
-    );
+    setSaveDialogName(enteredChartName);
     if (enteredChartName) {
       if (await saveProfile(savedProfileId, enteredChartName)) setSaveDialogOpen(false);
       return;
@@ -1650,107 +1608,6 @@ export function KundaliDashboard({
   const confirmSaveProfile = async (mode: "update" | "copy", chartName: string) => {
     const targetId = mode === "update" ? savedProfileId : null;
     if (await saveProfile(targetId, chartName)) setSaveDialogOpen(false);
-  };
-  const startFirstChartSave = () => {
-    setSavedProfilesOpen(false);
-    if (!isSignedIn) {
-      redirectToSignIn();
-      return;
-    }
-    setSaveDialogError(null);
-    setSaveDialogMode("copy");
-    setSaveDialogName("");
-    setSaveDialogOpen(true);
-  };
-  const toggleSavedProfiles = async () => {
-    setProfileActionError(null);
-    setProfileActionMessage(null);
-    if (savedProfilesOpen) {
-      setSavedProfilesOpen(false);
-      return;
-    }
-
-    if (!isSignedIn || !clerkUserId) {
-      redirectToSignIn();
-      return;
-    }
-
-    setSavedProfilesQuery("");
-    setSavedProfilesOpen(true);
-    const cached = getCachedSavedProfiles(clerkUserId);
-    if (cached) setSavedProfiles(cached);
-    setSavedProfilesLoading(!cached);
-    try {
-      const profiles = await fetchSavedProfiles(clerkUserId);
-      if (previousSavedProfilesUserId.current === clerkUserId) setSavedProfiles(profiles);
-    } catch (reason) {
-      if (previousSavedProfilesUserId.current !== clerkUserId) return;
-      if (reason instanceof SavedProfilesRequestSupersededError) return;
-      if (reason instanceof SavedProfilesRequestError && reason.status === 401) {
-        clearCachedSavedProfiles(clerkUserId);
-        setSavedProfiles([]);
-        redirectToSignIn();
-        return;
-      }
-      if (cached) {
-        console.warn("[saved-charts] Background refresh failed; showing cached charts", reason);
-      } else {
-        setProfileActionError(reason instanceof Error ? reason.message : "Saved charts could not be loaded. Please try again.");
-      }
-    } finally {
-      if (previousSavedProfilesUserId.current === clerkUserId) setSavedProfilesLoading(false);
-    }
-  };
-  const deleteSavedProfile = async (saved: SavedProfile) => {
-    setProfileActionError(null);
-    setProfileActionMessage(null);
-    setDeletingProfileId(saved.id);
-    try {
-      const response = await fetch(`/api/profiles?id=${encodeURIComponent(saved.id)}`, { method: "DELETE" });
-      if (response.status === 401) {
-        redirectToSignIn();
-        return;
-      }
-      const result = await readProfileApiResponse<{ id?: string; error?: string }>(response);
-      if (!response.ok || result.id !== saved.id) throw new Error(result.error ?? "Chart could not be removed.");
-      if (previousSavedProfilesUserId.current !== clerkUserId) return;
-      setSavedProfiles((current) => current.filter(({ id }) => id !== saved.id));
-      if (clerkUserId) removeCachedSavedProfile(clerkUserId, saved.id);
-      if (savedProfileId === saved.id) setSavedProfileId(null);
-      setProfileActionMessage(`${saved.chartName || saved.fullName} was removed from your saved charts.`);
-    } catch (reason) {
-      setProfileActionError(reason instanceof Error ? reason.message : "Chart could not be removed. Please try again.");
-    } finally {
-      setDeletingProfileId(null);
-    }
-  };
-  const selectSavedProfile = (saved: SavedProfile) => {
-    const nextProfile: BirthProfile = {
-      id: saved.id,
-      name: saved.chartName ?? saved.fullName,
-      sex: saved.sex,
-      date: saved.dateOfBirth,
-      time: saved.timeOfBirth,
-      lat: saved.latitude,
-      lng: saved.longitude,
-      timezone: saved.timezone,
-      city: saved.city ?? "",
-      notes: saved.notes,
-    };
-    setProfile(nextProfile);
-    setSavedProfileId(saved.id);
-    setLatitudeDraft(saved.latitude.toFixed(2));
-    setLongitudeDraft(saved.longitude.toFixed(2));
-    setLocationSearch(saved.city ?? "");
-    setUseCoordinates(false);
-    setSubmittedProfile({ ...nextProfile, name: nextProfile.name.trim() || "Birth chart" });
-    setProfileCollapsed(true);
-    setChartMode("birth");
-    setData(null);
-    setLoading(true);
-    setError(null);
-    setProfileActionMessage(`Loaded ${saved.chartName || saved.fullName}.`);
-    setSavedProfilesOpen(false);
   };
   const chooseLocation = (location: GeocodeResult) => {
     setProfile({
@@ -1973,20 +1830,10 @@ export function KundaliDashboard({
       )}
       <div className="mx-auto w-full max-w-[1440px] space-y-4 2xl:max-w-[1600px]">
         <section aria-label="Birth chart controls" className="shrink-0 rounded-xl border border-border bg-card p-3 text-card-foreground shadow-sm md:rounded-2xl md:border-stone-200/80 md:shadow-[0_1px_3px_rgba(15,23,42,0.04)] lg:p-2">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 lg:hidden">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 xl:hidden">
             <div id="chart-profile" className="flex items-center gap-2 scroll-mt-4">
               <span className="grid size-7 place-items-center rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-400/10 dark:text-amber-300"><Orbit className="size-4" /></span>
               <p className="text-xs font-semibold">Chart profile</p>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button type="button" onClick={openSaveDialog} disabled={savingProfile} className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60">
-                <Save aria-hidden="true" className="size-3.5" />
-                {saveButtonLabel}
-              </button>
-              <button type="button" onClick={toggleSavedProfiles} aria-expanded={savedProfilesOpen} className="inline-flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-background px-2.5 text-xs font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
-                <FolderOpen aria-hidden="true" className="size-3.5" />
-                {savedProfilesOpen ? "Close saved" : "Load saved"}
-              </button>
             </div>
           </div>
           {profileCollapsed && (
@@ -2005,13 +1852,13 @@ export function KundaliDashboard({
             </div>
           )}
           <form onSubmit={submitBirthChart} className={`${profileCollapsed ? "hidden md:block" : ""} min-w-0 space-y-2`}>
-            <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-[minmax(100px,1.15fr)_minmax(74px,0.8fr)_minmax(125px,1fr)_minmax(125px,1fr)_minmax(180px,1.6fr)_minmax(100px,0.9fr)_minmax(100px,0.9fr)_minmax(140px,1.2fr)]">
+            <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-[minmax(0,1.35fr)_minmax(76px,.7fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(152px,1.5fr)_minmax(135px,1.35fr)_minmax(112px,1.1fr)_minmax(110px,1fr)]">
               <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">
                 Chart name
-                <input aria-label="Chart name" type="text" maxLength={100} value={profile.name === "Current transit" ? "" : profile.name} placeholder="Enter Jataka's name" onChange={(event) => setProfile({ name: event.target.value })} className={`${CONTROL_CLASS} mt-1 h-11 w-full text-base placeholder:text-slate-600 dark:placeholder:text-slate-400 md:text-sm lg:h-9`} />
+                <input aria-label="Chart name" type="text" maxLength={100} value={profile.name === "Current transit" ? "" : profile.name} placeholder="Enter Jataka's name" onChange={(event) => setProfile({ name: event.target.value })} className={`${CONTROL_CLASS} mt-1 h-11 w-full text-base placeholder:text-slate-600 dark:placeholder:text-slate-400 md:text-sm xl:h-9`} />
               </label>
               <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Gender
-                <select aria-label="Gender" value={profile.sex} onChange={(event) => setProfile({ sex: event.target.value as BirthProfile["sex"] })} className={`${CONTROL_CLASS} mt-1 h-11 w-full min-w-0 px-2 pr-9 text-base md:text-sm lg:h-9`}>
+                <select aria-label="Gender" value={profile.sex} onChange={(event) => setProfile({ sex: event.target.value as BirthProfile["sex"] })} className={`${CONTROL_CLASS} mt-1 h-11 w-full min-w-0 px-2 pr-8 text-base md:text-sm xl:h-9`}>
                   <option value="not-applicable">Not specified</option>
                   <option value="male">Male</option>
                   <option value="female">Female</option>
@@ -2019,13 +1866,13 @@ export function KundaliDashboard({
               </label>
               <div className="grid min-w-0 grid-cols-2 gap-2.5 md:contents">
                 <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Birth date
-                  <input aria-label="Birth date" type="date" required value={profile.date} onChange={(event) => setProfile({ date: event.target.value })} className={`${CONTROL_CLASS} mt-1 box-border h-11 w-full min-w-0 max-w-full px-2 text-base md:text-sm lg:h-9`} />
+                  <input aria-label="Birth date" type="date" required value={profile.date} onChange={(event) => setProfile({ date: event.target.value })} className={`${CONTROL_CLASS} mt-1 box-border h-11 w-full min-w-0 max-w-full px-2 text-base md:text-sm xl:h-9`} />
                 </label>
                 <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Birth time
                   <input aria-label="Time of birth" type="time" step={1} value={profile.time} onChange={(event) => {
                     const time = event.target.value;
                     setProfile({ time: time ? (time.length === 5 ? `${time}:00` : time) : "" });
-                  }} required className={`${CONTROL_CLASS} mt-1 box-border h-11 w-full min-w-0 max-w-full px-2 text-base font-mono md:text-sm lg:h-9`} />
+                  }} required className={`${CONTROL_CLASS} mt-1 box-border h-11 w-full min-w-0 max-w-full px-2 text-base font-mono md:text-sm xl:h-9`} />
                 </label>
               </div>
               <div className="relative min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300">
@@ -2034,9 +1881,9 @@ export function KundaliDashboard({
                     <label htmlFor="birth-city-search">Birth city</label>
                     <span className="relative mt-1 block">
                       <MapPin className="pointer-events-none absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
-                      <input id="birth-city-search" aria-label="Birth city; search anywhere" type="search" maxLength={160} value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="Search city…" autoComplete="off" aria-autocomplete="list" aria-expanded={locationResults.length > 0} className={`${CONTROL_CLASS} h-11 w-full min-w-0 pl-8 pr-24 text-base md:text-sm lg:h-9 lg:pr-16`} />
-                      {locationLoading && <Search className="absolute right-16 top-2.5 size-3.5 animate-pulse text-primary lg:right-14" />}
-                      <button type="button" onClick={useCurrentLocation} disabled={currentLocationLoading} title={currentLocationLoading ? "Finding current location" : "Use current location"} aria-label={currentLocationLoading ? "Finding current location" : "Use current location"} className="absolute right-11 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60 lg:right-8 lg:size-6">
+                      <input id="birth-city-search" aria-label="Birth city; search anywhere" type="search" maxLength={160} value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="Search city…" autoComplete="off" aria-autocomplete="list" aria-expanded={locationResults.length > 0} className={`${CONTROL_CLASS} h-11 w-full min-w-0 pl-8 pr-24 text-base md:text-sm xl:h-9 xl:pr-20`} />
+                      {locationLoading && <Search className="absolute right-16 top-2.5 size-3.5 animate-pulse text-primary xl:right-14" />}
+                      <button type="button" onClick={useCurrentLocation} disabled={currentLocationLoading} title={currentLocationLoading ? "Finding current location" : "Use current location"} aria-label={currentLocationLoading ? "Finding current location" : "Use current location"} className="absolute right-11 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60 xl:right-10 xl:size-9">
                         {currentLocationLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <Crosshair className="size-3.5" />}
                       </button>
                       <button type="button" onClick={() => {
@@ -2044,7 +1891,7 @@ export function KundaliDashboard({
                         if (Number.isFinite(profile.lng)) setLongitudeDraft(profile.lng.toFixed(2));
                         setUseCoordinates(true);
                         setLocationError(null);
-                      }} title="Enter birth coordinates" aria-label="Enter birth coordinates" className="absolute right-0 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:right-1 lg:size-6"><MapPin className="size-3.5" /></button>
+                      }} title="Enter birth coordinates" aria-label="Enter birth coordinates" className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded text-[9px] font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 xl:h-9 xl:w-10">Coords</button>
                     </span>
                     {locationError && <p role="status" className="absolute z-10 mt-1 rounded bg-rose-50 px-1 text-xs text-rose-800 dark:bg-rose-950/30 dark:text-rose-200">{locationError}</p>}
                     {locationResults.length > 0 && (
@@ -2054,126 +1901,109 @@ export function KundaliDashboard({
                     )}
                   </>
                 ) : (
-                  <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem] items-end gap-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_1.5rem]">
+                  <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem] items-end gap-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.25rem]">
                     <label className="min-w-0 truncate">Latitude
                       <input aria-label="Latitude" type="text" inputMode="decimal" autoComplete="off" value={latitudeDraft} onChange={(event) => {
                         const value = limitCoordinatePrecision(event.target.value);
                         setLatitudeDraft(value);
                         setProfile({ lat: parseCoordinateDraft(value) });
-                      }} className={`${CONTROL_CLASS} mt-1 h-11 w-full min-w-0 px-1 text-base font-mono tabular-nums md:text-sm lg:h-9`} placeholder="28.66" />
+                      }} className={`${CONTROL_CLASS} mt-1 h-11 w-full min-w-0 px-1 text-base font-mono tabular-nums md:text-sm xl:h-9`} placeholder="28.66" />
                     </label>
                     <label className="min-w-0 truncate">Longitude
                       <input aria-label="Longitude" type="text" inputMode="decimal" autoComplete="off" value={longitudeDraft} onChange={(event) => {
                         const value = limitCoordinatePrecision(event.target.value);
                         setLongitudeDraft(value);
                         setProfile({ lng: parseCoordinateDraft(value) });
-                      }} className={`${CONTROL_CLASS} mt-1 h-11 w-full min-w-0 px-1 text-base font-mono tabular-nums md:text-sm lg:h-9`} placeholder="72.87" />
+                      }} className={`${CONTROL_CLASS} mt-1 h-11 w-full min-w-0 px-1 text-base font-mono tabular-nums md:text-sm xl:h-9`} placeholder="72.87" />
                     </label>
                     <button type="button" onClick={() => {
                       setUseCoordinates(false);
                       setLocationError(null);
-                    }} title="Search for a birth city" aria-label="Search for a birth city" className="grid size-11 place-items-center rounded-lg border border-input text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:size-9">
+                    }} title="Search for a birth city" aria-label="Search for a birth city" className="grid size-11 place-items-center rounded-lg border border-input text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 xl:size-9">
                       <MapPin className="size-3.5" />
                     </button>
                   </div>
                 )}
               </div>
-              <button type="submit" className={`inline-flex h-11 w-full min-w-0 self-end items-center justify-center gap-1.5 rounded-lg bg-[#C64F30] px-1 text-xs font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40 lg:h-9 ${chartInputsChanged ? "ring-2 ring-amber-400/60 ring-offset-1 ring-offset-card" : ""}`}>
-                {chartInputsChanged ? "Update chart" : "Calculate chart"}
-                {chartInputsChanged && <><span className="sr-only">Chart inputs changed since calculation</span><span aria-hidden="true" className="size-1.5 rounded-full bg-amber-200" /></>}
-              </button>
-              <button type="button" onClick={openSaveDialog} disabled={savingProfile} className="hidden min-h-11 w-full self-end items-center justify-center gap-1 rounded-lg border border-border bg-background px-1 text-[11px] font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60 lg:inline-flex lg:min-h-9">
-                <Save aria-hidden="true" className="size-3.5 shrink-0" />
-                {saveButtonLabel}
-              </button>
-              <div className="hidden min-w-0 self-end gap-1 lg:flex">
-                <div ref={notesPopoverRef} className="relative min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => setNotesExpanded((expanded) => !expanded)}
-                    aria-expanded={notesExpanded}
-                    aria-controls="chart-notes-desktop"
-                    className="inline-flex min-h-11 items-center gap-1 whitespace-nowrap rounded-lg border border-border bg-background px-2 text-[11px] font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:min-h-9"
+              <div className="relative min-w-0">
+                <label htmlFor="chart-notes" className="block text-xs font-medium text-slate-700 dark:text-slate-300">Chart notes</label>
+                  <span className="relative mt-1 block">
+                    <input
+                      id="chart-notes"
+                      aria-label="Chart notes"
+                      type="text"
+                      maxLength={10000}
+                      value={profile.notes}
+                      onChange={(event) => setProfile({ notes: event.target.value })}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") event.preventDefault();
+                      }}
+                      placeholder="Add chart notes..."
+                      className={`${CONTROL_CLASS} h-11 w-full pr-10 text-base placeholder:text-slate-600 dark:placeholder:text-slate-400 focus:border-[#C05A3A] focus:ring-2 focus:ring-[#C05A3A]/40 md:text-sm xl:h-9`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setNotesExpanded(true)}
+                      title="Expand notes"
+                      aria-label="Expand notes"
+                      aria-expanded={notesExpanded}
+                      aria-controls={notesExpanded ? "chart-notes-editor" : undefined}
+                      className="absolute right-0 top-0 grid size-11 place-items-center rounded-r-lg text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C05A3A]/40 xl:size-9"
+                    >
+                      <Maximize2 aria-hidden="true" className="size-4" />
+                    </button>
+                  </span>
+                {notesExpanded && (
+                  <div
+                    className="fixed inset-0 z-[110] grid place-items-center bg-slate-950/45 p-3 sm:p-6"
+                    onPointerDown={(event) => {
+                      if (event.target === event.currentTarget) setNotesExpanded(false);
+                    }}
                   >
-                    <StickyNote aria-hidden="true" className="size-3.5 shrink-0" />
-                    Notes
-                    {profile.notes.trim() && <span aria-hidden="true" className="size-1.5 rounded-full bg-[#C64F30]" />}
-                  </button>
-                  {notesExpanded && (
-                    <div className="absolute right-0 top-full z-[70] mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-border bg-card p-3 text-card-foreground shadow-lg">
-                      <div className="mb-2 flex items-center justify-between gap-3">
-                        <label htmlFor="chart-notes-desktop" className="text-xs font-semibold">Personal notes</label>
-                        <button type="button" onClick={() => setNotesExpanded(false)} aria-label="Close personal notes" className="grid size-8 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                    <section
+                      role="dialog"
+                      aria-modal="true"
+                      aria-labelledby="chart-notes-heading"
+                      className="max-h-[min(88dvh,42rem)] w-full max-w-xl overflow-y-auto rounded-2xl border border-border bg-card p-4 text-card-foreground shadow-2xl sm:p-5"
+                    >
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div>
+                          <h2 id="chart-notes-heading" className="text-sm font-semibold">Chart notes</h2>
+                          <p className="mt-0.5 text-xs text-muted-foreground">Add context, events, or observations for this chart.</p>
+                        </div>
+                        <button type="button" onClick={() => setNotesExpanded(false)} aria-label="Close chart notes" className="grid size-10 shrink-0 place-items-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C05A3A]/40">
                           <X aria-hidden="true" className="size-4" />
                         </button>
                       </div>
                       <textarea
-                        id="chart-notes-desktop"
+                        id="chart-notes-editor"
+                        autoFocus
                         maxLength={10000}
-                        rows={5}
+                        rows={8}
                         value={profile.notes}
                         onChange={(event) => setProfile({ notes: event.target.value })}
-                        placeholder="Add personal notes, life events, or reference details..."
-                        className="min-h-28 w-full resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm leading-5 text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary/40"
+                        placeholder="Add chart notes..."
+                        className="min-h-48 w-full resize-y rounded-lg border border-input bg-background px-3 py-2.5 text-sm leading-6 text-foreground outline-none placeholder:text-muted-foreground focus:border-[#C05A3A] focus:ring-2 focus:ring-[#C05A3A]/40"
                       />
-                      <p aria-live="polite" className="mt-1 text-right text-[10px] tabular-nums text-muted-foreground">{profile.notes.length}/10,000</p>
-                    </div>
-                  )}
-                </div>
-                <button type="button" onClick={toggleSavedProfiles} aria-expanded={savedProfilesOpen} className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg border border-border bg-background px-1 text-[11px] font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:min-h-9">
-                  <FolderOpen aria-hidden="true" className="size-3.5 shrink-0" />
-                  {savedProfilesOpen ? "Close saved" : "Load saved"}
-                </button>
-              </div>
-              <div className="-mx-3 -mb-3 mt-1 min-w-0 rounded-b-xl border-t border-border bg-muted/80 px-3 py-2 dark:bg-muted/50 md:col-span-2 lg:hidden">
-                <button
-                  type="button"
-                  onClick={() => setNotesExpanded((expanded) => !expanded)}
-                  aria-expanded={notesExpanded}
-                  aria-controls="chart-notes"
-                  className="min-h-11 text-left text-xs font-medium text-muted-foreground transition hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-                >
-                  {notesExpanded ? "Hide personal notes" : profile.notes ? "Edit personal notes" : "+ Add personal notes"}
-                </button>
-                {notesExpanded && (
-                  <div className="flex min-w-0 items-end gap-2">
-                    <label htmlFor="chart-notes" className="sr-only">Personal chart notes</label>
-                    <textarea
-                      id="chart-notes"
-                      maxLength={10000}
-                      rows={4}
-                      value={profile.notes}
-                      onChange={(event) => setProfile({ notes: event.target.value })}
-                      placeholder="Add personal notes, life events, or reference details..."
-                      className="min-h-24 min-w-0 flex-1 resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm leading-5 text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary/40"
-                    />
-                    <span aria-live="polite" className="shrink-0 pb-2 text-[10px] tabular-nums text-muted-foreground">{profile.notes.length}/10,000</span>
+                      <p aria-live="polite" className="mt-1 text-right text-[11px] tabular-nums text-muted-foreground">{profile.notes.length.toLocaleString()}/10,000</p>
+                    </section>
                   </div>
                 )}
               </div>
+              <button type="submit" className={`inline-flex h-11 w-full min-w-0 self-end items-center justify-center gap-1.5 rounded-lg bg-[#C05A3A] px-1 text-xs font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C05A3A]/40 xl:h-9 ${chartInputsChanged ? "ring-2 ring-amber-400/60 ring-offset-1 ring-offset-card" : ""}`}>
+                {chartInputsChanged ? "Update chart" : "Calculate chart"}
+                {chartInputsChanged && <><span className="sr-only">Chart inputs changed since calculation</span><span aria-hidden="true" className="size-1.5 rounded-full bg-amber-200" /></>}
+              </button>
+              <button type="button" onClick={openSaveDialog} disabled={savingProfile} className="inline-flex min-h-11 w-full self-end items-center justify-center gap-1 rounded-lg border border-border bg-background px-1 text-[11px] font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60 xl:min-h-9">
+                <Save aria-hidden="true" className="size-3.5 shrink-0" />
+                {saveButtonLabel}
+              </button>
             </div>
           </form>
           {profileActionError && <p role="alert" className="mt-2 text-xs text-rose-800 dark:text-rose-200">{profileActionError}</p>}
           {profileActionMessage && <p role="status" className="mt-2 text-xs text-emerald-700 dark:text-emerald-300">{profileActionMessage}</p>}
           {coordinateTimezoneError && <p role="status" className="mt-1 truncate text-[11px] text-rose-700 dark:text-rose-300">{coordinateTimezoneError}</p>}
         </section>
-
-        {savedProfilesOpen && (
-          <SavedChartsDialog
-            open={savedProfilesOpen}
-            loading={savedProfilesLoading}
-            profiles={savedProfiles}
-            query={savedProfilesQuery}
-            deletingId={deletingProfileId}
-            actionError={profileActionError}
-            actionMessage={profileActionMessage}
-            onQueryChange={setSavedProfilesQuery}
-            onClose={() => setSavedProfilesOpen(false)}
-            onCreateFirstChart={startFirstChartSave}
-            onSelect={selectSavedProfile}
-            onDelete={(saved) => void deleteSavedProfile(saved)}
-          />
-        )}
 
         {saveDialogOpen && (
           <SaveChartDialog
@@ -2192,7 +2022,7 @@ export function KundaliDashboard({
         )}
 
         {selectedDashboardTab !== "jamakkol" && (
-          <nav role="tablist" aria-label="Kundali analysis" className="no-scrollbar flex w-full snap-x snap-mandatory gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 shadow-sm md:items-center md:rounded-2xl md:border-stone-200/80 md:bg-white md:p-1.5 md:shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
+          <nav role="tablist" aria-label="Kundali analysis" className="no-scrollbar flex w-full snap-x snap-mandatory gap-1 overflow-x-auto border-b border-border md:items-center md:gap-2">
             {DASHBOARD_TABS.map(({ id, label }) => (
               <button
                 key={id}
@@ -2202,7 +2032,7 @@ export function KundaliDashboard({
                 aria-selected={selectedDashboardTab === id}
                 aria-controls="kundali-tab-panel"
                 onClick={() => selectDashboardTab(id)}
-                className={`min-h-11 shrink-0 snap-start rounded-lg px-2 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:min-h-0 md:rounded-xl md:px-3.5 md:py-2 md:text-[13.5px] md:transition-colors md:whitespace-nowrap ${selectedDashboardTab === id ? "border border-primary/30 bg-accent text-accent-foreground shadow-sm md:border-[#EBC7B8] md:bg-[#FDF2EC] md:font-semibold md:text-[#B84E2E] md:shadow-[0_1px_2px_rgba(192,90,58,0.08)]" : "text-muted-foreground hover:bg-muted hover:text-foreground md:font-medium md:text-slate-600 md:hover:bg-stone-100/80 md:hover:text-slate-900"}`}
+                className={`relative min-h-11 shrink-0 snap-start whitespace-nowrap px-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 after:absolute after:inset-x-2.5 after:-bottom-px after:h-0.5 after:rounded-full after:transition-colors md:px-3.5 md:py-2 md:text-sm ${selectedDashboardTab === id ? "font-semibold text-[#B84E2E] after:bg-[#C05A3A]" : "text-muted-foreground after:bg-transparent hover:text-foreground hover:after:bg-border"}`}
               >
                 {label}
               </button>

@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import RemoveChartButton from "./remove-chart-button";
 import SavedChartForm from "./saved-chart-form";
 import ProfileCacheInvalidatingForm from "./profile-cache-invalidating-form";
+import OpenSavedChartButton from "./open-saved-chart-button";
 
 async function createProfile(formData: FormData) {
   "use server";
@@ -179,6 +180,20 @@ export default async function SavedChartsPage() {
                       {profile.dateOfBirth.toLocaleDateString(undefined, { dateStyle: "long", timeZone: "UTC" })} · {profile.timeOfBirth}
                     </p>
                     <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">{profile.latitude.toFixed(4)}, {profile.longitude.toFixed(4)} · {profile.sex === ChartSex.NOT_APPLICABLE ? "Gender not specified" : profile.sex.toLowerCase()}</p>
+                    <div className="mt-4">
+                      <OpenSavedChartButton profile={{
+                        id: profile.id,
+                        name: profile.chartName || profile.fullName,
+                        sex: profile.sex === ChartSex.MALE ? "male" : profile.sex === ChartSex.FEMALE ? "female" : "not-applicable",
+                        date: profile.dateOfBirth.toISOString().slice(0, 10),
+                        time: profile.timeOfBirth,
+                        lat: profile.latitude,
+                        lng: profile.longitude,
+                        timezone: profile.timezone,
+                        city: profile.city ?? "",
+                        notes: profile.notes,
+                      }} />
+                    </div>
                     <ProfileCacheInvalidatingForm action={deleteProfile} className="mt-4">
                       <input type="hidden" name="profileId" value={profile.id} />
                       <RemoveChartButton />
