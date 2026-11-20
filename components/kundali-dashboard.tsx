@@ -1647,6 +1647,7 @@ function SavedChartsDialog({
   actionMessage,
   onQueryChange,
   onClose,
+  onCreateFirstChart,
   onSelect,
   onDelete,
 }: {
@@ -1659,6 +1660,7 @@ function SavedChartsDialog({
   actionMessage: string | null;
   onQueryChange: (query: string) => void;
   onClose: () => void;
+  onCreateFirstChart: () => void;
   onSelect: (profile: SavedProfile) => void;
   onDelete: (profile: SavedProfile) => void;
 }) {
@@ -1781,8 +1783,17 @@ function SavedChartsDialog({
               <span className="mx-auto grid size-11 place-items-center rounded-full bg-[#F9E8DD] text-[#A6522B] dark:bg-[#45342D] dark:text-[#F2B993]">
                 <Orbit className="size-6" aria-hidden="true" />
               </span>
-              <p className="mt-3 text-sm font-medium">{profiles.length ? "No matching charts" : "No saved charts yet"}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{profiles.length ? "Try a different search." : "Save your first birth chart from the workspace."}</p>
+              <p className="mt-3 text-sm font-medium">{profiles.length ? "No matching charts" : "You don’t have any saved charts yet"}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{profiles.length ? "Try a different search." : "Save your first chart and continue your journey with Jyotishi."}</p>
+              {!profiles.length && (
+                <button
+                  type="button"
+                  onClick={onCreateFirstChart}
+                  className="mt-4 inline-flex min-h-10 items-center justify-center rounded-lg bg-[#C64F30] px-4 text-sm font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40 focus-visible:ring-offset-2"
+                >
+                  Save your first chart
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -2304,6 +2315,15 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
     const targetId = saveDialogMode === "update" ? saveDialogTargetId : null;
     if (await saveProfile(targetId, saveDialogName.trim())) setSaveDialogOpen(false);
   };
+  const startFirstChartSave = () => {
+    setSavedProfilesOpen(false);
+    setSaveDialogMode("new");
+    setSaveDialogTargetId(null);
+    setSaveDialogName(profile.name === "Current transit" ? "" : profile.name);
+    setSaveDialogLoadError(null);
+    setSaveDialogError(null);
+    setSaveDialogOpen(true);
+  };
   const toggleSavedProfiles = async () => {
     setProfileActionError(null);
     setProfileActionMessage(null);
@@ -2712,6 +2732,7 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
           actionMessage={profileActionMessage}
           onQueryChange={setSavedProfilesQuery}
           onClose={() => setSavedProfilesOpen(false)}
+          onCreateFirstChart={startFirstChartSave}
           onSelect={selectSavedProfile}
           onDelete={(saved) => void deleteSavedProfile(saved)}
         />

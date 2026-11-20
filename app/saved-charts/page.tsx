@@ -119,10 +119,10 @@ export default async function SavedChartsPage() {
           {profiles.length === 0 ? (
             <div className="mt-4 rounded-2xl border border-dashed border-border bg-card/60 px-5 py-10 text-center sm:py-12">
               <div aria-hidden="true" className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#C64F30]/10 text-xl text-[#C64F30]">✦</div>
-              <h3 className="mt-4 text-base font-semibold">Your chart library is ready</h3>
-              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">Create a birth chart in the workspace, then save it here to keep your details and personal notes together.</p>
+              <h3 className="mt-4 text-base font-semibold">You don’t have any saved charts yet</h3>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">Create and save your first birth chart to keep your details together and continue your journey with Jyotishi.</p>
               <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-                <Link href="/#kundali-charts" className="inline-flex h-10 items-center justify-center rounded-lg bg-[#C64F30] px-4 text-sm font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40">Create your first chart</Link>
+                <Link href="/#kundali-charts" className="inline-flex h-10 items-center justify-center rounded-lg bg-[#C64F30] px-4 text-sm font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40">Create and save your first chart</Link>
                 <Link href="/" className="inline-flex h-10 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">Go to homepage</Link>
               </div>
             </div>
