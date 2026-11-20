@@ -13,31 +13,18 @@ const TRACKS: Record<DashaSystem, string[]> = {
   kalachakra: ["Deha/Jeeva Maha", "Antar"],
 };
 
-// AI WARNING: Dasha graph color coding is user-locked. Do not edit either palette without explicit user approval.
-// Keep this established desktop palette unchanged; the approved mobile palette follows.
+// AI WARNING: Dasha graph color coding is user-locked. Do not edit this shared desktop/mobile palette without explicit user approval.
+// Use the user-approved pastel palette from portal_theme.docx.
 const PLANET_COLORS: Record<string, string> = {
-  Sun: "bg-accent text-accent-foreground border-primary/30",
-  Moon: "bg-muted text-foreground border-border",
-  Mars: "bg-rose-100 text-rose-950 border-rose-200 dark:bg-rose-950/40 dark:text-rose-100 dark:border-rose-900/60",
-  Mercury: "bg-emerald-100 text-emerald-950 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-100 dark:border-emerald-900/60",
-  Jupiter: "bg-accent text-accent-foreground border-primary/30",
-  Venus: "bg-rose-50 text-rose-950 border-rose-200 dark:bg-rose-950/30 dark:text-rose-100 dark:border-rose-900/50",
-  Saturn: "bg-muted text-foreground border-border",
-  Rahu: "bg-muted text-foreground border-border",
-  Ketu: "bg-emerald-50 text-emerald-950 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-100 dark:border-emerald-900/50",
-};
-
-// These user-approved mobile Dasha colors match the vibrant palette in portal_theme.docx.
-const MOBILE_DASHA_COLORS: Record<string, string> = {
-  Sun: "border-orange-300 bg-orange-100 text-orange-950 dark:border-orange-700 dark:bg-orange-950/60 dark:text-orange-100",
-  Moon: "border-sky-300 bg-sky-100 text-sky-950 dark:border-sky-700 dark:bg-sky-950/60 dark:text-sky-100",
-  Mars: "border-rose-300 bg-rose-100 text-rose-950 dark:border-rose-700 dark:bg-rose-950/60 dark:text-rose-100",
-  Mercury: "border-emerald-300 bg-emerald-100 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-100",
-  Jupiter: "border-amber-300 bg-amber-100 text-amber-950 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-100",
-  Venus: "border-pink-300 bg-pink-100 text-pink-950 dark:border-pink-700 dark:bg-pink-950/60 dark:text-pink-100",
-  Saturn: "border-slate-300 bg-slate-100 text-slate-950 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100",
-  Rahu: "border-purple-300 bg-purple-100 text-purple-950 dark:border-purple-700 dark:bg-purple-950/60 dark:text-purple-100",
-  Ketu: "border-indigo-300 bg-indigo-100 text-indigo-950 dark:border-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-100",
+  Sun: "bg-orange-100 text-orange-950 border-orange-200 dark:bg-orange-950/50 dark:text-orange-100 dark:border-orange-800",
+  Moon: "bg-sky-100 text-sky-950 border-sky-200 dark:bg-sky-950/50 dark:text-sky-100 dark:border-sky-800",
+  Mars: "bg-pink-100 text-pink-950 border-pink-200 dark:bg-pink-950/50 dark:text-pink-100 dark:border-pink-800",
+  Mercury: "bg-green-100 text-green-950 border-green-200 dark:bg-green-950/50 dark:text-green-100 dark:border-green-800",
+  Jupiter: "bg-yellow-100 text-yellow-950 border-yellow-200 dark:bg-yellow-950/50 dark:text-yellow-100 dark:border-yellow-800",
+  Venus: "bg-rose-100 text-rose-950 border-rose-200 dark:bg-rose-950/50 dark:text-rose-100 dark:border-rose-800",
+  Saturn: "bg-[#EFE0D2] text-[#593A28] border-[#D8C0A8] dark:bg-[#4A3425] dark:text-[#F4E7DA] dark:border-[#795C43]",
+  Rahu: "bg-purple-100 text-purple-950 border-purple-200 dark:bg-purple-950/50 dark:text-purple-100 dark:border-purple-800",
+  Ketu: "bg-cyan-100 text-cyan-950 border-cyan-200 dark:bg-cyan-950/50 dark:text-cyan-100 dark:border-cyan-800",
 };
 
 const PLANET_ABBREVIATIONS: Record<string, string> = {
@@ -94,7 +81,7 @@ function mobileColorClassesFor(period: DashaPeriodNode, system: DashaSystem) {
   const planet = system === "chara" || system === "kalachakra"
     ? SIGN_RULERS[period.lord]
     : YOGINI_PLANETS[period.lord] ?? period.lord;
-  return MOBILE_DASHA_COLORS[planet ?? ""] ?? "border-border bg-muted text-foreground";
+  return PLANET_COLORS[planet ?? ""] ?? PLANET_COLORS.Saturn;
 }
 
 function abbreviationFor(period: DashaPeriodNode, system: DashaSystem) {

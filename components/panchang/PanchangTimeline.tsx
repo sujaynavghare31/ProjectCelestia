@@ -7,42 +7,29 @@ import { motion, useReducedMotion } from "framer-motion";
 import type { PanchangDay, PanchangSegment } from "@/lib/astrology/panchang/PanchangEngine";
 import { isWithinPanchangTimeline } from "@/lib/astrology/panchang/timeline-utils";
 
-// AI WARNING: Panchang graph color coding is user-locked. Do not edit palettes without explicit user approval.
-// Keep existing desktop colors unchanged; the approved vibrant palette below is mobile-only.
-const TRACK_COLORS = [
-  "border-border bg-muted text-foreground",
-  "border-primary/30 bg-accent text-accent-foreground",
-  "border-rose-200 bg-rose-100 text-rose-950 dark:border-rose-800/60 dark:bg-rose-900/35 dark:text-rose-100",
-  "border-primary/30 bg-accent text-accent-foreground",
-];
+// AI WARNING: Panchang graph color coding is user-locked. Do not edit these shared desktop/mobile palettes without explicit user approval.
+// These user-approved pastels match portal_theme.docx; chart structure and the global theme remain unchanged.
+const LIMB_COLORS: Record<string, string> = {
+  tithi: "border-sky-200 bg-sky-100 text-sky-950 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-100",
+  nakshatra: "border-pink-200 bg-pink-100 text-pink-950 dark:border-pink-800 dark:bg-pink-950/50 dark:text-pink-100",
+  yoga: "border-yellow-200 bg-yellow-100 text-yellow-950 dark:border-yellow-800 dark:bg-yellow-950/50 dark:text-yellow-100",
+  karana: "border-green-200 bg-green-100 text-green-950 dark:border-green-800 dark:bg-green-950/50 dark:text-green-100",
+};
 const MUHURTA_COLORS = {
-  auspicious: "border-emerald-200 bg-emerald-100 text-emerald-950 dark:border-emerald-800/60 dark:bg-emerald-900/35 dark:text-emerald-100",
-  inauspicious: "border-rose-200 bg-rose-100 text-rose-950 dark:border-rose-800/60 dark:bg-rose-900/35 dark:text-rose-100",
-  neutral: "border-border bg-muted text-foreground",
+  auspicious: "border-green-200 bg-green-100 text-green-950 dark:border-green-800 dark:bg-green-950/50 dark:text-green-100",
+  inauspicious: "border-pink-200 bg-pink-100 text-pink-950 dark:border-pink-800 dark:bg-pink-950/50 dark:text-pink-100",
+  neutral: "border-[#D8C0A8] bg-[#EFE0D2] text-[#593A28] dark:border-[#795C43] dark:bg-[#4A3425] dark:text-[#F4E7DA]",
 };
-
-// These mobile-only Panchang colors match the vibrant palette in portal_theme.docx.
-const MOBILE_LIMB_COLORS: Record<string, string> = {
-  tithi: "border-sky-300 bg-sky-200 text-sky-950 dark:border-sky-700 dark:bg-sky-900/70 dark:text-sky-100",
-  nakshatra: "border-rose-300 bg-rose-200 text-rose-950 dark:border-rose-700 dark:bg-rose-900/70 dark:text-rose-100",
-  yoga: "border-purple-300 bg-purple-200 text-purple-950 dark:border-purple-700 dark:bg-purple-900/70 dark:text-purple-100",
-  karana: "border-emerald-300 bg-emerald-200 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-900/70 dark:text-emerald-100",
-};
-const MOBILE_MUHURTA_COLORS = {
-  auspicious: "border-emerald-300 bg-emerald-200 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-900/70 dark:text-emerald-100",
-  inauspicious: "border-rose-300 bg-rose-200 text-rose-950 dark:border-rose-700 dark:bg-rose-900/70 dark:text-rose-100",
-  neutral: "border-amber-300 bg-amber-100 text-amber-950 dark:border-amber-700 dark:bg-amber-900/50 dark:text-amber-100",
-};
-const MOBILE_HORA_COLORS: Record<string, string> = {
-  Sun: "border-orange-300 bg-orange-100 text-orange-950 dark:border-orange-700 dark:bg-orange-950/60 dark:text-orange-100",
-  Moon: "border-sky-300 bg-sky-100 text-sky-950 dark:border-sky-700 dark:bg-sky-950/60 dark:text-sky-100",
-  Mars: "border-rose-300 bg-rose-100 text-rose-950 dark:border-rose-700 dark:bg-rose-950/60 dark:text-rose-100",
-  Mercury: "border-emerald-300 bg-emerald-100 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-100",
-  Jupiter: "border-amber-300 bg-amber-100 text-amber-950 dark:border-amber-700 dark:bg-amber-950/60 dark:text-amber-100",
-  Venus: "border-pink-300 bg-pink-100 text-pink-950 dark:border-pink-700 dark:bg-pink-950/60 dark:text-pink-100",
-  Saturn: "border-slate-300 bg-slate-100 text-slate-950 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100",
-  Rahu: "border-purple-300 bg-purple-100 text-purple-950 dark:border-purple-700 dark:bg-purple-950/60 dark:text-purple-100",
-  Ketu: "border-indigo-300 bg-indigo-100 text-indigo-950 dark:border-indigo-700 dark:bg-indigo-950/60 dark:text-indigo-100",
+const HORA_COLORS: Record<string, string> = {
+  Sun: "border-orange-200 bg-orange-100 text-orange-950 dark:border-orange-800 dark:bg-orange-950/50 dark:text-orange-100",
+  Moon: "border-sky-200 bg-sky-100 text-sky-950 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-100",
+  Mars: "border-pink-200 bg-pink-100 text-pink-950 dark:border-pink-800 dark:bg-pink-950/50 dark:text-pink-100",
+  Mercury: "border-green-200 bg-green-100 text-green-950 dark:border-green-800 dark:bg-green-950/50 dark:text-green-100",
+  Jupiter: "border-yellow-200 bg-yellow-100 text-yellow-950 dark:border-yellow-800 dark:bg-yellow-950/50 dark:text-yellow-100",
+  Venus: "border-rose-200 bg-rose-100 text-rose-950 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-100",
+  Saturn: "border-[#D8C0A8] bg-[#EFE0D2] text-[#593A28] dark:border-[#795C43] dark:bg-[#4A3425] dark:text-[#F4E7DA]",
+  Rahu: "border-purple-200 bg-purple-100 text-purple-950 dark:border-purple-800 dark:bg-purple-950/50 dark:text-purple-100",
+  Ketu: "border-cyan-200 bg-cyan-100 text-cyan-950 dark:border-cyan-800 dark:bg-cyan-950/50 dark:text-cyan-100",
 };
 
 function localDateKey(date: Date, timezone: string) {
@@ -153,7 +140,7 @@ function MobilePanchangTimeline({
           const current = track.segments.find(({ start: segmentStart, end: segmentEnd }) =>
             activeTime >= Date.parse(segmentStart) && activeTime < Date.parse(segmentEnd),
           );
-          const colorClass = MOBILE_LIMB_COLORS[track.key] ?? MUHURTA_COLORS.neutral;
+          const colorClass = LIMB_COLORS[track.key] ?? MUHURTA_COLORS.neutral;
           return (
             <div key={track.key} className="relative space-y-1.5">
               <div className="flex min-w-0 items-baseline justify-between gap-2">
@@ -208,11 +195,11 @@ function MobilePanchangTimeline({
                   const key = `${track.key}-${segment.index}-${segment.start}`;
                   const isCurrent = isNowInSelectedDay && current?.start === segment.start;
                   const colorClass = track.key === "muhurta"
-                    ? MOBILE_MUHURTA_COLORS[segment.quality ?? "neutral"]
-                    : MOBILE_HORA_COLORS[segment.name] ?? "border-border bg-muted text-foreground";
+                    ? MUHURTA_COLORS[segment.quality ?? "neutral"]
+                    : HORA_COLORS[segment.name] ?? MUHURTA_COLORS.neutral;
                   const activeClass = isCurrent
                     ? track.key === "hora"
-                      ? "border-amber-500 bg-amber-300 font-semibold text-amber-950 ring-2 ring-inset ring-amber-600 dark:border-amber-300 dark:bg-amber-400/80 dark:text-amber-950 dark:ring-amber-200"
+                      ? "border-amber-500 bg-amber-100 font-semibold text-amber-950 ring-2 ring-inset ring-amber-600 dark:border-amber-300 dark:bg-amber-950/60 dark:text-amber-100 dark:ring-amber-200"
                       : "border-primary bg-primary/15 font-semibold text-foreground ring-2 ring-inset ring-primary/60"
                     : "";
                   return (
@@ -315,7 +302,7 @@ export function PanchangTimeline({ data }: { data: PanchangDay }) {
               </div>
 
               <div className="relative z-[1] space-y-3">
-                {data.timeline.tracks.map((track, trackIndex) => (
+                {data.timeline.tracks.map((track) => (
                   <div
                     key={track.key}
                     role="group"
@@ -330,10 +317,12 @@ export function PanchangTimeline({ data }: { data: PanchangDay }) {
                         nowTime < Date.parse(segment.end);
                       const colorClass = track.key === "muhurta"
                         ? MUHURTA_COLORS[segment.quality ?? "neutral"]
-                        : TRACK_COLORS[trackIndex] ?? MUHURTA_COLORS.neutral;
+                        : track.key === "hora"
+                          ? HORA_COLORS[segment.name] ?? MUHURTA_COLORS.neutral
+                          : LIMB_COLORS[track.key] ?? MUHURTA_COLORS.neutral;
                       const currentClass = isCurrentSegment
                         ? track.key === "hora"
-                          ? "relative z-[1] border-amber-500 bg-amber-300 font-bold text-amber-950 ring-2 ring-inset ring-amber-600 dark:border-amber-300 dark:bg-amber-400/80 dark:text-amber-950 dark:ring-amber-200"
+                          ? "relative z-[1] border-amber-500 bg-amber-100 font-bold text-amber-950 ring-2 ring-inset ring-amber-600 dark:border-amber-300 dark:bg-amber-950/60 dark:text-amber-100 dark:ring-amber-200"
                           : "relative z-[1] border-primary bg-primary/20 font-bold text-foreground ring-2 ring-inset ring-primary/60"
                         : "";
                       const label = blockLabel(segment, data.timezone, data.date);
