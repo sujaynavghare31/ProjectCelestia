@@ -132,7 +132,7 @@ type ChartOption = {
   group: "Primary" | "Divisional";
 };
 
-const KPAstrology = dynamic(() => import("@/components/kp/KPAstrology"), {
+const KPAstrology = dynamic(() => import("@/components/kp/KpTab"), {
   loading: () => (
     <CelestiaLoader label="Computing KP Sub-Lords…" sublabel="Preparing Krishnamurti chart analysis…" tone="dashboard" />
   ),
