@@ -45,6 +45,26 @@ const preferences: ViewPreferences = {
 };
 
 describe("Shodashvarga tab", () => {
+  it("uses the shared loading animation while divisional charts are being calculated", () => {
+    const markup = renderToStaticMarkup(createElement(ShodashvargaTab, {
+      data: null,
+      charts: [],
+      chartMode: "birth",
+      chartStyle: "south",
+      referenceHouse: 1,
+      language: "en",
+      preferences,
+      showTransitLabels: false,
+      loading: true,
+      error: null,
+      ChartRenderer: ChartPreview,
+    }));
+
+    expect(markup).toContain('role="status"');
+    expect(markup).toContain("Calculating divisional charts");
+    expect(markup).toContain("animate-[spin_5s_linear_infinite]");
+  });
+
   it("renders all sixteen standard varga charts in the selected view", () => {
     const data: ShodashvargaData = {
       input: { date: "2026-11-18", time: "12:00" },

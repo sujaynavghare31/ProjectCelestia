@@ -100,7 +100,13 @@ type ChartOption = {
 };
 
 const KPAstrology = dynamic(() => import("@/components/kp/KPAstrology"), {
-  loading: () => <div className="grid min-h-96 place-items-center rounded-2xl border border-border bg-card p-8 text-sm text-muted-foreground"><LoaderCircle className="mr-2 size-4 animate-spin" /> Loading KP Astrology</div>,
+  loading: () => (
+    <EphemerisLoader
+      title="Opening KP Astrology"
+      description="Preparing the KP chart and sub-lord analysis…"
+      detail="Krishnamurti ayanamsa · KP"
+    />
+  ),
 });
 const AUXILIARY_CHARTS: ChartOption[] = [
   { id: "D1", label: "D1 · Rashi", description: "Primary Birth Chart", group: "Primary" },
@@ -1462,13 +1468,13 @@ function preloadDashboardTab(tab: DashboardTab) {
 
 function SecondaryTabSkeleton() {
   return (
-    <div aria-label="Loading analysis" aria-busy="true" className="space-y-4">
-      <div className="h-16 animate-pulse rounded-xl border border-border bg-card" />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="h-72 animate-pulse rounded-xl border border-border bg-card" />
-        <div className="h-72 animate-pulse rounded-xl border border-border bg-card" />
-      </div>
-    </div>
+    <EphemerisLoader
+      title="Opening astrology analysis"
+      description="Preparing the calculations and chart views…"
+      detail="Kundali analysis"
+      activity="Loading analysis"
+      tone="dashboard"
+    />
   );
 }
 
@@ -1736,7 +1742,16 @@ function SavedChartsDialog({
           {actionError && <p role="alert" className="border-b border-border px-5 py-3 text-sm text-rose-800 dark:text-rose-200">{actionError}</p>}
           {actionMessage && <p role="status" className="border-b border-border px-5 py-3 text-sm text-emerald-700 dark:text-emerald-300">{actionMessage}</p>}
           {loading ? (
-            <div className="px-5 py-12 text-center text-sm text-muted-foreground">Loading your saved charts…</div>
+            <div className="px-5 py-5">
+              <EphemerisLoader
+                title="Loading saved charts"
+                description="Retrieving your saved birth charts…"
+                detail="Saved charts"
+                activity="Loading charts"
+                tone="dashboard"
+                compact
+              />
+            </div>
           ) : visibleProfiles.length ? (
             <ul className="divide-y divide-border">
               {visibleProfiles.map((saved) => (
@@ -3023,7 +3038,7 @@ export function KundaliDashboard({
               />
               <div className="relative w-full min-w-0 p-4 bg-card">
                 <div className="relative mx-auto w-full max-w-[640px]">
-                  {displayData ? <SvgChart style={chartStyle} ascendant={displayData.ascendant} planets={displayData.planets} points={displayData.points} houseCusps={displayData.houseCusps} varga={1} referenceHouse={referenceHouseNumber} overlay={chartMode === "birth" && overlayTransits ? transitData?.planets : undefined} showTransitLabels={chartMode === "transit" && overlayTransits} language={language} preferences={viewPreferences} /> : <div className="grid aspect-square w-full place-items-center text-xs text-muted-foreground">{displayLoading ? <LoaderCircle className="size-5 animate-spin text-primary" /> : "Chart unavailable"}</div>}
+                  {displayData ? <SvgChart style={chartStyle} ascendant={displayData.ascendant} planets={displayData.planets} points={displayData.points} houseCusps={displayData.houseCusps} varga={1} referenceHouse={referenceHouseNumber} overlay={chartMode === "birth" && overlayTransits ? transitData?.planets : undefined} showTransitLabels={chartMode === "transit" && overlayTransits} language={language} preferences={viewPreferences} /> : displayLoading ? <EphemerisLoader title="Calculating birth chart" description="Finding planetary positions and house cusps…" detail={`${profile.city || "Birth chart"} · Swiss Ephemeris`} activity="Calculating chart" tone="dashboard" compact /> : <div className="grid aspect-square w-full place-items-center text-xs text-muted-foreground">Chart unavailable</div>}
                   {overlayTransits && transitLoading && (
                     <div role="status" aria-live="polite" className="absolute right-5 top-5 z-10 inline-flex items-center gap-2 rounded-full border border-stone-300 bg-card/95 px-3 py-1.5 text-xs font-medium text-stone-700 shadow-sm dark:border-stone-700 dark:text-stone-300">
                       <LoaderCircle className="size-3.5 animate-spin" />
@@ -3115,7 +3130,7 @@ export function KundaliDashboard({
                 <div className="relative mx-auto w-full max-w-[640px]">
                   {auxiliaryAscendant && auxiliaryPlanets
                     ? <SvgChart style={chartStyle} ascendant={auxiliaryAscendant} planets={auxiliaryPlanets} points={auxiliaryPoints ?? []} houseCusps={auxiliaryCusps ?? []} varga={auxiliaryVarga} houseBasedPlacement={isBhavaChalitChart} referenceHouse={auxiliaryReferenceHouseNumber} overlay={undefined} language={language} preferences={viewPreferences} />
-                    : <div className="grid aspect-square w-full place-items-center px-6 text-center text-xs text-muted-foreground">{displayLoading ? <LoaderCircle className="size-5 animate-spin text-primary" /> : "Auxiliary chart unavailable"}</div>}
+                    : displayLoading ? <EphemerisLoader title="Preparing chart view" description="Applying the selected chart settings…" detail={selectedAuxiliaryChart.label} activity="Updating chart" tone="dashboard" compact /> : <div className="grid aspect-square w-full place-items-center px-6 text-center text-xs text-muted-foreground">Auxiliary chart unavailable</div>}
                 </div>
               </div>
               {auxiliaryType === "solar" || auxiliaryType === "tajika"
@@ -3171,7 +3186,7 @@ export function KundaliDashboard({
               </details>
             )}
             {houseSystem === "carter" && (
-              <Suspense fallback={<div className="mt-4 h-40 animate-pulse rounded-lg border border-border bg-muted/30" />}>
+              <Suspense fallback={<SecondaryTabSkeleton />}>
                 <CarterCuspsPanel
                   result={carterResult}
                   error={carterError}

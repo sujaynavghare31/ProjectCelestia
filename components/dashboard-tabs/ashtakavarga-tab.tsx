@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { CelestialLanguage, EphemerisResponse } from "@/lib/kundali-types";
 import { planetName, signName } from "@/lib/astrology/localization";
+import EphemerisLoader from "@/components/dashboard-tabs/ephemeris-loader";
 
 const SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
 const SHORT_SIGNS = ["Ari", "Tau", "Gem", "Can", "Leo", "Vir", "Lib", "Sco", "Sag", "Cap", "Aqu", "Pis"];
@@ -221,7 +222,7 @@ export default function AshtakavargaTab({
         <h3 id="ashtakavarga-heading" className="text-sm font-semibold">Ashtakavarga · Bhinna Bindus</h3>
         <p className="mt-1 text-xs text-muted-foreground">Eight contributors across the twelve signs · Sarvashtakavarga total</p>
       </header>
-      {loading && <div role="status" className="grid min-h-40 place-items-center text-sm text-muted-foreground">Calculating Ashtakavarga…</div>}
+      {loading && <EphemerisLoader title="Calculating Ashtakavarga" description="Mapping planetary contributions across the twelve signs…" detail="Ashtakavarga" activity="Calculating bindus" tone="dashboard" compact />}
       {error && <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-200">{error}</div>}
       {result && (
         <div className="space-y-5">

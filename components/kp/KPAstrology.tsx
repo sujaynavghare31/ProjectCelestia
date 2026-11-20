@@ -7,6 +7,7 @@ import type { BirthProfile } from "@/lib/kundali-store";
 import type { CelestialLanguage, EphemerisResponse, PlanetPosition, ViewPreferences } from "@/lib/kundali-types";
 import type { ChartStyle } from "@/lib/kundali-types";
 import { horaryNumberToLongitude } from "@/lib/astrology/kp-calculations";
+import EphemerisLoader from "@/components/dashboard-tabs/ephemeris-loader";
 
 type ChartRendererProps = {
   style: ChartStyle;
@@ -94,10 +95,6 @@ function LordBadge({ lord, strong = false }: { lord: string; strong?: boolean })
   return <span className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${strong ? "ring-1 ring-[#C05A3A]/60" : ""} ${PLANET_COLORS[lord] ?? "text-foreground"} bg-stone-100`}>{lord}</span>;
 }
 
-function LoadingRows({ count = 6 }: { count?: number }) {
-  return <div className="space-y-2 p-4" aria-busy="true">{Array.from({ length: count }, (_, index) => <div key={index} className="h-9 animate-pulse rounded-lg bg-stone-100" />)}</div>;
-}
-
 export default function KPAstrology({ profile, language, viewPreferences, ChartRenderer }: KPAstrologyProps) {
   const [data, setData] = useState<EphemerisResponse | null>(null);
   const [currentData, setCurrentData] = useState<EphemerisResponse | null>(null);
@@ -162,7 +159,13 @@ export default function KPAstrology({ profile, language, viewPreferences, ChartR
       </header>
 
       {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
-      {loading && <LoadingRows count={8} />}
+      {loading && (
+        <EphemerisLoader
+          title="Calculating KP astrology"
+          description="Preparing birth-chart placements and current ruling planets…"
+          detail={`${profile.city || "Birth chart"} · KP ayanamsa`}
+        />
+      )}
       {!loading && data && (
         <Tabs defaultValue="base" className="space-y-4">
           <TabsList aria-label="KP analysis sections" className="grid h-auto w-full grid-cols-1 gap-2 rounded-xl border border-stone-200 bg-white p-2 shadow-sm sm:grid-cols-3">

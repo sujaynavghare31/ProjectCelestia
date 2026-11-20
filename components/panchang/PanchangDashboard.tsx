@@ -19,6 +19,7 @@ import type { PanchangDay, PanchangTiming } from "@/lib/astrology/panchang/Panch
 import { isWithinPanchangTimeline } from "@/lib/astrology/panchang/timeline-utils";
 import { PanchangTimeline } from "./PanchangTimeline";
 import { PanchangInsights } from "./PanchangInsights";
+import EphemerisLoader from "@/components/dashboard-tabs/ephemeris-loader";
 
 interface PanchangLocation {
   label: string;
@@ -374,12 +375,13 @@ export default function PanchangDashboard() {
       )}
 
       {loading && (
-        <div role="status" aria-label="Loading Panchang" className="space-y-4">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-            {Array.from({ length: 4 }, (_, index) => <div key={index} className="h-24 animate-pulse rounded-xl border border-border bg-card" />)}
-          </div>
-          <div className="h-64 animate-pulse rounded-xl border border-border bg-card" />
-        </div>
+        <EphemerisLoader
+          title="Calculating daily Panchang"
+          description="Preparing sunrise, lunar timings, and the Vedic day timeline…"
+          detail={`${location.city} · ${date}`}
+          activity="Calculating Panchang"
+          tone="dashboard"
+        />
       )}
 
       {data && !loading && (

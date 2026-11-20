@@ -41,6 +41,7 @@ import { useKundaliStore } from "@/lib/kundali-store";
 import { TABLES, chaldeanSum, computeProfile, digitSum, kuaOf, masterReduce, pythSum, reduce, relationLabel } from "@/lib/numerology";
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { isLocalClerkFallback } from "@/lib/clerk-config";
+import EphemerisLoader from "@/components/dashboard-tabs/ephemeris-loader";
 
 const gridNumbers = [4, 9, 2, 3, 5, 7, 8, 1, 6];
 
@@ -95,11 +96,13 @@ const mobileNavigationItems = [
 
 function NumerologyTabLoading() {
   return (
-    <div aria-label="Loading analysis" className="animate-pulse space-y-4 py-4">
-      <div className="h-5 w-48 rounded bg-muted" />
-      <div className="h-4 w-3/4 rounded bg-muted/60" />
-      <div className="h-24 rounded-xl bg-muted/60" />
-    </div>
+    <EphemerisLoader
+      title="Opening numerology analysis"
+      description="Preparing your numerology insights…"
+      detail="Numerology"
+      activity="Loading analysis"
+      tone="dashboard"
+    />
   );
 }
 
@@ -107,13 +110,7 @@ const CoreEssenceTab = dynamic(() => import("@/components/numerology/CoreEssence
 const EnterpriseCommerceTab = dynamic(() => import("@/components/numerology/EnterpriseCommerceTab"), { loading: NumerologyTabLoading });
 const SynergyBondsTab = dynamic(() => import("@/components/numerology/SynergyBondsTab"), { loading: NumerologyTabLoading });
 const NumerologyWorkbench = dynamic(() => import("@/components/numerology/NumerologyWorkbench"), {
-  loading: () => (
-    <div aria-label="Loading vibrational analysis suite" className="mt-8 animate-pulse space-y-4">
-      <div className="h-7 w-64 rounded bg-muted" />
-      <div className="h-16 rounded-xl bg-muted/60" />
-      <div className="h-40 rounded-xl bg-muted/60" />
-    </div>
-  ),
+  loading: NumerologyTabLoading,
 });
 
 function parseBirthDate(value: string) {

@@ -2,6 +2,7 @@
 
 import type { ComponentType } from "react";
 import type { ChartStyle, CelestialLanguage, EphemerisResponse, PlanetPosition, ViewPreferences } from "@/lib/kundali-types";
+import EphemerisLoader from "./ephemeris-loader";
 
 export type ChartRendererProps = {
   style: ChartStyle;
@@ -62,12 +63,21 @@ export default function ShodashvargaTab({
   ChartRenderer,
 }: Props) {
   if (!data) {
+    if (loading) {
+      return (
+        <EphemerisLoader
+          title="Calculating divisional charts"
+          description="Preparing the sixteen chart views from your planetary placements…"
+          detail="Shodashvarga"
+          activity="Calculating charts"
+          tone="dashboard"
+        />
+      );
+    }
+
     return (
-      <div
-        role={error ? "alert" : loading ? "status" : undefined}
-        className="grid min-h-48 place-items-center rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground"
-      >
-        {loading ? "Calculating divisional charts…" : error ?? "Chart unavailable."}
+      <div role={error ? "alert" : undefined} className="grid min-h-48 place-items-center rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
+        {error ?? "Chart unavailable."}
       </div>
     );
   }
