@@ -27,6 +27,7 @@ import PlacidusWheel from "@/components/PlacidusWheel";
 import ChartControls from "@/components/ChartControls";
 import { getBirthDateTimeDefaults, getCurrentBirthDateTime, useKundaliStore, type BirthProfile } from "@/lib/kundali-store";
 import { limitCoordinatePrecision, parseCoordinateDraft } from "@/lib/coordinate-input";
+import { matchesSavedProfileQuery } from "@/lib/saved-profile-search";
 import { formatPlanetDegree, planetChartDisplayName, planetName, signName } from "@/lib/astrology/localization";
 import { splitHouseBodies } from "@/lib/astrology/chart-layout";
 import { dagdhaRashis } from "@/lib/astrology/dagdha-rashi";
@@ -1365,6 +1366,17 @@ type SavedProfile = {
   notes: string;
 };
 
+async function readProfileApiResponse<T>(response: Response): Promise<T> {
+  try {
+    return await response.json() as T;
+  } catch {
+    const message = response.status >= 500
+      ? "Saved charts are temporarily unavailable. Please try again."
+      : `The saved charts service returned an invalid response (${response.status}).`;
+    throw new Error(message);
+  }
+}
+
 function SaveChartDialog({
   open,
   loading,
@@ -1373,7 +1385,10 @@ function SaveChartDialog({
   mode,
   targetId,
   chartName,
+  loadError,
+  saveError,
   onClose,
+  onRetryLoad,
   onModeChange,
   onTargetChange,
   onChartNameChange,
@@ -1386,7 +1401,10 @@ function SaveChartDialog({
   mode: "new" | "update";
   targetId: string | null;
   chartName: string;
+  loadError: string | null;
+  saveError: string | null;
   onClose: () => void;
+  onRetryLoad: () => void;
   onModeChange: (mode: "new" | "update") => void;
   onTargetChange: (id: string) => void;
   onChartNameChange: (name: string) => void;
@@ -1441,6 +1459,19 @@ function SaveChartDialog({
         </header>
 
         <div className="space-y-4 px-5 py-5 sm:px-6">
+          {loadError && (
+            <div role="alert" className="rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
+              <p>{loadError}</p>
+              <button type="button" onClick={onRetryLoad} disabled={loading} className="mt-2 font-semibold underline underline-offset-2 disabled:opacity-60">
+                Try again
+              </button>
+            </div>
+          )}
+          {saveError && (
+            <p role="alert" className="rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-900 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">
+              {saveError}
+            </p>
+          )}
           <fieldset className="space-y-2">
             <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Save option</legend>
             <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${mode === "new" ? "border-primary/40 bg-primary/5" : "border-border hover:border-primary/30"}`}>
@@ -1553,13 +1584,7 @@ function SavedChartsDialog({
 
   if (!open || typeof document === "undefined") return null;
 
-  const normalizedQuery = query.trim().toLowerCase();
-  const visibleProfiles = profiles.filter((profile) => {
-    if (!normalizedQuery) return true;
-    return [profile.chartName, profile.fullName, profile.city, profile.timezone]
-      .filter(Boolean)
-      .some((value) => value?.toLowerCase().includes(normalizedQuery));
-  });
+  const visibleProfiles = profiles.filter((profile) => matchesSavedProfileQuery(profile, query));
 
   return createPortal(
     <div
@@ -1574,12 +1599,12 @@ function SavedChartsDialog({
         aria-labelledby="saved-charts-dialog-title"
         className="flex max-h-[min(720px,calc(100vh-1.5rem))] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-2xl sm:max-h-[min(760px,calc(100vh-3rem))]"
       >
-        <header className="flex items-start justify-between gap-4 border-b border-border bg-primary px-5 py-4 text-primary-foreground sm:px-6">
+        <header className="flex items-start justify-between gap-4 border-b border-[#E8D3C5] bg-[#FCE9DC] px-5 py-4 text-[#563528] dark:border-[#59443B] dark:bg-[#382D29] dark:text-[#F7E5D9] sm:px-6">
           <div>
             <h2 id="saved-charts-dialog-title" className="text-lg font-semibold">All saved charts</h2>
-            <p className="mt-1 text-sm text-primary-foreground/75">Choose a profile to open in your chart workspace.</p>
+            <p className="mt-1 text-sm text-[#714F3D] dark:text-[#E5C8B7]">Choose a profile to open in your chart workspace.</p>
           </div>
-          <button type="button" aria-label="Close saved charts" onClick={onClose} className="grid size-8 shrink-0 place-items-center rounded-lg border border-primary-foreground/30 transition hover:bg-primary-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/60">
+          <button type="button" aria-label="Close saved charts" onClick={onClose} className="grid size-8 shrink-0 place-items-center rounded-lg border border-[#D9BAA6] transition hover:bg-[#F6DAC8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#A6522B]/40 dark:border-[#70574B] dark:hover:bg-[#493A34] dark:focus-visible:ring-[#F2B993]/50">
             <X className="size-4" aria-hidden="true" />
           </button>
         </header>
@@ -1593,7 +1618,7 @@ function SavedChartsDialog({
               type="search"
               value={query}
               onChange={(event) => onQueryChange(event.target.value)}
-              placeholder="Search name, city, or timezone"
+              placeholder="Search names, notes, birth date, time, or any detail"
               className="h-11 w-full rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none transition placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/30"
             />
           </label>
@@ -1621,7 +1646,9 @@ function SavedChartsDialog({
             </ul>
           ) : (
             <div className="px-5 py-12 text-center sm:px-6">
-              <Orbit className="mx-auto size-8 text-muted-foreground/70" aria-hidden="true" />
+              <span className="mx-auto grid size-11 place-items-center rounded-full bg-[#F9E8DD] text-[#A6522B] dark:bg-[#45342D] dark:text-[#F2B993]">
+                <Orbit className="size-6" aria-hidden="true" />
+              </span>
               <p className="mt-3 text-sm font-medium">{profiles.length ? "No matching charts" : "No saved charts yet"}</p>
               <p className="mt-1 text-sm text-muted-foreground">{profiles.length ? "Try a different search." : "Save your first birth chart from the workspace."}</p>
             </div>
@@ -1736,6 +1763,8 @@ export function KundaliDashboard() {
   const [saveDialogMode, setSaveDialogMode] = useState<"new" | "update">("new");
   const [saveDialogTargetId, setSaveDialogTargetId] = useState<string | null>(null);
   const [saveDialogName, setSaveDialogName] = useState("");
+  const [saveDialogLoadError, setSaveDialogLoadError] = useState<string | null>(null);
+  const [saveDialogError, setSaveDialogError] = useState<string | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileActionError, setProfileActionError] = useState<string | null>(null);
   const [profileActionMessage, setProfileActionMessage] = useState<string | null>(null);
@@ -2052,13 +2081,14 @@ export function KundaliDashboard() {
   const saveProfile = async (targetId: string | null = savedProfileId, chartName = profile.name) => {
     setProfileActionError(null);
     setProfileActionMessage(null);
+    setSaveDialogError(null);
     if (!profile.date || !profile.time || !profile.timezone) {
-      setProfileActionError("Add a birth date and time before saving this chart.");
-      return;
+      setSaveDialogError("Add a birth date and time before saving this chart.");
+      return false;
     }
     if (!useCoordinates && locationSearch.trim() !== profile.city.trim()) {
-      setProfileActionError("Choose a birth city from the search suggestions before saving.");
-      return;
+      setSaveDialogError("Choose a birth city from the search suggestions before saving.");
+      return false;
     }
 
     setSavingProfile(true);
@@ -2074,16 +2104,18 @@ export function KundaliDashboard() {
       });
       if (response.status === 401) {
         redirectToSignIn();
-        return;
+        return false;
       }
-      const result = await response.json() as { profile?: SavedProfile; error?: string };
+      const result = await readProfileApiResponse<{ profile?: SavedProfile; error?: string }>(response);
       if (!response.ok || !result.profile) throw new Error(result.error ?? "Chart could not be saved.");
       const saved = result.profile;
       setSavedProfileId(saved.id);
       setSavedProfiles((current) => [saved, ...current.filter(({ id }) => id !== saved.id)]);
       setProfileActionMessage("Chart saved to your account.");
+      return true;
     } catch (reason) {
-      setProfileActionError(reason instanceof Error ? reason.message : "Chart could not be saved. Please try again.");
+      setSaveDialogError(reason instanceof Error ? reason.message : "Chart could not be saved. Please try again.");
+      return false;
     } finally {
       setSavingProfile(false);
     }
@@ -2091,6 +2123,8 @@ export function KundaliDashboard() {
   const openSaveDialog = async () => {
     setProfileActionError(null);
     setProfileActionMessage(null);
+    setSaveDialogLoadError(null);
+    setSaveDialogError(null);
     setSaveDialogName(profile.name === "Current transit" ? "" : profile.name);
     setSaveDialogMode(savedProfileId ? "update" : "new");
     setSaveDialogTargetId(savedProfileId);
@@ -2105,7 +2139,7 @@ export function KundaliDashboard() {
         redirectToSignIn();
         return;
       }
-      const result = await response.json() as { profiles?: SavedProfile[]; error?: string };
+      const result = await readProfileApiResponse<{ profiles?: SavedProfile[]; error?: string }>(response);
       if (!response.ok || !Array.isArray(result.profiles)) throw new Error(result.error ?? "Saved charts could not be loaded.");
       setSavedProfiles(result.profiles);
       if (savedProfileId && result.profiles.some(({ id }) => id === savedProfileId)) {
@@ -2113,16 +2147,14 @@ export function KundaliDashboard() {
         setSaveDialogTargetId(savedProfileId);
       }
     } catch (reason) {
-      setSaveDialogOpen(false);
-      setProfileActionError(reason instanceof Error ? reason.message : "Saved charts could not be loaded. Please try again.");
+      setSaveDialogLoadError(reason instanceof Error ? reason.message : "Saved charts could not be loaded. Please try again.");
     } finally {
       setSaveDialogLoading(false);
     }
   };
-  const confirmSaveProfile = () => {
+  const confirmSaveProfile = async () => {
     const targetId = saveDialogMode === "update" ? saveDialogTargetId : null;
-    void saveProfile(targetId, saveDialogName.trim());
-    setSaveDialogOpen(false);
+    if (await saveProfile(targetId, saveDialogName.trim())) setSaveDialogOpen(false);
   };
   const toggleSavedProfiles = async () => {
     setProfileActionError(null);
@@ -2141,7 +2173,7 @@ export function KundaliDashboard() {
         redirectToSignIn();
         return;
       }
-      const result = await response.json() as { profiles?: SavedProfile[]; error?: string };
+      const result = await readProfileApiResponse<{ profiles?: SavedProfile[]; error?: string }>(response);
       if (!response.ok || !Array.isArray(result.profiles)) throw new Error(result.error ?? "Saved charts could not be loaded.");
       setSavedProfiles(result.profiles);
     } catch (reason) {
@@ -2491,7 +2523,10 @@ export function KundaliDashboard() {
           mode={saveDialogMode}
           targetId={saveDialogTargetId}
           chartName={saveDialogName}
+          loadError={saveDialogLoadError}
+          saveError={saveDialogError}
           onClose={() => setSaveDialogOpen(false)}
+          onRetryLoad={() => void openSaveDialog()}
           onModeChange={(mode) => {
             setSaveDialogMode(mode);
             if (mode === "new") {

@@ -12,6 +12,28 @@ function usernameFromClerkUser(email: string, clerkUserId: string, username: str
   return `${base}_${clerkUserId.slice(-8)}`.slice(0, 32);
 }
 
+async function createDatabaseUser(email: string, clerkUserId: string, username: string | null) {
+  try {
+    return await prisma.user.create({
+      data: {
+        clerkId: clerkUserId,
+        email,
+        username: usernameFromClerkUser(email, clerkUserId, username),
+      },
+    });
+  } catch (error) {
+    if (!isUniqueConstraintError(error)) throw error;
+
+    const concurrentUser = await prisma.user.findUnique({ where: { clerkId: clerkUserId } });
+    if (concurrentUser) return concurrentUser;
+
+    const conflictingEmailUser = await prisma.user.findUnique({ where: { email } });
+    if (conflictingEmailUser?.clerkId === clerkUserId) return conflictingEmailUser;
+
+    throw error;
+  }
+}
+
 export async function getCurrentDatabaseUser() {
   const { userId: clerkUserId } = await auth();
   if (!clerkUserId) return null;
@@ -27,7 +49,11 @@ export async function getCurrentDatabaseUser() {
   const linkedUser = await prisma.user.findUnique({ where: { email } });
   if (linkedUser) {
     if (linkedUser.clerkId && linkedUser.clerkId !== clerkUserId) {
-      throw new Error("This email is already linked to another Clerk account.");
+      if (process.env.NODE_ENV !== "development") {
+        throw new Error("This email is already linked to another Clerk account.");
+      }
+
+      return createDatabaseUser(`${clerkUserId}@clerk.local`, clerkUserId, clerkUser.username);
     }
     return prisma.user.update({
       where: { id: linkedUser.id },
@@ -35,23 +61,5 @@ export async function getCurrentDatabaseUser() {
     });
   }
 
-  try {
-    return await prisma.user.create({
-      data: {
-        clerkId: clerkUserId,
-        email,
-        username: usernameFromClerkUser(email, clerkUserId, clerkUser.username),
-      },
-    });
-  } catch (error) {
-    if (!isUniqueConstraintError(error)) throw error;
-
-    const concurrentUser = await prisma.user.findUnique({ where: { clerkId: clerkUserId } });
-    if (concurrentUser) return concurrentUser;
-
-    const conflictingEmailUser = await prisma.user.findUnique({ where: { email } });
-    if (conflictingEmailUser?.clerkId === clerkUserId) return conflictingEmailUser;
-
-    throw error;
-  }
+  return createDatabaseUser(email, clerkUserId, clerkUser.username);
 }

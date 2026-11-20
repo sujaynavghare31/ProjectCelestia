@@ -1,6 +1,7 @@
 import { SignIn, SignUp } from "@clerk/nextjs";
 import Link from "next/link";
 import { isLocalClerkFallback } from "@/lib/clerk-config";
+import { getSafeCallbackUrl } from "@/lib/login-redirect";
 
 const clerkAppearance = {
   variables: {
@@ -54,12 +55,10 @@ const clerkAppearance = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackUrl?: string; mode?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { callbackUrl, mode } = await searchParams;
-  const safeCallbackUrl = callbackUrl?.startsWith("/") && !callbackUrl.startsWith("//")
-    ? callbackUrl
-    : "/saved-charts";
+  const safeCallbackUrl = getSafeCallbackUrl(callbackUrl);
   const isSignUp = mode === "signup";
 
   if (isLocalClerkFallback) {

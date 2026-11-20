@@ -1,7 +1,32 @@
 import { NextResponse } from "next/server";
-import { ChartSex } from "@/lib/generated/prisma/enums";
+import { metric } from "@vercel/functions";
+import { ChartSex } from "../../../lib/generated/prisma/enums";
 import { getCurrentDatabaseUser } from "@/lib/clerk-user";
 import { prisma } from "@/lib/prisma";
+
+type ProfileMethod = "GET" | "POST";
+type ProfileHandler = () => Promise<NextResponse>;
+
+async function withProfileMetrics(method: ProfileMethod, handler: ProfileHandler) {
+  const startedAt = performance.now();
+  let outcome: "success" | "rejected" | "error" = "success";
+
+  try {
+    const response = await handler();
+    if (!response.ok) outcome = response.status >= 500 ? "error" : "rejected";
+    return response;
+  } catch (error) {
+    outcome = "error";
+    console.error(`[profiles] ${method} request failed`, error);
+    return NextResponse.json(
+      { error: "Saved charts are temporarily unavailable. Please try again." },
+      { status: 500 },
+    );
+  } finally {
+    metric("profiles.request", 1, { method, outcome });
+    metric("profiles.duration_ms", performance.now() - startedAt, { method });
+  }
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -39,7 +64,7 @@ function serializeProfile(profile: {
   };
 }
 
-export async function GET() {
+async function getProfiles() {
   const user = await getCurrentDatabaseUser();
   const userId = user?.id;
   if (!userId) return NextResponse.json({ error: "Sign in to load saved charts." }, { status: 401 });
@@ -65,7 +90,11 @@ export async function GET() {
   return NextResponse.json({ profiles: profiles.map(serializeProfile) });
 }
 
-export async function POST(request: Request) {
+export function GET() {
+  return withProfileMetrics("GET", getProfiles);
+}
+
+async function saveProfile(request: Request) {
   const user = await getCurrentDatabaseUser();
   const userId = user?.id;
   if (!userId) return NextResponse.json({ error: "Sign in to save this chart." }, { status: 401 });
@@ -167,4 +196,8 @@ export async function POST(request: Request) {
   if (!saved) return NextResponse.json({ error: "Chart save could not be confirmed." }, { status: 500 });
 
   return NextResponse.json({ profile: serializeProfile(saved) }, { status: id ? 200 : 201 });
+}
+
+export function POST(request: Request) {
+  return withProfileMetrics("POST", () => saveProfile(request));
 }
