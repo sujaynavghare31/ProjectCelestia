@@ -2485,8 +2485,8 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
               </button>
             </div>
           )}
-          <form onSubmit={submitBirthChart} className={`${profileCollapsed ? "hidden md:block" : ""} space-y-2`}>
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-8">
+          <form onSubmit={submitBirthChart} className={`${profileCollapsed ? "hidden md:block" : ""} min-w-0 space-y-2`}>
+            <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-8">
               <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">
                 Chart name
                 <input aria-label="Chart name" type="text" maxLength={100} value={profile.name === "Current transit" ? "" : profile.name} placeholder="Enter Jataka's name" onChange={(event) => setProfile({ name: event.target.value })} className={`${CONTROL_CLASS} mt-1 h-11 w-full text-base placeholder:text-slate-600 dark:placeholder:text-slate-400 md:text-sm`} />
@@ -2499,13 +2499,13 @@ export function KundaliDashboard({ navigationRequest }: { navigationRequest?: Da
                 </select>
               </label>
               <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Birth date
-                <input aria-label="Birth date" type="date" required value={profile.date} onChange={(event) => setProfile({ date: event.target.value })} className={`${CONTROL_CLASS} mt-1 h-11 w-full px-2 text-base md:text-sm`} />
+                <input aria-label="Birth date" type="date" required value={profile.date} onChange={(event) => setProfile({ date: event.target.value })} className={`${CONTROL_CLASS} mt-1 box-border h-11 w-full min-w-0 max-w-full appearance-none px-2 text-base md:text-sm`} />
               </label>
               <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Birth time
                 <input aria-label="Time of birth" type="time" step={1} value={profile.time} onChange={(event) => {
                   const time = event.target.value;
                   setProfile({ time: time ? (time.length === 5 ? `${time}:00` : time) : "" });
-                }} required className={`${CONTROL_CLASS} mt-1 h-11 w-full px-2 text-base font-mono md:text-sm`} />
+                }} required className={`${CONTROL_CLASS} mt-1 box-border h-11 w-full min-w-0 max-w-full appearance-none px-2 text-base font-mono md:text-sm`} />
               </label>
               <div className="relative min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300">
                 {!useCoordinates ? (
