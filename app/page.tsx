@@ -84,6 +84,7 @@ const navigationItems = [
   { id: "panchang", label: "Panchang", icon: CalendarDays },
   { id: "kundali", label: "Kundali", icon: Compass },
   { id: "numerology", label: "Numerology", icon: Sparkles },
+  { id: "jamakkol", label: "Jamakkol", icon: Orbit },
   { id: "about", label: "About", icon: Info },
 ] as const;
 
@@ -203,6 +204,7 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
   const [kuaGender, setKuaGender] = useState<"male" | "female">("male");
   const [activeTab, setActiveTab] = useState("kundali");
   const [activeNavigation, setActiveNavigation] = useState("kundali");
+  const [dashboardNavigationRequest, setDashboardNavigationRequest] = useState<{ tab: "core" | "jamakkol"; id: number } | null>(null);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
@@ -210,7 +212,12 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
   const isDark = mounted ? resolvedTheme === "dark" : false;
   const currentYear = new Date().getFullYear();
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+    if (new URLSearchParams(window.location.search).get("tab") === "jamakkol") {
+      setActiveNavigation("jamakkol");
+    }
+  }, []);
 
   useEffect(() => {
     if (!mobileNavigationOpen) return;
@@ -352,7 +359,13 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
   const luckyDates = numerology.profile?.lucky.datesEveryMonth ?? [];
   const navigate = (destination: typeof navigationItems[number]["id"]) => {
     setActiveNavigation(destination);
-    setActiveTab(destination);
+    setActiveTab(destination === "jamakkol" ? "kundali" : destination);
+    if (destination === "jamakkol" || destination === "kundali") {
+      setDashboardNavigationRequest((current) => ({
+        tab: destination === "jamakkol" ? "jamakkol" : "core",
+        id: (current?.id ?? 0) + 1,
+      }));
+    }
     setMobileNavigationOpen(false);
     window.requestAnimationFrame(() => {
       const scroller = document.getElementById("dashboard-scroll");
@@ -374,6 +387,7 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
     return (
       <button
         key={id}
+        id={`main-navigation-${id}`}
         type="button"
         onClick={() => navigate(id)}
         aria-current={active ? "page" : undefined}
@@ -846,7 +860,7 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
                 </Tabs>
               </TabsContent>
 
-              <TabsContent value="kundali" className="mt-3 focus-visible:outline-none"><KundaliDashboard /></TabsContent>
+              <TabsContent value="kundali" className="mt-3 focus-visible:outline-none"><KundaliDashboard navigationRequest={dashboardNavigationRequest} /></TabsContent>
               <TabsContent value="panchang" className="mt-6 focus-visible:outline-none"><PanchangDashboard /></TabsContent>
               <TabsContent value="about" className="mt-0 focus-visible:outline-none"><About /></TabsContent>
             </Tabs>

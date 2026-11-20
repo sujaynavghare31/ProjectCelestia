@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ChartSex } from "@/lib/generated/prisma/enums";
 import { getCurrentDatabaseUser } from "@/lib/clerk-user";
 import { prisma } from "@/lib/prisma";
+import RemoveChartButton from "./remove-chart-button";
 
 async function createProfile(formData: FormData) {
   "use server";
@@ -73,6 +74,21 @@ async function saveProfileNotes(formData: FormData) {
   revalidatePath("/saved-charts");
 }
 
+async function deleteProfile(formData: FormData) {
+  "use server";
+
+  const user = await getCurrentDatabaseUser();
+  const userId = user?.id;
+  if (!userId) redirect("/login?callbackUrl=/saved-charts");
+
+  const profileId = String(formData.get("profileId") ?? "");
+  if (!profileId || profileId.length > 100) throw new Error("This saved chart could not be found.");
+
+  const { count } = await prisma.profile.deleteMany({ where: { id: profileId, userId } });
+  if (count !== 1) throw new Error("This saved chart could not be found in your account.");
+  revalidatePath("/saved-charts");
+}
+
 export default async function SavedChartsPage() {
   const user = await getCurrentDatabaseUser();
   const userId = user?.id;
@@ -101,9 +117,14 @@ export default async function SavedChartsPage() {
         <section className="mt-9" aria-labelledby="your-charts-title">
           <h2 id="your-charts-title" className="text-lg font-semibold">Your charts</h2>
           {profiles.length === 0 ? (
-            <div className="mt-4 rounded-xl border border-dashed border-border px-5 py-10 text-center">
-              <p className="text-sm font-medium">No saved charts yet</p>
-              <p className="mt-2 text-sm text-muted-foreground">Open the chart workspace, enter birth details, then choose Save chart.</p>
+            <div className="mt-4 rounded-2xl border border-dashed border-border bg-card/60 px-5 py-10 text-center sm:py-12">
+              <div aria-hidden="true" className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#C64F30]/10 text-xl text-[#C64F30]">✦</div>
+              <h3 className="mt-4 text-base font-semibold">Your chart library is ready</h3>
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-muted-foreground">Create a birth chart in the workspace, then save it here to keep your details and personal notes together.</p>
+              <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+                <Link href="/#kundali-charts" className="inline-flex h-10 items-center justify-center rounded-lg bg-[#C64F30] px-4 text-sm font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40">Create your first chart</Link>
+                <Link href="/" className="inline-flex h-10 items-center justify-center rounded-lg border border-border bg-background px-4 text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">Go to homepage</Link>
+              </div>
             </div>
           ) : (
             <div className="mt-4 divide-y divide-border rounded-2xl border border-border bg-card">
@@ -115,8 +136,11 @@ export default async function SavedChartsPage() {
                     <p className="mt-1 text-sm text-muted-foreground">
                       {profile.dateOfBirth.toLocaleDateString(undefined, { dateStyle: "long", timeZone: "UTC" })} · {profile.timeOfBirth}
                     </p>
-                    <p className="mt-1 text-sm text-muted-foreground">{profile.city || "Coordinates"} · {profile.timezone}</p>
                     <p className="mt-1 font-mono text-xs tabular-nums text-muted-foreground">{profile.latitude.toFixed(4)}, {profile.longitude.toFixed(4)} · {profile.sex === ChartSex.NOT_APPLICABLE ? "Gender not specified" : profile.sex.toLowerCase()}</p>
+                    <form action={deleteProfile} className="mt-4">
+                      <input type="hidden" name="profileId" value={profile.id} />
+                      <RemoveChartButton />
+                    </form>
                   </div>
                   <form action={saveProfileNotes} className="min-w-0">
                     <input type="hidden" name="profileId" value={profile.id} />

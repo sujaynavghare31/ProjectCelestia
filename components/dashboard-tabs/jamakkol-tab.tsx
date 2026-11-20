@@ -12,6 +12,18 @@ import {
   type JamakkolResult,
 } from "@/lib/astro/jamakkol-engine";
 import { formatJama, jamaGrahas } from "@/src/lib/jamakkol/jamaGrahas";
+import {
+  JAMAKKOL_COPY,
+  translateCategory,
+  translateJamakkolHalf,
+  translateNakshatraPada,
+  translatePanchangValue,
+  translatePlanet,
+  translatePoint,
+  translateSign,
+  translateWeekday,
+  type JamakkolLanguage,
+} from "@/src/lib/jamakkol/jamakkol-locale";
 
 type Props = {
   profile: BirthProfile;
@@ -54,44 +66,46 @@ function timezoneOffset(date: string, time: string, timezone: string) {
   return (localAsUtc - instant.getTime()) / 3_600_000;
 }
 
-function JamakkolChart({ result }: { result: JamakkolResult }) {
-  const svg = renderJamakkolChart(result, { size: 620 });
+function JamakkolChart({ result, language }: { result: JamakkolResult; language: JamakkolLanguage }) {
+  const copy = JAMAKKOL_COPY[language];
+  const svg = renderJamakkolChart(result, { size: 620, language });
   return (
     <div className="mx-auto w-full max-w-[620px]">
       <div
         className="aspect-square w-full overflow-hidden [&>svg]:block [&>svg]:h-auto [&>svg]:w-full"
         dangerouslySetInnerHTML={{ __html: svg }}
       />
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground" aria-label="Jamakkol chart legend">
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground" aria-label={copy.legend}>
         {Object.entries(PLANET_COLORS).map(([planet, color]) => (
           <span key={planet} className="inline-flex items-center gap-1.5">
             <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
-            {planet}
+            {translatePlanet(planet, language)}
           </span>
         ))}
-        <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ backgroundColor: COLORS.points.text }} />Udayam · Aarudam · Kavippu</span>
-        <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ backgroundColor: COLORS.upagraha.text }} />Mandi</span>
-        <span>↑ exalted · (R) retrograde</span>
+        <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ backgroundColor: COLORS.points.text }} />{copy.udayam} · {copy.aarudam} · {copy.kavippu}</span>
+        <span className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ backgroundColor: COLORS.upagraha.text }} />{translatePlanet("Mandi", language)}</span>
+        <span>{language === "ta" ? "↑ உச்சம் · (வ) வக்கிரம்" : "↑ exalted · (R) retrograde"}</span>
       </div>
     </div>
   );
 }
 
-function PositionsTable({ result }: { result: JamakkolResult }) {
+function PositionsTable({ result, language }: { result: JamakkolResult; language: JamakkolLanguage }) {
+  const copy = JAMAKKOL_COPY[language];
   return (
     <div className="overflow-x-auto rounded-xl border border-border">
       <table className="w-full min-w-[620px] text-left text-xs">
         <thead className="bg-muted/60 text-[10px] uppercase tracking-wide text-muted-foreground">
-          <tr><th scope="col" className="sticky left-0 z-20 bg-muted/60 px-3 py-2">Point</th><th scope="col" className="px-3 py-2">Type</th><th scope="col" className="px-3 py-2">Sign</th><th scope="col" className="px-3 py-2">Degree</th><th scope="col" className="px-3 py-2">Nakshatra · Pada</th></tr>
+          <tr><th scope="col" className="sticky left-0 z-20 bg-muted/60 px-3 py-2">{copy.point}</th><th scope="col" className="px-3 py-2">{copy.type}</th><th scope="col" className="px-3 py-2">{copy.sign}</th><th scope="col" className="px-3 py-2">{copy.degree}</th><th scope="col" className="px-3 py-2">{copy.nakshatraPada}</th></tr>
         </thead>
         <tbody className="divide-y divide-border">
           {result.points.map((point) => (
             <tr key={`${point.category}-${point.name}`}>
-              <th scope="row" className="sticky left-0 z-10 whitespace-nowrap bg-card px-3 py-2 font-semibold">{point.name}</th>
-              <td className="px-3 py-2 font-medium" style={{ color: colorForPoint(point) }}>{categoryLabels[point.category]}</td>
-              <td className="whitespace-nowrap px-3 py-2">{point.sign}</td>
-              <td className="whitespace-nowrap px-3 py-2 font-mono">{point.degree}{point.retrograde ? " (R)" : point.exalted ? " ↑" : ""}</td>
-              <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">{point.nakshatraPada}</td>
+              <th scope="row" className="sticky left-0 z-10 whitespace-nowrap bg-card px-3 py-2 font-semibold">{translatePoint(point.name, language)}</th>
+              <td className="px-3 py-2 font-medium" style={{ color: colorForPoint(point) }}>{translateCategory(categoryLabels[point.category], language)}</td>
+              <td className="whitespace-nowrap px-3 py-2">{translateSign(point.sign, language)}</td>
+              <td className="whitespace-nowrap px-3 py-2 font-mono">{point.degree}{point.retrograde ? (language === "ta" ? " (வ)" : " (R)") : point.exalted ? " ↑" : ""}</td>
+              <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">{translateNakshatraPada(point.nakshatraPada, language)}</td>
             </tr>
           ))}
         </tbody>
@@ -100,51 +114,56 @@ function PositionsTable({ result }: { result: JamakkolResult }) {
   );
 }
 
-function PanchangCard({ result }: { result: JamakkolResult }) {
-  const items = [
-    ["Vara", result.panchang.vara], ["Tamil month", result.panchang.tamilMonth],
-    ["Sunrise / sunset", `${result.panchang.sunrise} · ${result.panchang.sunset}`],
-    ["Tithi", result.panchang.tithi], ["Nakshatra", result.panchang.nakshatra],
-    ["Yoga", result.panchang.yoga], ["Karana", result.panchang.karana],
-    ["Moon sign", result.panchang.moonSign], ["Sun sign", result.panchang.sunSign],
-    ["Hora lord", result.panchang.horaLord], ["Jamakkol day", result.panchang.jamakkolDay],
-    ["Ayanamsa", result.panchang.ayanamsa],
+function PanchangCard({ result, language }: { result: JamakkolResult; language: JamakkolLanguage }) {
+  const copy = JAMAKKOL_COPY[language];
+  const items: Array<[keyof typeof copy, string, string]> = [
+    ["vara", "vara", result.panchang.vara], ["tamilMonth", "tamilMonth", result.panchang.tamilMonth],
+    ["sunriseSunset", "sunriseSunset", `${result.panchang.sunrise} · ${result.panchang.sunset}`],
+    ["tithi", "tithi", result.panchang.tithi], ["nakshatra", "nakshatra", result.panchang.nakshatra],
+    ["yoga", "yoga", result.panchang.yoga], ["karana", "karana", result.panchang.karana],
+    ["moonSign", "moonSign", result.panchang.moonSign], ["sunSign", "sunSign", result.panchang.sunSign],
+    ["horaLord", "horaLord", result.panchang.horaLord], ["jamakkolDay", "jamakkolDay", result.panchang.jamakkolDay],
+    ["ayanamsa", "ayanamsa", result.panchang.ayanamsa],
   ];
   return (
     <section className="rounded-xl border border-border bg-card p-4 shadow-sm" aria-labelledby="jamakkol-panchang-title">
       <div className="flex items-center justify-between gap-3">
-        <h3 id="jamakkol-panchang-title" className="text-sm font-semibold">Panchang</h3>
-        <span className="text-[11px] text-muted-foreground">Rahu · Yamagandam · Gulika</span>
+        <h3 id="jamakkol-panchang-title" className="text-sm font-semibold">{copy.panchang}</h3>
+        <span className="text-[11px] text-muted-foreground">{language === "ta" ? `${copy.rahuKalam} · ${copy.yamagandam} · ${copy.gulikaKalam}` : "Rahu · Yamagandam · Gulika"}</span>
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map(([label, value]) => <div key={label} className="rounded-lg border border-border bg-background px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</p><p className="mt-0.5 text-xs font-medium">{value}</p></div>)}
+        {items.map(([labelKey, valueKey, value]) => <div key={labelKey} className="rounded-lg border border-border bg-background px-3 py-2"><p className="text-[10px] uppercase tracking-wide text-muted-foreground">{copy[labelKey]}</p><p className="mt-0.5 text-xs font-medium">{translatePanchangValue(valueKey, value, language)}</p></div>)}
       </div>
       <div className="mt-2 grid gap-2 sm:grid-cols-3">
-        {[["Rahu kalam", result.panchang.rahuKalam], ["Yamagandam", result.panchang.yamagandam], ["Gulika kalam", result.panchang.gulikaKalam]].map(([label, value]) => <div key={label} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/25 dark:text-rose-200"><p className="text-[10px] uppercase tracking-wide">{label}</p><p className="mt-0.5 text-xs font-semibold">{value}</p></div>)}
+        {[[copy.rahuKalam, result.panchang.rahuKalam], [copy.yamagandam, result.panchang.yamagandam], [copy.gulikaKalam, result.panchang.gulikaKalam]].map(([label, value]) => <div key={label} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/25 dark:text-rose-200"><p className="text-[10px] uppercase tracking-wide">{label}</p><p className="mt-0.5 text-xs font-semibold">{value}</p></div>)}
       </div>
     </section>
   );
 }
 
-function JamaGrahaTable({ date, time }: { date: string; time: string }) {
+function JamaGrahaTable({ date, time, language }: { date: string; time: string; language: JamakkolLanguage }) {
+  const copy = JAMAKKOL_COPY[language];
   const result = jamaGrahas(date, time);
   return (
     <section className="rounded-xl border border-border bg-card p-4 shadow-sm" aria-labelledby="jama-grahas-title">
-      <h3 id="jama-grahas-title" className="mb-3 text-sm font-semibold">Jama Grahas</h3>
+      <h3 id="jama-grahas-title" className="mb-3 text-sm font-semibold">{copy.jamaGrahas}</h3>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[420px] text-left text-xs">
           <thead className="bg-muted/60 text-[10px] uppercase tracking-wide text-muted-foreground">
-            <tr><th className="sticky left-0 z-20 bg-muted/60 px-3 py-2">Graha</th><th className="px-3 py-2">Sign (Tamil)</th><th className="px-3 py-2">Degree</th><th className="px-3 py-2">Exalted</th></tr>
+            <tr><th scope="col" className="sticky left-0 z-20 bg-muted/60 px-3 py-2">{copy.graha}</th><th scope="col" className="px-3 py-2">{language === "ta" ? copy.sign : "Sign (Tamil)"}</th><th scope="col" className="px-3 py-2">{copy.degree}</th><th scope="col" className="px-3 py-2">{copy.exalted}</th></tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {result.grahas.map((graha) => (
-              <tr key={graha.short}>
-                <th scope="row" className="sticky left-0 z-10 bg-card px-3 py-2 font-semibold">{graha.name}</th>
-                <td className="px-3 py-2">{graha.sign}</td>
-                <td className="px-3 py-2 font-mono">{formatJama(graha.longitude)}</td>
-                <td className="px-3 py-2">{graha.exalted ? "✓" : ""}</td>
-              </tr>
-            ))}
+            {result.grahas.map((graha) => {
+              const formattedPosition = formatJama(graha.longitude);
+              return (
+                <tr key={graha.short}>
+                  <th scope="row" className="sticky left-0 z-10 bg-card px-3 py-2 font-semibold">{translatePlanet(graha.name, language)}</th>
+                  <td className="px-3 py-2">{translateSign(graha.sign, language)}</td>
+                  <td className="px-3 py-2 font-mono">{language === "ta" ? formattedPosition.slice(formattedPosition.indexOf(" ") + 1) : formattedPosition}</td>
+                  <td className="px-3 py-2">{graha.exalted ? "✓" : ""}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -152,7 +171,32 @@ function JamaGrahaTable({ date, time }: { date: string; time: string }) {
   );
 }
 
+function JamakkolLanguageSelector({
+  language,
+  onChange,
+}: {
+  language: JamakkolLanguage;
+  onChange: (language: JamakkolLanguage) => void;
+}) {
+  const copy = JAMAKKOL_COPY[language];
+  return (
+    <fieldset aria-label={copy.displayLanguage} className="flex items-center gap-3 text-sm">
+      <legend className="sr-only">{copy.displayLanguage}</legend>
+      <label className="inline-flex cursor-pointer items-center gap-1.5">
+        <input type="radio" name="jamakkol-language" value="en" checked={language === "en"} onChange={() => onChange("en")} className="size-4 accent-[#C64F30]" />
+        English
+      </label>
+      <label className="inline-flex cursor-pointer items-center gap-1.5">
+        <input type="radio" name="jamakkol-language" value="ta" checked={language === "ta"} onChange={() => onChange("ta")} className="size-4 accent-[#C64F30]" />
+        தமிழ்
+      </label>
+    </fieldset>
+  );
+}
+
 export default function JamakkolTab({ profile, data, chartMode, transitDate, transitTime, transitMode }: Props) {
+  const [language, setLanguage] = useState<JamakkolLanguage>("en");
+  const copy = JAMAKKOL_COPY[language];
   const [jamaData, setJamaData] = useState<EphemerisResponse | null>(null);
   const [jamaError, setJamaError] = useState<string | null>(null);
   const ayanamsa = useKundaliStore((state) => state.ayanamsa);
@@ -229,26 +273,43 @@ export default function JamakkolTab({ profile, data, chartMode, transitDate, tra
     });
   }, [data, jamaData, jamaDateTime.date, jamaDateTime.time, profile]);
 
-  if (!active) return <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">{jamaError ?? "Jamakkol needs a completed planetary calculation. Submit the chart details and try again."}</div>;
+  if (!active) {
+    return (
+      <div className="space-y-4 pt-4">
+        <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
+          <h2 className="text-base font-semibold">{copy.heading}</h2>
+          <JamakkolLanguageSelector language={language} onChange={setLanguage} />
+        </section>
+        <div role={jamaError ? "alert" : undefined} className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
+          {jamaError ?? copy.unavailable}
+        </div>
+      </div>
+    );
+  }
   const jamaCalculation = jamaGrahas(jamaDateTime.date, jamaDateTime.time);
   const [year, month, day] = jamaDateTime.date.split("-").map(Number);
-  const monthName = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][month - 1];
+  const monthName = language === "ta"
+    ? new Intl.DateTimeFormat("ta-IN", { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, day)))
+    : ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][month - 1];
   const [hours, minutes, seconds = "00"] = jamaDateTime.time.split(":");
   const hour = Number(hours);
-  const displayTime = `${String(((hour + 11) % 12) + 1).padStart(2, "0")}:${minutes}:${seconds} ${hour < 12 ? "AM" : "PM"}`;
-  const calculatedFor = `Calculated for: ${jamaCalculation.weekday}, ${String(day).padStart(2, "0")}-${monthName}-${year} ${displayTime} (${profile.city}, ${profile.timezone}) — ${jamaCalculation.half} Jamam #${jamaCalculation.jamam}`;
+  const displayTime = `${String(((hour + 11) % 12) + 1).padStart(2, "0")}:${minutes}:${seconds} ${language === "ta" ? (hour < 12 ? "காலை" : "மாலை") : hour < 12 ? "AM" : "PM"}`;
+  const calculatedFor = language === "ta"
+    ? `${copy.calculatedFor}: ${translateWeekday(jamaCalculation.weekday, language)}, ${String(day).padStart(2, "0")}-${monthName}-${year} ${displayTime} (${profile.city}, ${profile.timezone}) — ${translateJamakkolHalf(jamaCalculation.half, language)} ஜாமம் #${jamaCalculation.jamam}`
+    : `${copy.calculatedFor}: ${jamaCalculation.weekday}, ${String(day).padStart(2, "0")}-${monthName}-${year} ${displayTime} (${profile.city}, ${profile.timezone}) — ${jamaCalculation.half} Jamam #${jamaCalculation.jamam}`;
 
   return (
     <div className="space-y-4 pt-4">
       <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
-        <h2 className="text-base font-semibold">Jamakkol Prasannam</h2>
+        <h2 className="text-base font-semibold">{copy.heading}</h2>
+        <JamakkolLanguageSelector language={language} onChange={setLanguage} />
       </section>
       <p className="text-xs font-medium text-muted-foreground">{calculatedFor}</p>
-      <section className="rounded-xl border border-border bg-card p-3 shadow-sm sm:p-5"><JamakkolChart result={active} /></section>
-      <JamaGrahaTable date={jamaDateTime.date} time={jamaDateTime.time} />
+      <section className="rounded-xl border border-border bg-card p-3 shadow-sm sm:p-5"><JamakkolChart result={active} language={language} /></section>
+      <JamaGrahaTable date={jamaDateTime.date} time={jamaDateTime.time} language={language} />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:gap-6">
-        <section className="rounded-xl border border-border bg-card p-4 shadow-sm" aria-labelledby="jamakkol-positions-title"><h3 id="jamakkol-positions-title" className="mb-3 text-sm font-semibold">Positions</h3><PositionsTable result={active} /></section>
-        <div className="space-y-4"><PanchangCard result={active} /><section className="rounded-xl border border-border bg-card p-4 text-xs shadow-sm"><p><span className="font-semibold">Exalted Jama grahas:</span> {active.exaltedJama.join(", ") || "None"}</p><p className="mt-2"><span className="font-semibold">Kavippu:</span> {active.veediSign} · count {active.kavippuCount}</p></section></div>
+        <section className="rounded-xl border border-border bg-card p-4 shadow-sm" aria-labelledby="jamakkol-positions-title"><h3 id="jamakkol-positions-title" className="mb-3 text-sm font-semibold">{copy.positions}</h3><PositionsTable result={active} language={language} /></section>
+        <div className="space-y-4"><PanchangCard result={active} language={language} /><section className="rounded-xl border border-border bg-card p-4 text-xs shadow-sm"><p><span className="font-semibold">{language === "ta" ? "உச்சம் பெற்ற ஜாம கிரகங்கள்" : "Exalted Jama grahas"}:</span> {active.exaltedJama.map((planet) => translatePlanet(planet, language)).join(", ") || copy.none}</p><p className="mt-2"><span className="font-semibold">{copy.kavippu}:</span> {translatePoint(active.veediSign, language)} · {copy.count} {active.kavippuCount}</p></section></div>
       </div>
     </div>
   );

@@ -4,7 +4,7 @@ import { ChartSex } from "../../../lib/generated/prisma/enums";
 import { getCurrentDatabaseUser } from "@/lib/clerk-user";
 import { prisma } from "@/lib/prisma";
 
-type ProfileMethod = "GET" | "POST";
+type ProfileMethod = "GET" | "POST" | "DELETE";
 type ProfileHandler = () => Promise<NextResponse>;
 
 async function withProfileMetrics(method: ProfileMethod, handler: ProfileHandler) {
@@ -92,6 +92,24 @@ async function getProfiles() {
 
 export function GET() {
   return withProfileMetrics("GET", getProfiles);
+}
+
+async function deleteProfile(request: Request) {
+  const user = await getCurrentDatabaseUser();
+  const userId = user?.id;
+  if (!userId) return NextResponse.json({ error: "Sign in to remove saved charts." }, { status: 401 });
+
+  const id = new URL(request.url).searchParams.get("id")?.trim() ?? "";
+  if (!id || id.length > 100) return NextResponse.json({ error: "This saved chart could not be found." }, { status: 400 });
+
+  const { count } = await prisma.profile.deleteMany({ where: { id, userId } });
+  if (count !== 1) return NextResponse.json({ error: "This saved chart could not be found in your account." }, { status: 404 });
+
+  return NextResponse.json({ id });
+}
+
+export function DELETE(request: Request) {
+  return withProfileMetrics("DELETE", () => deleteProfile(request));
 }
 
 async function saveProfile(request: Request) {

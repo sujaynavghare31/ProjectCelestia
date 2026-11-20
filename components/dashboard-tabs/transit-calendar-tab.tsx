@@ -5,6 +5,7 @@ import { RotateCcw, Sparkles, Sun } from "lucide-react";
 import { useKundaliStore } from "@/lib/kundali-store";
 import type { PlanetPosition } from "@/lib/kundali-types";
 import { CALENDAR_BODIES, deriveTransitEvents, fetchTransitSamples, type TransitSample } from "@/lib/astrology/transit-calendar";
+import EphemerisLoader from "@/components/dashboard-tabs/ephemeris-loader";
 
 const YEARS = [2025, 2026, 2027] as const;
 const PLANET_COLORS: Record<string, string> = {
@@ -28,43 +29,6 @@ function latestByPlanet(samples: TransitSample[]) {
     if (CALENDAR_BODIES.includes(planet.name as typeof CALENDAR_BODIES[number])) latest.set(planet.name, { date: sample.date, planet });
   }));
   return latest;
-}
-
-function TransitCalendarLoader({ year, city, ayanamsa }: { year: number; city: string; ayanamsa: string }) {
-  const [progress, setProgress] = useState(8);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
-
-  useEffect(() => {
-    const startedAt = Date.now();
-    const timer = window.setInterval(() => {
-      const elapsed = (Date.now() - startedAt) / 1000;
-      setElapsedSeconds(Math.floor(elapsed));
-      setProgress(Math.min(94, 8 + (elapsed / 5) * 86));
-    }, 100);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const ayanamsaLabel = ayanamsa.toLowerCase() === "lahiri" ? "Lahiri ayanamsa" : `${ayanamsa} ayanamsa`;
-
-  return (
-    <div className="flex min-h-[22rem] flex-col items-center justify-center rounded-2xl border border-stone-200 bg-white/80 px-6 text-center shadow-sm" role="status" aria-live="polite">
-      <div className="relative grid size-24 place-items-center rounded-full border border-stone-200 bg-[#FDFBF7] shadow-inner">
-        <div className="absolute inset-2 animate-[spin_5s_linear_infinite] rounded-full border border-dashed border-[#C05A3A]/40" />
-        <div className="absolute inset-5 animate-[spin_3s_linear_infinite_reverse] rounded-full border border-stone-300" />
-        <span className="size-3 animate-pulse rounded-full bg-[#C05A3A] shadow-[0_0_16px_rgba(192,90,58,0.65)]" />
-      </div>
-      <p className="mt-6 font-serif text-xl tracking-wide text-stone-900">Mapping the {year} sky</p>
-      <p className="mt-2 text-sm leading-6 text-stone-500">Sampling planetary positions across 36 ephemeris points…</p>
-      <div className="mt-5 w-full max-w-sm">
-        <div className="relative h-2 rounded-full bg-stone-100">
-          <div className="h-full rounded-full bg-[#C05A3A] transition-[width] duration-100" style={{ width: `${progress}%` }} />
-          <span className="absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-[#C05A3A] shadow-[0_0_12px_rgba(192,90,58,0.6)] transition-[left] duration-100" style={{ left: `${progress}%` }} />
-        </div>
-        <div className="mt-2 flex justify-between text-[10px] uppercase tracking-[0.14em] text-stone-400"><span>{Math.round(progress)}% mapped</span><span>{elapsedSeconds}s elapsed</span></div>
-      </div>
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[10px] uppercase tracking-[0.14em] text-stone-400"><Sun className="size-3 animate-pulse text-[#C05A3A]" /> {progress >= 90 ? "Almost there · finalizing positions" : "Planets are traveling"} · {city} · {ayanamsaLabel}</div>
-    </div>
-  );
 }
 
 function MonthlyCard({
@@ -159,7 +123,13 @@ export default function TransitCalendarTab({ natalPlanets }: { natalPlanets: Pla
         {YEARS.map((option) => <button key={option} type="button" role="tab" aria-selected={year === option} onClick={() => setYear(option)} className={`rounded-full px-4 py-2 text-xs tracking-wide transition ${year === option ? "bg-[#C05A3A] text-white shadow-md" : "text-stone-500 hover:text-stone-900"}`}>{option}</button>)}
       </div>
       {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{error}</div>}
-      {loading ? <TransitCalendarLoader year={year} city={profile.city || "Mumbai"} ayanamsa={ayanamsa} /> : (
+      {loading ? (
+        <EphemerisLoader
+          title={`Mapping the ${year} sky`}
+          description="Sampling planetary positions across 36 ephemeris points…"
+          detail={`${profile.city || "Mumbai"} · ${ayanamsa.toLowerCase() === "lahiri" ? "Lahiri" : ayanamsa} ayanamsa`}
+        />
+      ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {MONTH_NAMES.map((_, month) => <MonthlyCard key={month} month={month} events={events.filter((event) => getMonth(event.date) === month)} sample={samples.find((item) => getMonth(item.date) === month)} />)}
         </div>

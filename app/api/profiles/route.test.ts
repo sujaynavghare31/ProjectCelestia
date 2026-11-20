@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   findMany: vi.fn(),
   create: vi.fn(),
   findFirst: vi.fn(),
+  deleteMany: vi.fn(),
 }));
 
 vi.mock("@/lib/clerk-user", () => ({
@@ -18,11 +19,12 @@ vi.mock("@/lib/prisma", () => ({
       findMany: mocks.findMany,
       create: mocks.create,
       findFirst: mocks.findFirst,
+      deleteMany: mocks.deleteMany,
     },
   },
 }));
 
-import { GET, POST } from "./route";
+import { DELETE, GET, POST } from "./route";
 
 const savedProfile = {
   id: "profile-1",
@@ -44,6 +46,12 @@ function request(body: unknown) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+}
+
+function deleteRequest(id?: string) {
+  const url = new URL("http://localhost/api/profiles");
+  if (id !== undefined) url.searchParams.set("id", id);
+  return new Request(url, { method: "DELETE" });
 }
 
 describe("/api/profiles", () => {
@@ -137,5 +145,51 @@ describe("/api/profiles", () => {
     expect(await response.json()).toEqual({
       error: "Saved charts are temporarily unavailable. Please try again.",
     });
+  });
+
+  it("deletes a saved chart only for the signed-in user", async () => {
+    mocks.deleteMany.mockResolvedValue({ count: 1 });
+
+    const response = await DELETE(deleteRequest("profile-1"));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ id: "profile-1" });
+    expect(mocks.deleteMany).toHaveBeenCalledWith({
+      where: { id: "profile-1", userId: "user-1" },
+    });
+  });
+
+  it("returns not found when the saved chart does not belong to the signed-in user", async () => {
+    mocks.deleteMany.mockResolvedValue({ count: 0 });
+
+    const response = await DELETE(deleteRequest("another-users-profile"));
+
+    expect(response.status).toBe(404);
+    expect(mocks.deleteMany).toHaveBeenCalledWith({
+      where: { id: "another-users-profile", userId: "user-1" },
+    });
+  });
+
+  it("rejects a missing saved chart id", async () => {
+    const response = await DELETE(deleteRequest());
+
+    expect(response.status).toBe(400);
+    expect(mocks.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("rejects a saved chart id that is too long", async () => {
+    const response = await DELETE(deleteRequest("x".repeat(101)));
+
+    expect(response.status).toBe(400);
+    expect(mocks.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("requires sign-in before deleting a saved chart", async () => {
+    mocks.getCurrentDatabaseUser.mockResolvedValue(null);
+
+    const response = await DELETE(deleteRequest("profile-1"));
+
+    expect(response.status).toBe(401);
+    expect(mocks.deleteMany).not.toHaveBeenCalled();
   });
 });

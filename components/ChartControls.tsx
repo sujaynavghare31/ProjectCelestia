@@ -84,7 +84,7 @@ export default function ChartControls({
   }, [customPickerOpen]);
 
   return (
-    <div className="space-y-4 border-b border-border bg-muted/10 p-4 xl:min-h-[300px]">
+    <div className="space-y-4 border-b border-border bg-muted/10 p-4">
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
           <div className="min-w-0">

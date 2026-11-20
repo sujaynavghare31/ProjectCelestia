@@ -20,6 +20,7 @@ import {
   Orbit,
   Search,
   Save,
+  Trash2,
   X,
 } from "lucide-react";
 import type { CarterZodiac, ChartSettings, ChartStyle, CelestialLanguage, EphemerisResponse, HouseSystem, MidpointPreferences, PlanetPosition, ViewPreferences } from "@/lib/kundali-types";
@@ -41,6 +42,7 @@ import { readAnalysisPreferences, writeAnalysisPreferences } from "@/lib/astrolo
 import { createMidpointReport, visibleMidpointRows, visibleMidpointTrees } from "@/lib/astrology/midpoint-chart";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import EphemerisLoader from "@/components/dashboard-tabs/ephemeris-loader";
 
 const loadDashaTab = () => import("@/components/dashboard-tabs/DashaDashboard");
 const loadAspectsTab = () => import("@/components/dashboard-tabs/aspects-tab");
@@ -1289,6 +1291,7 @@ type DashaSystem = "vimshottari" | "chara" | "ashtottari" | "yogini" | "kalachak
 type DashaSeed = "moon" | "ascendant" | "sun" | "ascendant-lord";
 type DashaLagnaMode = "natural" | "maha-lord" | "antar-lord";
 type DashboardTab = "core" | "kp" | "jaimini" | "dasha" | "aspects" | "midpoints" | "ashtakavarga" | "medical" | "transit-calendar" | "jamakkol" | "shodashvarga";
+type DashboardNavigationRequest = { tab: "core" | "jamakkol"; id: number };
 
 // All existing astrology views remain available; strength modules are now grouped with Ashtakavarga.
 const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
@@ -1302,12 +1305,11 @@ const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
   { id: "ashtakavarga", label: "Ashtakavarga & Strength" },
   { id: "medical", label: "Medical Astrology" },
   { id: "transit-calendar", label: "Transit Calendar" },
-  { id: "jamakkol", label: "Jamakkol" },
 ];
 
 function dashboardTabFromLocation(): DashboardTab {
   const value = new URLSearchParams(window.location.search).get("tab");
-  return DASHBOARD_TABS.some(({ id }) => id === value) ? value as DashboardTab : "core";
+  return value === "jamakkol" || DASHBOARD_TABS.some(({ id }) => id === value) ? value as DashboardTab : "core";
 }
 
 function preloadDashboardTab(tab: DashboardTab) {
@@ -1553,19 +1555,28 @@ function SavedChartsDialog({
   loading,
   profiles,
   query,
+  deletingId,
+  actionError,
+  actionMessage,
   onQueryChange,
   onClose,
   onSelect,
+  onDelete,
 }: {
   open: boolean;
   loading: boolean;
   profiles: SavedProfile[];
   query: string;
+  deletingId: string | null;
+  actionError: string | null;
+  actionMessage: string | null;
   onQueryChange: (query: string) => void;
   onClose: () => void;
   onSelect: (profile: SavedProfile) => void;
+  onDelete: (profile: SavedProfile) => void;
 }) {
   const searchRef = useRef<HTMLInputElement>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -1625,22 +1636,56 @@ function SavedChartsDialog({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
+          {actionError && <p role="alert" className="border-b border-border px-5 py-3 text-sm text-rose-800 dark:text-rose-200">{actionError}</p>}
+          {actionMessage && <p role="status" className="border-b border-border px-5 py-3 text-sm text-emerald-700 dark:text-emerald-300">{actionMessage}</p>}
           {loading ? (
             <div className="px-5 py-12 text-center text-sm text-muted-foreground">Loading your saved charts…</div>
           ) : visibleProfiles.length ? (
             <ul className="divide-y divide-border">
               {visibleProfiles.map((saved) => (
                 <li key={saved.id}>
-                  <button type="button" onClick={() => onSelect(saved)} className="flex w-full items-center gap-3 px-5 py-4 text-left transition hover:bg-muted/70 focus-visible:bg-muted/70 focus-visible:outline-none sm:px-6">
-                    <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
-                      <Orbit className="size-5" aria-hidden="true" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold">{saved.chartName || saved.fullName}</span>
-                      <span className="mt-1 block truncate text-xs text-muted-foreground">{saved.city || "Coordinates"} · {saved.dateOfBirth} · {saved.timeOfBirth}</span>
-                    </span>
-                    <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  </button>
+                  <div className="flex items-center gap-2 px-5 py-4 sm:px-6">
+                    <button type="button" onClick={() => onSelect(saved)} className="flex min-w-0 flex-1 items-center gap-3 rounded-lg py-1 text-left transition hover:bg-muted/70 focus-visible:bg-muted/70 focus-visible:outline-none">
+                      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-primary/10 text-primary">
+                        <Orbit className="size-5" aria-hidden="true" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold">{saved.chartName || saved.fullName}</span>
+                        <span className="mt-1 block truncate text-xs text-muted-foreground">{saved.city || "Coordinates"} · {saved.dateOfBirth} · {saved.timeOfBirth}</span>
+                      </span>
+                      <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    </button>
+                    {confirmingDeleteId === saved.id ? (
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => onDelete(saved)}
+                          disabled={deletingId !== null}
+                          className="h-9 rounded-lg bg-rose-700 px-3 text-xs font-semibold text-white transition hover:bg-rose-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 disabled:cursor-wait disabled:opacity-60"
+                        >
+                          {deletingId === saved.id ? "Removing…" : "Remove"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingDeleteId(null)}
+                          disabled={deletingId !== null}
+                          className="h-9 rounded-lg border border-border px-3 text-xs font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:opacity-60"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingDeleteId(saved.id)}
+                        disabled={deletingId !== null}
+                        aria-label={`Remove ${saved.chartName || saved.fullName}`}
+                        className="grid size-9 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500/40 disabled:opacity-60 dark:hover:border-rose-800 dark:hover:bg-rose-950/30 dark:hover:text-rose-200"
+                      >
+                        <Trash2 className="size-4" aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
@@ -1697,7 +1742,7 @@ function parseProfileDraft(value: string): BirthProfile | null {
   };
 }
 
-export function KundaliDashboard() {
+export function KundaliDashboard({ navigationRequest }: { navigationRequest?: DashboardNavigationRequest | null }) {
   const profile = useKundaliStore((state) => state.profile);
   const chartStyle = useKundaliStore((state) => state.chartStyle);
   const houseSystem = useKundaliStore((state) => state.houseSystem);
@@ -1755,6 +1800,7 @@ export function KundaliDashboard() {
   const [transitMode, setTransitMode] = useState<"current" | "specific">("current");
   const [savedProfileId, setSavedProfileId] = useState<string | null>(null);
   const [savedProfiles, setSavedProfiles] = useState<SavedProfile[]>([]);
+  const [deletingProfileId, setDeletingProfileId] = useState<string | null>(null);
   const [savedProfilesOpen, setSavedProfilesOpen] = useState(false);
   const [savedProfilesLoading, setSavedProfilesLoading] = useState(false);
   const [savedProfilesQuery, setSavedProfilesQuery] = useState("");
@@ -1780,6 +1826,7 @@ export function KundaliDashboard() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [coordinateTimezoneError, setCoordinateTimezoneError] = useState<string | null>(null);
   const initialProfileSubmitted = useRef(false);
+  const jaiminiAutoloadKey = useRef<string | null>(null);
   const chartSettings = useMemo<ChartSettings>(() => ({
     zodiacMode,
     ayanamsa,
@@ -1826,6 +1873,10 @@ export function KundaliDashboard() {
     window.addEventListener("popstate", syncTab);
     return () => window.removeEventListener("popstate", syncTab);
   }, []);
+
+  useEffect(() => {
+    if (navigationRequest) setDashboardTab(navigationRequest.tab);
+  }, [navigationRequest]);
 
   useEffect(() => {
     const defaults = getBirthDateTimeDefaults(profile);
@@ -1946,9 +1997,9 @@ export function KundaliDashboard() {
     }
 
     let isMounted = true;
+    setLoading(true);
+    setError(null);
     const timeout = window.setTimeout(async () => {
-      setLoading(true);
-      setError(null);
       try {
         const response = await fetch("/api/ephemeris", {
           method: "POST",
@@ -2050,8 +2101,7 @@ export function KundaliDashboard() {
     setTransitMode(value);
     setTransitRefreshKey((key) => key + 1);
   }, []);
-  const submitBirthChart = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const calculateBirthChart = () => {
     const dateTimeError = getBirthDateTimeError(profile.date, profile.time);
     if (dateTimeError) {
       setError(dateTimeError);
@@ -2065,6 +2115,21 @@ export function KundaliDashboard() {
     setProfileCollapsed(true);
     setChartMode("birth");
     setError(null);
+  };
+  useEffect(() => {
+    if (chartMode === "birth") {
+      jaiminiAutoloadKey.current = null;
+      return;
+    }
+    if (dashboardTab !== "jaimini") return;
+    const key = JSON.stringify([profile.date, profile.time, profile.timezone, profile.lat, profile.lng, profile.name, profile.sex]);
+    if (jaiminiAutoloadKey.current === key) return;
+    jaiminiAutoloadKey.current = key;
+    calculateBirthChart();
+  }, [chartMode, dashboardTab, profile.date, profile.time, profile.timezone, profile.lat, profile.lng, profile.name, profile.sex]);
+  const submitBirthChart = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    calculateBirthChart();
   };
   const redirectToSignIn = () => {
     try {
@@ -2180,6 +2245,27 @@ export function KundaliDashboard() {
       setProfileActionError(reason instanceof Error ? reason.message : "Saved charts could not be loaded. Please try again.");
     } finally {
       setSavedProfilesLoading(false);
+    }
+  };
+  const deleteSavedProfile = async (saved: SavedProfile) => {
+    setProfileActionError(null);
+    setProfileActionMessage(null);
+    setDeletingProfileId(saved.id);
+    try {
+      const response = await fetch(`/api/profiles?id=${encodeURIComponent(saved.id)}`, { method: "DELETE" });
+      if (response.status === 401) {
+        redirectToSignIn();
+        return;
+      }
+      const result = await readProfileApiResponse<{ id?: string; error?: string }>(response);
+      if (!response.ok || result.id !== saved.id) throw new Error(result.error ?? "Chart could not be removed.");
+      setSavedProfiles((current) => current.filter(({ id }) => id !== saved.id));
+      if (savedProfileId === saved.id) setSavedProfileId(null);
+      setProfileActionMessage(`${saved.chartName || saved.fullName} was removed from your saved charts.`);
+    } catch (reason) {
+      setProfileActionError(reason instanceof Error ? reason.message : "Chart could not be removed. Please try again.");
+    } finally {
+      setDeletingProfileId(null);
     }
   };
   const selectSavedProfile = (saved: SavedProfile) => {
@@ -2510,9 +2596,13 @@ export function KundaliDashboard() {
           loading={savedProfilesLoading}
           profiles={savedProfiles}
           query={savedProfilesQuery}
+          deletingId={deletingProfileId}
+          actionError={profileActionError}
+          actionMessage={profileActionMessage}
           onQueryChange={setSavedProfilesQuery}
           onClose={() => setSavedProfilesOpen(false)}
           onSelect={selectSavedProfile}
+          onDelete={(saved) => void deleteSavedProfile(saved)}
         />
 
         <SaveChartDialog
@@ -2548,26 +2638,34 @@ export function KundaliDashboard() {
           onSave={confirmSaveProfile}
         />
 
-        <nav role="tablist" aria-label="Kundali analysis" className="no-scrollbar flex w-full snap-x snap-mandatory gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 shadow-sm lg:overflow-visible">
-          {DASHBOARD_TABS.map(({ id, label }) => (
-            <button
-              key={id}
-              id={`kundali-tab-${id}`}
-              type="button"
-              role="tab"
-              aria-selected={dashboardTab === id}
-              aria-controls="kundali-tab-panel"
-              onClick={() => selectDashboardTab(id)}
-              onMouseEnter={() => preloadDashboardTab(id)}
-              onFocus={() => preloadDashboardTab(id)}
-              className={`min-h-11 shrink-0 snap-start rounded-lg px-2 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 2xl:px-3 2xl:text-xs ${dashboardTab === id ? "border border-primary/30 bg-accent text-accent-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
-            >
-              {label}
-            </button>
-          ))}
-        </nav>
+        {dashboardTab !== "jamakkol" && (
+          <nav role="tablist" aria-label="Kundali analysis" className="no-scrollbar flex w-full snap-x snap-mandatory gap-1 overflow-x-auto rounded-xl border border-border bg-card p-1 shadow-sm lg:overflow-visible">
+            {DASHBOARD_TABS.map(({ id, label }) => (
+              <button
+                key={id}
+                id={`kundali-tab-${id}`}
+                type="button"
+                role="tab"
+                aria-selected={dashboardTab === id}
+                aria-controls="kundali-tab-panel"
+                onClick={() => selectDashboardTab(id)}
+                onMouseEnter={() => preloadDashboardTab(id)}
+                onFocus={() => preloadDashboardTab(id)}
+                className={`min-h-11 shrink-0 snap-start rounded-lg px-2 text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 2xl:px-3 2xl:text-xs ${dashboardTab === id ? "border border-primary/30 bg-accent text-accent-foreground shadow-sm" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
+        )}
 
-        <div id="kundali-tab-panel" role="tabpanel" aria-labelledby={`kundali-tab-${dashboardTab}`} className="min-w-0">
+        <div
+          id="kundali-tab-panel"
+          role={dashboardTab === "jamakkol" ? "region" : "tabpanel"}
+          aria-label={dashboardTab === "jamakkol" ? "Jamakkol analysis" : undefined}
+          aria-labelledby={dashboardTab === "jamakkol" ? "main-navigation-jamakkol" : `kundali-tab-${dashboardTab}`}
+          className="min-w-0"
+        >
         {dashboardTab === "kp" && (
           <KPAstrology
             profile={submittedProfile ?? profile}
@@ -2577,10 +2675,21 @@ export function KundaliDashboard() {
           />
         )}
         {dashboardTab === "jaimini" && (
-          <Suspense fallback={<SecondaryTabSkeleton />}>
+          <Suspense fallback={
+            <EphemerisLoader
+              tone="dashboard"
+              title="Opening Jaimini analysis"
+              description="Loading chart calculations and interpretations…"
+              detail={`${profile.city || "Birth chart"} · Jaimini`}
+            />
+          }>
             <JaiminiDashboard
               profile={submittedProfile ?? profile}
-              data={chartMode === "transit" ? transitData : data}
+              data={chartMode === "birth" ? data : null}
+              chartMode={chartMode}
+              loading={loading}
+              error={error}
+              onCalculateBirthChart={calculateBirthChart}
             />
           </Suspense>
         )}
@@ -2694,7 +2803,7 @@ export function KundaliDashboard() {
 
           <div className="order-2 flex min-h-0 min-w-0 lg:col-start-2 lg:row-start-1">
             <section id="auxiliary-chart" className="relative flex h-full min-h-0 w-full flex-col rounded-xl border border-border bg-card text-card-foreground shadow-sm" aria-label="Auxiliary chart viewer">
-              <div className="bg-muted/10 p-4 border-b border-border flex flex-col gap-3 xl:min-h-[300px]">
+              <div className="bg-muted/10 p-4 border-b border-border flex flex-col gap-3">
               <div className="grid flex-none grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold">{auxiliaryType === "divisional" ? selectedAuxiliaryChart.label : "Auxiliary chart viewer"}</p>
@@ -2741,7 +2850,7 @@ export function KundaliDashboard() {
                 </div>
               )}
               {(auxiliaryType === "solar" || auxiliaryType === "tajika") && (
-                <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
                   <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Required age
                     <input type="number" min={0} max={120} value={targetAge} onChange={(event) => setTargetAge(Math.max(0, Math.min(120, Number(event.target.value))))} className={`${CONTROL_CLASS} mt-1 w-full`} />
                   </label>
@@ -2752,7 +2861,7 @@ export function KundaliDashboard() {
                 </div>
               )}
               {auxiliaryType === "progressions" && (
-                <div className="mb-3 flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
                   <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs dark:border-slate-700"><input type="checkbox" checked={nadiProgressions} onChange={(event) => setNadiProgressions(event.target.checked)} className="accent-cyan-600" /> Nadi progression</label>
                   <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-xs dark:border-slate-700"><input type="checkbox" checked={bhriguProgressions} onChange={(event) => setBhriguProgressions(event.target.checked)} className="accent-cyan-600" /> Bhrigu progression</label>
                 </div>

@@ -6,10 +6,16 @@ import type { BirthProfile } from "@/lib/kundali-store";
 import { SIGN_NAMES, SIGN_SHORT, PLANET_NAMES, PLANET_SHORT } from "@/src/lib/jaimini/constants";
 import { computeJaiminiDashboard, findCurrentAD } from "@/src/lib/jaimini";
 import type { DashaResult } from "@/src/lib/jaimini/dashas";
+import { asOfTimestamp, dateInTimezone, parseLocalMs } from "@/src/lib/jaimini/time";
+import EphemerisLoader from "@/components/dashboard-tabs/ephemeris-loader";
 
 type Props = {
   profile: BirthProfile;
   data: EphemerisResponse | null;
+  chartMode: "transit" | "birth";
+  loading: boolean;
+  error: string | null;
+  onCalculateBirthChart: () => void;
   asOfDate?: string;
 };
 
@@ -24,18 +30,6 @@ const DASHA_LABELS: Record<string, string> = {
   trikona: "Trikona",
   drig: "Drig",
 };
-
-function parseLocalMs(date: string, time: string, timezone: string): number {
-  const candidate = new Date(`${date}T${time.length === 5 ? `${time}:00` : time}Z`);
-  const probe = new Intl.DateTimeFormat("en-US", {
-    timeZone: timezone, year:"numeric", month:"2-digit", day:"2-digit",
-    hour:"2-digit", minute:"2-digit", second:"2-digit", hourCycle:"h23",
-  }).formatToParts(candidate).map(({type,value}) => [type,value]);
-  const parts = Object.fromEntries(probe);
-  const asUtc = Date.UTC(+parts.year, +parts.month-1, +parts.day, +parts.hour, +parts.minute, +parts.second);
-  const offset = asUtc - candidate.getTime();
-  return candidate.getTime() - offset;
-}
 
 function localMinutesFromIso(iso: string, timezone: string): number {
   if (!iso) return 0;
@@ -62,6 +56,13 @@ function signDms(longitude: number) {
   return `${SIGN_NAMES[s]} ${deg}°${min}′`;
 }
 
+const SIGN_ELEMENT_COLORS = [
+  "bg-rose-50 dark:bg-rose-950/30",
+  "bg-lime-50 dark:bg-lime-950/30",
+  "bg-sky-50 dark:bg-sky-950/30",
+  "bg-cyan-50 dark:bg-cyan-950/30",
+] as const;
+
 function SouthChart({ lagna, planets, result }: { lagna: number; planets: PlanetPosition[]; result: ReturnType<typeof computeJaiminiDashboard> }) {
   const positions = [11,0,1,2,10,-1,3,9,-1,4,8,7,6,5];
   const signBoxes = [11,12,1,2,10,-1,3,9,-1,4,7,6,5,8];
@@ -74,15 +75,28 @@ function SouthChart({ lagna, planets, result }: { lagna: number; planets: Planet
           9,-1,-1,4,
           8,7,6,5,
         ].map((s, i) => s < 0 ? (
-          i === 5 ? <div key={i} className="col-span-2 row-span-2 flex items-center justify-center bg-[#FFE8CC] px-4 text-center text-xs font-semibold text-slate-800">Lagna {SIGN_NAMES[lagna]} · AK {PLANET_NAMES[result.karakas[0]?.planet ?? 0]} · KK {SIGN_NAMES[result.kk]}</div> : null
+          i === 5 ? (
+            <div key={i} className="col-span-2 row-span-2 flex flex-col items-center justify-center bg-amber-100/90 px-4 text-center text-amber-950 dark:bg-amber-900/35 dark:text-amber-100">
+              <span className="rounded-full border border-amber-700/40 bg-amber-200/80 px-2 py-0.5 text-[10px] font-bold tracking-wide dark:border-amber-300/40 dark:bg-amber-800/60">ASCENDANT</span>
+              <strong className="mt-1 text-base">{SIGN_NAMES[lagna]}</strong>
+              <span className="mt-1 text-xs font-medium">AK {PLANET_NAMES[result.karakas[0]?.planet ?? 0]} · KK {SIGN_NAMES[result.kk]}</span>
+            </div>
+          ) : null
         ) : (
-          <div key={i} className="min-h-0 border-r border-b border-border p-2 text-[10px] leading-tight">
-            <p className="font-semibold text-muted-foreground">{SIGN_SHORT[s]} <span className="ml-1">{SIGN_NAMES[s]}</span></p>
+          <div
+            key={i}
+            role="group"
+            aria-label={`${SIGN_NAMES[s]} sign${lagna === s ? ", Ascendant" : ""}`}
+            className={`min-h-0 border-r border-b border-border p-2 text-[10px] leading-tight ${SIGN_ELEMENT_COLORS[s % 4]} ${lagna === s ? "ring-2 ring-inset ring-amber-600 dark:ring-amber-400" : ""}`}
+          >
+            <div className="flex items-start justify-between gap-1">
+              <p className="font-semibold text-foreground/80">{SIGN_SHORT[s]} <span className="ml-1">{SIGN_NAMES[s]}</span></p>
+              {lagna === s && <span role="img" aria-label="Ascendant" className="shrink-0 rounded bg-amber-700 px-1 py-0.5 text-[9px] font-bold leading-none text-white dark:bg-amber-300 dark:text-amber-950">ASC</span>}
+            </div>
             <div className="mt-1 flex flex-wrap gap-x-1 gap-y-0.5">
               {planets.filter((p) => p.sign === s).map((p) => (
-                <span key={p.name} className="font-semibold text-[#166534]">{PLANET_SHORT[PLANET_NAMES.indexOf(p.name as typeof PLANET_NAMES[number])]}</span>
+                <span key={p.name} className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">{PLANET_SHORT[PLANET_NAMES.indexOf(p.name as typeof PLANET_NAMES[number])]}</span>
               ))}
-              {lagna === s && <span className="text-[#C2410C]">Asc</span>}
               {result.arudhas[0] === s && <span className="text-[#C2410C]">AL</span>}
               {result.arudhas[11] === s && <span className="text-[#C2410C]">UL</span>}
               {result.kk === s && <span className="text-[#C2410C]">KK</span>}
@@ -95,15 +109,16 @@ function SouthChart({ lagna, planets, result }: { lagna: number; planets: Planet
   );
 }
 
-export default function JaiminiDashboard({ profile, data, asOfDate }: Props) {
+export default function JaiminiDashboard({ profile, data, chartMode, loading, error, onCalculateBirthChart, asOfDate }: Props) {
   const [scheme, setScheme] = useState<7 | 8>(7);
-  const [asOf, setAsOf] = useState(asOfDate ?? new Date().toISOString().slice(0,10));
+  const [asOf, setAsOf] = useState(asOfDate ?? dateInTimezone(Date.now(), profile.timezone));
   const [dashaKey, setDashaKey] = useState("charaKnRao");
-  const [presentOnly, setPresentOnly] = useState(false);
+  const [presentOnly, setPresentOnly] = useState(true);
   const [panchang, setPanchang] = useState<{ sunrise?: string; sunset?: string } | null>(null);
+  const asOfMs = useMemo(() => asOfTimestamp(asOf, profile.timezone), [asOf, profile.timezone]);
 
   useEffect(() => {
-    if (!profile.date) return;
+    if (!profile.date || chartMode === "transit") return;
     let active = true;
     fetch(`/api/panchang?date=${encodeURIComponent(profile.date)}&lat=${profile.lat}&lng=${profile.lng}`)
       .then((r) => r.json())
@@ -112,10 +127,10 @@ export default function JaiminiDashboard({ profile, data, asOfDate }: Props) {
       })
       .catch(() => { if (active) setPanchang(null); });
     return () => { active = false; };
-  }, [profile.date, profile.lat, profile.lng]);
+  }, [profile.date, profile.lat, profile.lng, chartMode]);
 
   const result = useMemo(() => {
-    if (!data) return null;
+    if (!data || chartMode === "transit" || loading) return null;
     const planetNames = PLANET_NAMES;
     const planets = planetNames.map((name) => data.planets.find((p) => p.name === name)?.longitude ?? 0) as number[];
     if (data.planets.some((p) => p.name === "Rahu") && !data.planets.some((p) => p.name === "Ketu")) {
@@ -124,7 +139,6 @@ export default function JaiminiDashboard({ profile, data, asOfDate }: Props) {
       planets[8] = data.planets.find((p) => p.name === "Ketu")!.longitude;
     }
     const birthMs = parseLocalMs(profile.date, profile.time, profile.timezone);
-    const asOfMs = parseLocalMs(asOf, "12:00:00", profile.timezone);
     const sunriseMs = panchang?.sunrise ? Date.parse(panchang.sunrise) : birthMs - 4 * 3600_000;
     const sunsetMs = panchang?.sunset ? Date.parse(panchang.sunset) : birthMs + 8 * 3600_000;
     const [birthHour = 0, birthMinute = 0] = profile.time.split(":").map(Number);
@@ -143,10 +157,28 @@ export default function JaiminiDashboard({ profile, data, asOfDate }: Props) {
       weekday: new Date(sunriseMs).getUTCDay(),
       ascendantAt: (ms) => data.ascendant.longitude,
     });
-  }, [data, profile, scheme, asOf, panchang]);
+  }, [data, profile, scheme, asOfMs, panchang, chartMode, loading]);
 
+  if (loading || (chartMode === "transit" && !error)) return (
+    <EphemerisLoader
+      tone="dashboard"
+      title="Calculating Jaimini dashas"
+      description="Preparing the birth-chart placements used by sign-based periods…"
+      detail={`${profile.city || "Birth chart"} · Jaimini`}
+    />
+  );
+  if (error) return (
+    <section role="alert" className="rounded-xl border border-border bg-card p-6">
+      <h2 className="text-base font-semibold">Birth chart couldn’t be calculated</h2>
+      <p className="mt-2 text-sm text-muted-foreground">{error}</p>
+      <button type="button" onClick={onCalculateBirthChart} className="mt-4 inline-flex min-h-11 items-center justify-center rounded-lg bg-[#C64F30] px-4 text-sm font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40">Try again</button>
+    </section>
+  );
   if (!data || !result) return (
-    <div className="rounded-xl border border-border bg-card p-8 text-sm text-muted-foreground">Load a birth chart to view Jaimini analysis.</div>
+    <section className="rounded-xl border border-border bg-card p-6">
+      <h2 className="text-base font-semibold">Jaimini chart unavailable</h2>
+      <p className="mt-2 text-sm text-muted-foreground">Birth-chart placements are needed to calculate Jaimini dashas.</p>
+    </section>
   );
 
   const asOfTimezone = profile.timezone;
@@ -185,7 +217,7 @@ export default function JaiminiDashboard({ profile, data, asOfDate }: Props) {
             <h2 className="text-sm font-semibold">Current dashas</h2>
             <div className="mt-3 grid gap-2 md:grid-cols-2 lg:grid-cols-3">{Object.entries(result.dashas).map(([key,d])=>{
               const md=d.periods.find((p)=>p.isCurrent);
-              const ad=d.antardashas&&md?findCurrentAD(d,d.periods.indexOf(md),parseLocalMs(asOf,"12:00:00",profile.timezone)):undefined;
+              const ad=d.antardashas&&md?findCurrentAD(d,d.periods.indexOf(md),asOfMs):undefined;
               return <button key={key} type="button" onClick={()=>setDashaKey(key)} className="rounded-lg border border-primary/20 bg-accent/40 px-3 py-2 text-left text-xs"><span className="block text-muted-foreground">{DASHA_LABELS[key]}</span><strong>{md?SIGN_NAMES[md.sign]:"—"}{ad?` · ${SIGN_NAMES[ad.sign]}`:""}</strong><span className="mt-1 block text-[11px] text-muted-foreground">{md?`MD ends ${formatDate(md.end,asOfTimezone)}`:"No active period"}</span></button>;
             })}</div>
           </section>
