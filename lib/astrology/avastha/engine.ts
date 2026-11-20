@@ -102,6 +102,19 @@ function relationHouse(fromSign: number, toSign: number) {
   return ((toSign - fromSign + 12) % 12) + 1;
 }
 
+function getNameAnkas(name: string, ankasByInitial: Record<string, number>) {
+  const normalizedName = name.normalize("NFKD");
+  const firstLatinLetter = /[A-Za-z]/.exec(normalizedName);
+  if (!firstLatinLetter || firstLatinLetter.index === undefined) return undefined;
+
+  const initial = normalizedName.slice(firstLatinLetter.index).toUpperCase();
+  const digraph = ["CHH", "KH", "CH", "GH", "TH", "DH", "PH", "BH", "SH"]
+    .find((candidate) => initial.startsWith(candidate));
+  const key = digraph ?? initial[0];
+  const value = ankasByInitial[key];
+  return value === undefined ? undefined : { key, value };
+}
+
 export function getPlanetaryRelationship(
   planet: Graha,
   other: Graha,
@@ -447,15 +460,15 @@ function shayanadi(planet: DerivedPlanet, chart: ChartContext, moonNakshatra: nu
     remainder,
     formulaInputs,
   };
-  if (!nameFirstLetter) return result;
-  const key = nameFirstLetter.trim().toUpperCase().slice(0, 1);
-  const ankas = chart.config.nameLetterAnkas[key];
-  if (ankas === undefined) {
+  if (!nameFirstLetter?.trim()) return result;
+  const nameAnkas = getNameAnkas(nameFirstLetter, chart.config.nameLetterAnkas);
+  if (!nameAnkas) {
     return {
       ...result,
-      reasons: [...reasons, `No Ankas value is configured for initial ${key}; the name-based Cheshta result is omitted.`],
+      reasons: [...reasons, "No supported Latin initial is available; the name-based Cheshta result is omitted."],
     };
   }
+  const { key, value: ankas } = nameAnkas;
   const z = ((remainder * remainder + ankas) % 12) || 12;
   const w = (z + CHESHTA_CONSTANT[planet.planet]) % 3;
   const cheshta = w === 1 ? "Drishti" : w === 2 ? "Cheshta" : "Vicheshta";

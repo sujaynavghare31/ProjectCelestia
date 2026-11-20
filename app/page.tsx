@@ -807,7 +807,7 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
                 </Tabs>
               </TabsContent>
 
-              <TabsContent value="kundali" className="mt-3 focus-visible:outline-none"><KundaliDashboard navigationRequest={dashboardNavigationRequest} /></TabsContent>
+              <TabsContent value="kundali" className="mt-3 focus-visible:outline-none"><KundaliDashboard navigationRequest={dashboardNavigationRequest} isSignedIn={isSignedIn} /></TabsContent>
               <TabsContent value="panchang" className="mt-6 focus-visible:outline-none"><PanchangDashboard /></TabsContent>
               <TabsContent value="about" className="mt-0 focus-visible:outline-none"><About /></TabsContent>
             </Tabs>

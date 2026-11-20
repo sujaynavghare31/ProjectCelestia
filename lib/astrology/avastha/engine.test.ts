@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_AVASTHA_CONFIG } from "./config";
 import { calculateAvasthaReport, calculateShayanadiState, getPlanetaryRelationship } from "./engine";
 import { GRAHAS } from "./types";
 import type { AvasthaPlanet, Graha } from "./types";
@@ -201,14 +202,66 @@ describe("calculateAvasthaReport", () => {
     }
   });
 
-  it("keeps the chart report available when a name initial has no configured Ankas value", () => {
-    const report = calculateAvasthaReport({ ...makeInput(), nameFirstLetter: "Ira" });
-    const result = byPlanet(report, "Sun").shayanadi;
+  it("maps every English initial in both cases to a configured Ankas value", () => {
+    for (const letter of "ABCDEFGHIJKLMNOPQRSTUVWXYZ") {
+      for (const initial of [letter, letter.toLowerCase()]) {
+        const report = calculateAvasthaReport({ ...makeInput(), nameFirstLetter: initial });
+        const shayanadi = byPlanet(report, "Sun").shayanadi;
 
-    expect(result).toBeDefined();
-    expect(result?.cheshta).toBeUndefined();
-    expect(result?.reasons).toContain(
-      "No Ankas value is configured for initial I; the name-based Cheshta result is omitted.",
-    );
+        expect(shayanadi?.cheshta, initial).toBeDefined();
+        expect(shayanadi?.reasons.join(" "), initial).toContain(`Initial ${letter} maps to Ankas ${DEFAULT_AVASTHA_CONFIG.nameLetterAnkas[letter]}`);
+      }
+    }
+    expect(DEFAULT_AVASTHA_CONFIG.nameLetterAnkas.I).toBe(2);
+  });
+
+  it.each([
+    ["Kiran", "K", 2],
+    ["Khushi", "KH", 2],
+    ["Shiva", "SH", 8],
+    ["Bhanu", "BH", 6],
+    ["Dharma", "DH", 5],
+    ["Chhavi", "CHH", 3],
+  ])("recognizes the initial syllable in %s", (name, initial, ankas) => {
+    const report = calculateAvasthaReport({ ...makeInput(), nameFirstLetter: name });
+    const shayanadi = byPlanet(report, "Sun").shayanadi;
+
+    expect(shayanadi?.cheshta).toBeDefined();
+    expect(shayanadi?.reasons.join(" ")).toContain(`Initial ${initial} maps to Ankas ${ankas}`);
+  });
+
+  it.each([
+    ["Ira", "I", 2],
+    ["  @!#Fiona", "F", 2],
+    ["Qadir", "Q", 1],
+    ["Wren", "W", 4],
+    ["Xavier", "X", 2],
+    ["Zara", "Z", 3],
+    ["Chetan", "CH", 3],
+  ])("applies the configured fallback mapping for %s", (name, initial, ankas) => {
+    const report = calculateAvasthaReport({ ...makeInput(), nameFirstLetter: name });
+    expect(byPlanet(report, "Sun").shayanadi?.reasons.join(" ")).toContain(`Initial ${initial} maps to Ankas ${ankas}`);
+  });
+
+  it.each(["", "   ", "12345", "@!#", "इरा", "🌙"])(
+    "keeps the chart report available for unsupported name input %j",
+    (name) => {
+      const report = calculateAvasthaReport({ ...makeInput(), nameFirstLetter: name });
+      const shayanadi = byPlanet(report, "Sun").shayanadi;
+
+      expect(shayanadi).toBeDefined();
+      expect(shayanadi?.cheshta).toBeUndefined();
+      if (name.trim()) {
+        expect(shayanadi?.reasons).toContain(
+          "No supported Latin initial is available; the name-based Cheshta result is omitted.",
+        );
+      }
+      expect(report.planets).toHaveLength(9);
+    },
+  );
+
+  it("tolerates punctuation and diacritics before the initial", () => {
+    const report = calculateAvasthaReport({ ...makeInput(), nameFirstLetter: "… Émile" });
+    expect(byPlanet(report, "Sun").shayanadi?.reasons.join(" ")).toContain("Initial E maps to Ankas 4");
   });
 });

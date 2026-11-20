@@ -130,7 +130,7 @@ function validateRequest(value: unknown): EphemerisRequest {
   if (targetAge !== undefined && (typeof targetAge !== "number" || !Number.isInteger(targetAge) || targetAge < 0 || targetAge > 120)) throw new Error("targetAge must be a whole number from 0 to 120.");
   if (ageMode !== undefined && ageMode !== "completed" && ageMode !== "ongoing") throw new Error("ageMode must be 'completed' or 'ongoing'.");
   if (dashaSeed !== undefined && dashaSeed !== "moon" && dashaSeed !== "ascendant" && dashaSeed !== "sun") throw new Error("dashaSeed must be 'moon', 'ascendant', or 'sun'.");
-  if (nameFirstLetter !== undefined && (typeof nameFirstLetter !== "string" || nameFirstLetter.length > 12)) throw new Error("nameFirstLetter must be a string of at most 12 characters.");
+  if (nameFirstLetter !== undefined && (typeof nameFirstLetter !== "string" || nameFirstLetter.length > 100)) throw new Error("nameFirstLetter must be a string of at most 100 characters.");
   if (gender !== undefined && gender !== "male" && gender !== "female" && gender !== "not-applicable") throw new Error("gender must be 'male', 'female', or 'not-applicable'.");
   let validatedAvasthaConfig: EphemerisRequest["avasthaConfig"];
   if (avasthaConfig !== undefined) {

@@ -81,7 +81,7 @@ async function fetchKp(profile: BirthProfile, date: string, time: string) {
       calculationMode: "kp",
       kp: true,
       nodeType: "true",
-      nameFirstLetter: profile.name.trim().slice(0, 1).toUpperCase(),
+      nameFirstLetter: profile.name,
       gender: profile.sex,
     }),
   });

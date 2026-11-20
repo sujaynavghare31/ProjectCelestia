@@ -33,18 +33,43 @@ export type AvasthaConfig = {
   nameLetterAnkas: Record<string, number>;
 };
 
-const INITIAL_ANKAS: Record<string, number> = Object.fromEntries(
-  Object.entries({
-    1: "A",
-    2: "KG",
-    3: "CJ",
-    4: "T",
-    5: "DN",
-    6: "PBM",
-    7: "YRLVW",
-    8: "SH",
-  }).flatMap(([number, letters]) => [...letters].map((letter) => [letter, Number(number)])),
-);
+const INITIAL_ANKAS: Record<string, number> = {
+  A: 1,
+  Q: 1,
+  I: 2,
+  U: 3,
+  E: 4,
+  O: 5,
+  K: 2,
+  G: 2,
+  F: 2,
+  KH: 2,
+  GH: 2,
+  PH: 2,
+  X: 2,
+  C: 3,
+  J: 3,
+  Z: 3,
+  CH: 3,
+  CHH: 3,
+  T: 4,
+  W: 4,
+  TH: 4,
+  D: 5,
+  N: 5,
+  DH: 5,
+  P: 6,
+  B: 6,
+  M: 6,
+  BH: 6,
+  Y: 7,
+  R: 7,
+  L: 7,
+  V: 7,
+  S: 8,
+  H: 8,
+  SH: 8,
+};
 
 export const DEFAULT_AVASTHA_CONFIG: AvasthaConfig = {
   friendshipMode: "compound",

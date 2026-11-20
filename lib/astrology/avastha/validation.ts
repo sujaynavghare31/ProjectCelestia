@@ -55,6 +55,6 @@ export const avasthaInputSchema = z.object({
   ascendantLongitude: z.number().min(0).lt(360),
   birthDateTimeUTC: z.iso.datetime(),
   sunriseUTC: z.iso.datetime(),
-  nameFirstLetter: z.string().max(12).optional(),
+  nameFirstLetter: z.string().max(100).optional(),
   config: avasthaConfigSchema.optional(),
 });

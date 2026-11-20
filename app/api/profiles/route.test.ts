@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   getCurrentDatabaseUser: vi.fn(),
   findMany: vi.fn(),
   create: vi.fn(),
+  updateMany: vi.fn(),
   findFirst: vi.fn(),
   deleteMany: vi.fn(),
 }));
@@ -20,6 +21,7 @@ vi.mock("@/lib/prisma", () => ({
     profile: {
       findMany: mocks.findMany,
       create: mocks.create,
+      updateMany: mocks.updateMany,
       findFirst: mocks.findFirst,
       deleteMany: mocks.deleteMany,
     },
@@ -138,7 +140,10 @@ describe("/api/profiles", () => {
     });
   });
 
-  it("rejects attempts to overwrite an existing profile", async () => {
+  it("updates an existing profile only when it belongs to the signed-in user", async () => {
+    mocks.updateMany.mockResolvedValue({ count: 1 });
+    mocks.findFirst.mockResolvedValue(savedProfile);
+
     const response = await POST(request({
       name: "Sample chart",
       sex: "male",
@@ -151,12 +156,46 @@ describe("/api/profiles", () => {
       notes: "Synthetic chart notes",
       id: "profile-1",
     }));
+    const result = await response.json();
 
-    expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({
-      error: "Updating saved charts is no longer supported. Delete the chart and save a new one instead.",
+    expect(response.status).toBe(200);
+    expect(mocks.updateMany).toHaveBeenCalledWith({
+      where: { id: "profile-1", userId: "user-1" },
+      data: expect.objectContaining({
+        chartName: "Sample chart",
+        fullName: "Sample chart",
+        dateOfBirth: new Date("2000-01-02T00:00:00.000Z"),
+        timeOfBirth: "11:22:33",
+      }),
     });
+    expect(mocks.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "profile-1", userId: "user-1" },
+    }));
+    expect(result.profile.id).toBe("profile-1");
     expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("does not update a profile that is not owned by the signed-in user", async () => {
+    mocks.updateMany.mockResolvedValue({ count: 0 });
+
+    const response = await POST(request({
+      name: "Sample chart",
+      sex: "male",
+      date: "2000-01-02",
+      time: "11:22:33",
+      lat: 40.7128,
+      lng: -74.006,
+      timezone: "America/New_York",
+      city: "Sample City",
+      notes: "Synthetic chart notes",
+      id: "another-users-profile",
+    }));
+
+    expect(response.status).toBe(404);
+    expect(mocks.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "another-users-profile", userId: "user-1" },
+    }));
+    expect(mocks.findFirst).not.toHaveBeenCalled();
   });
 
   it("returns a JSON error instead of an empty failure response when profile loading fails", async () => {
