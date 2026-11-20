@@ -1,6 +1,13 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
+export class ClerkAccountConflictError extends Error {
+  constructor() {
+    super("This email is already linked to another account. Sign in with the original account or verify this email to reconnect it.");
+    this.name = "ClerkAccountConflictError";
+  }
+}
+
 function isUniqueConstraintError(error: unknown) {
   return error instanceof Error && "code" in error && error.code === "P2002";
 }
@@ -49,11 +56,19 @@ export async function getCurrentDatabaseUser() {
   const linkedUser = await prisma.user.findUnique({ where: { email } });
   if (linkedUser) {
     if (linkedUser.clerkId && linkedUser.clerkId !== clerkUserId) {
-      if (process.env.NODE_ENV !== "development") {
-        throw new Error("This email is already linked to another Clerk account.");
+      if (process.env.NODE_ENV === "development") {
+        return createDatabaseUser(`${clerkUserId}@clerk.local`, clerkUserId, clerkUser.username);
       }
 
-      return createDatabaseUser(`${clerkUserId}@clerk.local`, clerkUserId, clerkUser.username);
+      if (clerkUser.primaryEmailAddress?.verification?.status !== "verified") {
+        throw new ClerkAccountConflictError();
+      }
+
+      // A verified email can safely reconnect an account after its Clerk identity changes.
+      return prisma.user.update({
+        where: { id: linkedUser.id },
+        data: { clerkId: clerkUserId },
+      });
     }
     return prisma.user.update({
       where: { id: linkedUser.id },

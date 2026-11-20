@@ -28,7 +28,10 @@ import { getCurrentDatabaseUser } from "./clerk-user";
 const clerkUserId = "user_development12345678";
 const clerkUser = {
   username: "local-test-user",
-  primaryEmailAddress: { emailAddress: "user@example.com" },
+  primaryEmailAddress: {
+    emailAddress: "user@example.com",
+    verification: { status: "verified" },
+  },
 };
 
 describe("getCurrentDatabaseUser", () => {
@@ -61,13 +64,38 @@ describe("getCurrentDatabaseUser", () => {
     expect(mocks.update).not.toHaveBeenCalled();
   });
 
-  it("still rejects a conflicting account outside local development", async () => {
+  it("reconnects a conflicting account in production only when the email is verified", async () => {
     vi.stubEnv("NODE_ENV", "production");
     mocks.findUnique
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ id: "existing-user", clerkId: "user_other", email: "user@example.com" });
+    mocks.update.mockResolvedValue({ id: "existing-user", clerkId: clerkUserId });
 
-    await expect(getCurrentDatabaseUser()).rejects.toThrow("This email is already linked to another Clerk account.");
+    await expect(getCurrentDatabaseUser()).resolves.toMatchObject({
+      id: "existing-user",
+      clerkId: clerkUserId,
+    });
+    expect(mocks.create).not.toHaveBeenCalled();
+    expect(mocks.update).toHaveBeenCalledWith({
+      where: { id: "existing-user" },
+      data: { clerkId: clerkUserId },
+    });
+  });
+
+  it("rejects a conflicting production account when the email is not verified", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    mocks.currentUser.mockResolvedValue({
+      ...clerkUser,
+      primaryEmailAddress: {
+        emailAddress: "user@example.com",
+        verification: { status: "unverified" },
+      },
+    });
+    mocks.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: "existing-user", clerkId: "user_other", email: "user@example.com" });
+
+    await expect(getCurrentDatabaseUser()).rejects.toThrow("verify this email to reconnect it");
     expect(mocks.create).not.toHaveBeenCalled();
     expect(mocks.update).not.toHaveBeenCalled();
   });

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ChartSex } from "../../../lib/generated/prisma/enums";
 
 const mocks = vi.hoisted(() => ({
+  ClerkAccountConflictError: class ClerkAccountConflictError extends Error {},
   getCurrentDatabaseUser: vi.fn(),
   findMany: vi.fn(),
   create: vi.fn(),
@@ -10,6 +11,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/clerk-user", () => ({
+  ClerkAccountConflictError: mocks.ClerkAccountConflictError,
   getCurrentDatabaseUser: mocks.getCurrentDatabaseUser,
 }));
 
@@ -144,6 +146,19 @@ describe("/api/profiles", () => {
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({
       error: "Saved charts are temporarily unavailable. Please try again.",
+    });
+  });
+
+  it("returns an actionable conflict when the Clerk email cannot be safely reconnected", async () => {
+    mocks.getCurrentDatabaseUser.mockRejectedValue(new mocks.ClerkAccountConflictError(
+      "This email is already linked to another account. Sign in with the original account or verify this email to reconnect it.",
+    ));
+
+    const response = await GET();
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: "This email is already linked to another account. Sign in with the original account or verify this email to reconnect it.",
     });
   });
 

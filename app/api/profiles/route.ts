@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { metric } from "@vercel/functions";
 import { ChartSex } from "../../../lib/generated/prisma/enums";
-import { getCurrentDatabaseUser } from "@/lib/clerk-user";
+import { ClerkAccountConflictError, getCurrentDatabaseUser } from "@/lib/clerk-user";
 import { prisma } from "@/lib/prisma";
 
 type ProfileMethod = "GET" | "POST" | "DELETE";
@@ -17,6 +17,10 @@ async function withProfileMetrics(method: ProfileMethod, handler: ProfileHandler
     return response;
   } catch (error) {
     outcome = "error";
+    if (error instanceof ClerkAccountConflictError) {
+      outcome = "rejected";
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
     console.error(`[profiles] ${method} request failed`, error);
     return NextResponse.json(
       { error: "Saved charts are temporarily unavailable. Please try again." },
