@@ -1209,7 +1209,6 @@ export function KundaliDashboard({
   const [analysisPreferencesLoaded, setAnalysisPreferencesLoaded] = useState(false);
   const [locationResults, setLocationResults] = useState<GeocodeResult[]>([]);
   const [locationLoading, setLocationLoading] = useState(false);
-  const [currentLocationLoading, setCurrentLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [coordinateTimezoneError, setCoordinateTimezoneError] = useState<string | null>(null);
   const initialProfileSubmitted = useRef(false);
@@ -1723,44 +1722,6 @@ export function KundaliDashboard({
     setLocationResults([]);
     setLocationError(null);
   };
-  const useCurrentLocation = () => {
-    setLocationError(null);
-    if (!navigator.geolocation) {
-      setLocationError("Location access is unavailable in this browser. Search for a city or enter coordinates instead.");
-      return;
-    }
-
-    setCurrentLocationLoading(true);
-    navigator.geolocation.getCurrentPosition(({ coords }) => {
-      const { latitude, longitude } = coords;
-      void fetch(`/api/geocode?lat=${latitude}&lng=${longitude}&reverse=true`)
-        .then(async (response) => {
-          const result = await response.json() as { timezone?: string; city?: string; error?: string };
-          if (!response.ok || !result.timezone || !result.city) {
-            throw new Error(result.error ?? `Current location lookup failed (${response.status}).`);
-          }
-          chooseLocation({
-            label: result.city,
-            city: result.city,
-            latitude,
-            longitude,
-            timezone: result.timezone,
-          });
-        })
-        .catch((requestError: unknown) => {
-          setLocationError(requestError instanceof Error ? requestError.message : "Unable to identify this location. Search for a city or enter coordinates instead.");
-        })
-        .finally(() => setCurrentLocationLoading(false));
-    }, (error) => {
-      const message = error.code === error.PERMISSION_DENIED
-        ? "Location access was denied. Search for a city or enter coordinates instead."
-        : error.code === error.TIMEOUT
-          ? "Location lookup timed out. Search for a city or enter coordinates instead."
-          : "Your device could not determine its location. Search for a city or enter coordinates instead.";
-      setLocationError(message);
-      setCurrentLocationLoading(false);
-    }, { maximumAge: 600_000, timeout: 8_000 });
-  };
   const adjustBirthTime = (seconds: number) => {
     adjustTime(seconds);
     const adjustedProfile = useKundaliStore.getState().profile;
@@ -1952,7 +1913,7 @@ export function KundaliDashboard({
             </div>
           )}
           <form onSubmit={submitBirthChart} className={`${profileCollapsed ? "hidden md:block" : ""} min-w-0 space-y-2`}>
-            <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-[minmax(0,1.35fr)_minmax(76px,.7fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(152px,1.5fr)_minmax(135px,1.35fr)_minmax(112px,1.1fr)_minmax(110px,1fr)]">
+            <div className={`grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2 ${useCoordinates ? "xl:grid-cols-[minmax(0,1.35fr)_minmax(76px,.7fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(232px,2fr)_minmax(135px,1.35fr)_minmax(112px,1.1fr)_minmax(110px,1fr)]" : "xl:grid-cols-[minmax(0,1.35fr)_minmax(76px,.7fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(152px,1.5fr)_minmax(135px,1.35fr)_minmax(112px,1.1fr)_minmax(110px,1fr)]"}`}>
               <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">
                 Chart name
                 <input aria-label="Chart name" type="text" maxLength={100} value={profile.name === "Current transit" ? "" : profile.name} placeholder="Enter Jataka's name" onChange={(event) => setProfile({ name: event.target.value })} className={`${CONTROL_CLASS} mt-1 h-11 w-full text-base placeholder:text-slate-600 dark:placeholder:text-slate-400 md:text-sm xl:h-9`} />
@@ -1981,11 +1942,8 @@ export function KundaliDashboard({
                     <label htmlFor="birth-city-search">Birth city</label>
                     <span className="relative mt-1 block">
                       <MapPin className="pointer-events-none absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
-                      <input id="birth-city-search" aria-label="Birth city; search anywhere" type="search" maxLength={160} value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="Search city…" autoComplete="off" aria-autocomplete="list" aria-expanded={locationResults.length > 0} className={`${CONTROL_CLASS} h-11 w-full min-w-0 pl-8 pr-24 text-base md:text-sm xl:h-9 xl:pr-20`} />
+                      <input id="birth-city-search" aria-label="Birth city; search anywhere" type="search" maxLength={160} value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="Search city…" autoComplete="off" aria-autocomplete="list" aria-expanded={locationResults.length > 0} className={`${CONTROL_CLASS} h-11 w-full min-w-0 pl-8 pr-14 text-base md:text-sm xl:h-9 xl:pr-12`} />
                       {locationLoading && <Search className="absolute right-16 top-2.5 size-3.5 animate-pulse text-primary xl:right-14" />}
-                      <button type="button" onClick={useCurrentLocation} disabled={currentLocationLoading} title={currentLocationLoading ? "Finding current location" : "Use current location"} aria-label={currentLocationLoading ? "Finding current location" : "Use current location"} className="absolute right-11 top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60 xl:right-10 xl:size-9">
-                        {currentLocationLoading ? <LoaderCircle className="size-3.5 animate-spin" /> : <Crosshair className="size-3.5" />}
-                      </button>
                       <button type="button" onClick={() => {
                         if (Number.isFinite(profile.lat)) setLatitudeDraft(profile.lat.toFixed(2));
                         if (Number.isFinite(profile.lng)) setLongitudeDraft(profile.lng.toFixed(2));
@@ -2001,15 +1959,15 @@ export function KundaliDashboard({
                     )}
                   </>
                 ) : (
-                  <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem] items-end gap-1 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.25rem]">
-                    <label className="min-w-0 truncate">Latitude
+                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem] items-end gap-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.25rem]">
+                    <label className="min-w-0">Latitude
                       <input aria-label="Latitude" type="text" inputMode="decimal" autoComplete="off" value={latitudeDraft} onChange={(event) => {
                         const value = limitCoordinatePrecision(event.target.value);
                         setLatitudeDraft(value);
                         setProfile({ lat: parseCoordinateDraft(value) });
                       }} className={`${CONTROL_CLASS} mt-1 h-11 w-full min-w-0 px-1 text-base font-mono tabular-nums md:text-sm xl:h-9`} placeholder="28.66" />
                     </label>
-                    <label className="min-w-0 truncate">Longitude
+                    <label className="min-w-0">Longitude
                       <input aria-label="Longitude" type="text" inputMode="decimal" autoComplete="off" value={longitudeDraft} onChange={(event) => {
                         const value = limitCoordinatePrecision(event.target.value);
                         setLongitudeDraft(value);
