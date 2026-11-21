@@ -3,6 +3,7 @@ import { calculatePanchang } from "@/lib/astrology/panchang/PanchangEngine";
 import type { PanchangDay } from "@/lib/astrology/panchang/PanchangEngine";
 
 export const runtime = "nodejs";
+export const preferredRegion = ["bom1"];
 
 const CACHE_LIMIT = 128;
 const CACHE_TTL_MS = 7 * 24 * 60 * 60_000;

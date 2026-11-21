@@ -7,6 +7,8 @@ import { prisma } from "@/lib/prisma";
 import type { SavedChartActionResult, SavedProfile } from "@/lib/saved-profiles-cache";
 import SavedChartsLibrary from "./saved-charts-library";
 
+export const preferredRegion = ["bom1"];
+
 const profileSelect = {
   id: true,
   chartName: true,
@@ -185,6 +187,7 @@ export default async function SavedChartsPage() {
     select: {
       profiles: {
         orderBy: { updatedAt: "desc" },
+        take: 200,
         select: profileSelect,
       },
     },

@@ -5,6 +5,8 @@ import { ChartSex } from "../../../lib/generated/prisma/enums";
 import { ClerkAccountConflictError, getCurrentDatabaseUser } from "@/lib/clerk-user";
 import { prisma } from "@/lib/prisma";
 
+export const preferredRegion = ["bom1"];
+
 type ProfileMethod = "GET" | "POST" | "DELETE";
 type ProfileTimings = { auth: number; db: number; clerkProfile: number };
 type ProfileHandler = (timings: ProfileTimings) => Promise<NextResponse>;
@@ -101,6 +103,7 @@ async function getProfiles(timings: ProfileTimings) {
       select: {
         profiles: {
           orderBy: { updatedAt: "desc" },
+          take: 200,
           select: {
             id: true,
             chartName: true,
@@ -129,6 +132,7 @@ async function getProfiles(timings: ProfileTimings) {
       profiles = await prisma.profile.findMany({
         where: { userId: user.id },
         orderBy: { updatedAt: "desc" },
+        take: 200,
         select: {
           id: true,
           chartName: true,

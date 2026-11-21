@@ -95,6 +95,7 @@ describe("/api/profiles", () => {
       select: {
         profiles: {
           orderBy: { updatedAt: "desc" },
+          take: 200,
           select: {
             id: true,
             chartName: true,
@@ -273,6 +274,7 @@ describe("/api/profiles", () => {
     expect(mocks.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { userId: "user-1" },
       orderBy: { updatedAt: "desc" },
+      take: 200,
     }));
     expect(response.headers.get("server-timing")).toMatch(/clerk-profile;dur=[\d.]+/);
   });

@@ -5,7 +5,12 @@ const nextConfig: NextConfig = {
   outputFileTracingRoot: process.cwd(),
   serverExternalPackages: ["swisseph"],
   outputFileTracingIncludes: {
-    "/*": ["./node_modules/swisseph/build/Release/swisseph.node"],
+    "/api/ephemeris": ["./node_modules/swisseph/build/Release/swisseph.node"],
+    "/api/panchang": ["./node_modules/swisseph/build/Release/swisseph.node"],
+    "/api/astrology/nadi/timeline": ["./node_modules/swisseph/build/Release/swisseph.node"],
+  },
+  experimental: {
+    optimizePackageImports: ["lucide-react", "recharts", "framer-motion", "date-fns"],
   },
 };
 

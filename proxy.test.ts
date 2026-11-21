@@ -16,6 +16,17 @@ describe("proxy matcher", () => {
   it("matches API routes", () => {
     expect(matchesProxy("/api/profiles")).toBe(true);
     expect(matchesProxy("/api/profiles/current")).toBe(true);
+    expect(matchesProxy("/saved-charts")).toBe(true);
+  });
+
+  it.each([
+    "/api/ephemeris",
+    "/api/panchang",
+    "/api/geocode",
+    "/api/analysis/ashtakavarga",
+    "/api/astrology/avastha",
+  ])("excludes stateless calculation API %s", (pathname) => {
+    expect(matchesProxy(pathname)).toBe(false);
   });
 
   it.each(["/_next/static/chunk.js", "/_next/image", "/images/logo.png"])(

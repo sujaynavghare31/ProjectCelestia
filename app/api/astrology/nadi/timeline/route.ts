@@ -2,12 +2,20 @@ import { NextResponse } from "next/server";
 import { calculateNadiTimeline } from "@/lib/astrology/timing/timeline";
 import { calculateSwissTransit } from "@/lib/astrology/timing/swiss-transit-provider";
 import { timingInputSchema } from "@/lib/astrology/timing/validation";
+import { consumeRateLimit } from "@/lib/server/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
+export const maxDuration = 30;
 
 export async function POST(request: Request) {
+  const limit = consumeRateLimit(request, "nadi-timeline");
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many calculation requests. Please try again shortly." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
+  }
   let body: unknown;
   try {
     body = await request.json();

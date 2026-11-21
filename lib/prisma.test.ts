@@ -51,7 +51,12 @@ describe("prisma client", () => {
 
     expect(mocks.PrismaPg).toHaveBeenCalledTimes(1);
     expect(mocks.PrismaPg).toHaveBeenCalledWith(
-      { connectionString: "postgresql://test:test@localhost:5432/test", connectionTimeoutMillis: 10_000 },
+      {
+        connectionString: "postgresql://test:test@localhost:5432/test",
+        max: 3,
+        idleTimeoutMillis: 20_000,
+        connectionTimeoutMillis: 10_000,
+      },
       { onPoolError: expect.any(Function), onConnectionError: expect.any(Function) },
     );
     expect(mocks.PrismaClient).toHaveBeenCalledTimes(1);

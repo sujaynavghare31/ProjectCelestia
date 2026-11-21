@@ -14,10 +14,15 @@ import { localDateTimeToUtc } from "@/lib/astrology/timezone";
 import { calculateGulikaMandi, calculateMaandiSunDegree } from "@/lib/astrology/upagrahas";
 import { getBirthDateTimeError } from "@/lib/astrology/ephemeris-input";
 import { calculateKpDetails } from "@/lib/astrology/kp-calculations";
+import { consumeRateLimit } from "@/lib/server/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const preferredRegion = ["bom1"];
 
+const EPHEMERIS_CACHE_LIMIT = 256;
+const EPHEMERIS_CACHE_TTL_MS = 30 * 60_000;
+const ephemerisCache = new Map<string, { expiresAt: number; json: string }>();
 const SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
 const NAKSHATRAS = [
   "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra", "Punarvasu", "Pushya", "Ashlesha",
@@ -100,6 +105,46 @@ function normalizeDegrees(degree: number) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (isRecord(value)) {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function getCachedEphemeris(key: string) {
+  const cached = ephemerisCache.get(key);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    ephemerisCache.delete(key);
+    return null;
+  }
+  ephemerisCache.delete(key);
+  ephemerisCache.set(key, cached);
+  return cached.json;
+}
+
+function cacheEphemeris(key: string, json: string) {
+  ephemerisCache.delete(key);
+  ephemerisCache.set(key, { json, expiresAt: Date.now() + EPHEMERIS_CACHE_TTL_MS });
+  if (ephemerisCache.size > EPHEMERIS_CACHE_LIMIT) {
+    const oldestKey = ephemerisCache.keys().next().value;
+    if (oldestKey !== undefined) ephemerisCache.delete(oldestKey);
+  }
+}
+
+function ephemerisResponse(json: string, status: "HIT" | "MISS", startedAt: number) {
+  const duration = Math.max(0, performance.now() - startedAt).toFixed(2);
+  return new NextResponse(json, {
+    headers: {
+      "Content-Type": "application/json",
+      "X-Celestia-Cache": status,
+      "Server-Timing": `total;dur=${duration}, cache;desc="${status}"`,
+    },
+  });
 }
 
 function validateRequest(value: unknown): EphemerisRequest {
@@ -520,6 +565,15 @@ function findSolarReturn(input: EphemerisRequest) {
 }
 
 export async function POST(request: Request) {
+  const startedAt = performance.now();
+  const limit = consumeRateLimit(request, "ephemeris");
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many calculation requests. Please try again shortly." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -529,21 +583,29 @@ export async function POST(request: Request) {
 
   try {
     const input = validateRequest(body);
+    const cacheKey = canonicalJson(input);
+    const cached = getCachedEphemeris(cacheKey);
+    if (cached) return ephemerisResponse(cached, "HIT", startedAt);
+
     const chart = calculateEphemeris(input);
     const returnEpoch = findSolarReturn(input);
-    if (!returnEpoch) return NextResponse.json({ input, ...chart });
-    const returnChart = calculateEphemeris(input, returnEpoch.epoch);
-    return NextResponse.json({
-      input,
-      ...chart,
-      solarReturn: {
-        targetAge: returnEpoch.targetAge,
-        ageMode: returnEpoch.ageMode,
-        utc: returnEpoch.epoch.toISOString(),
-        ascendant: returnChart.ascendant,
-        planets: returnChart.planets,
-      },
-    });
+    let payload: Record<string, unknown> = { input, ...chart };
+    if (returnEpoch) {
+      const returnChart = calculateEphemeris(input, returnEpoch.epoch);
+      payload = {
+        ...payload,
+        solarReturn: {
+          targetAge: returnEpoch.targetAge,
+          ageMode: returnEpoch.ageMode,
+          utc: returnEpoch.epoch.toISOString(),
+          ascendant: returnChart.ascendant,
+          planets: returnChart.planets,
+        },
+      };
+    }
+    const json = JSON.stringify(payload);
+    cacheEphemeris(cacheKey, json);
+    return ephemerisResponse(json, "MISS", startedAt);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Ephemeris calculation failed.";
     const isInputError = /must |outside |valid |unsupported |choose one|is required/i.test(message);

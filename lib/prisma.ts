@@ -16,7 +16,12 @@ function getPrismaClient(): PrismaClient {
   }
 
   const adapter = new PrismaPg(
-    { connectionString: databaseUrl, connectionTimeoutMillis: 10_000 },
+    {
+      connectionString: databaseUrl,
+      max: 3,
+      idleTimeoutMillis: 20_000,
+      connectionTimeoutMillis: 10_000,
+    },
     {
       onPoolError: (error) => console.error("[database] PostgreSQL pool error", error),
       onConnectionError: (error) => console.error("[database] PostgreSQL connection error", error),

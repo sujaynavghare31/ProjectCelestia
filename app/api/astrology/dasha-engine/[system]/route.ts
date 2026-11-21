@@ -3,10 +3,11 @@ import { addDashaHorizon, calculateDashaSystem } from "@/lib/astrology/timing/Da
 import { calculateNadiSystem } from "@/lib/astrology/timing/NadiEngine";
 import type { DashaSystem } from "@/lib/astrology/timing/DashaEngine";
 import { timingInputSchema } from "@/lib/astrology/timing/validation";
+import { consumeRateLimit } from "@/lib/server/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 300;
+export const maxDuration = 30;
 
 const SYSTEMS = new Set(["vimshottari", "yogini", "ashtottari", "chara", "kalachakra", "nadi"]);
 
@@ -14,6 +15,13 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ system: string }> },
 ) {
+  const limit = consumeRateLimit(request, "dasha-engine");
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "Too many calculation requests. Please try again shortly." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
+  }
   const { system } = await context.params;
   if (!SYSTEMS.has(system)) {
     return NextResponse.json({ error: `Unsupported Dasha system "${system}".` }, { status: 404 });
