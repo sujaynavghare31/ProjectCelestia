@@ -34,6 +34,12 @@ const PLANET_CLASSES: Record<string, string> = {
   Ketu: "fill-indigo-800 dark:fill-indigo-300",
 };
 
+const ELEMENT_SIGN_FILLS = ["#fff1f2", "#fffbeb", "#e0f2fe", "#ecfeff"];
+
+function signFill(signIndex: number) {
+  return ELEMENT_SIGN_FILLS[signIndex % 4];
+}
+
 export default function DashaLagnaChart({
   data,
   activeLord,
@@ -64,7 +70,17 @@ export default function DashaLagnaChart({
         <rect x="10" y="10" width="340" height="340" rx="8" fill="hsl(var(--card))" stroke="hsl(var(--chart-grid))" strokeWidth="1" />
         {Array.from({ length: 12 }, (_, index) => {
           const house = index + 1;
-          return <polygon key={`house-${house}`} points={HOUSE_POLYGONS[house]} fill={house === 1 ? "rgb(245 158 11 / 0.1)" : "transparent"} />;
+          const signIndex = (ascendantSignIndex + house - 1) % 12;
+          return (
+            <polygon
+              key={`house-${house}`}
+              points={HOUSE_POLYGONS[house]}
+              fill={signFill(signIndex)}
+              stroke={house === 1 ? "#D97706" : "none"}
+              strokeWidth={house === 1 ? "2" : "0"}
+              className="dark:opacity-40"
+            />
+          );
         })}
         <path d="M10 10 350 350M350 10 10 350M180 10 350 180 180 350 10 180 180 10" fill="none" stroke="hsl(var(--chart-grid))" strokeWidth="1" />
         {Array.from({ length: 12 }, (_, index) => {
@@ -78,12 +94,38 @@ export default function DashaLagnaChart({
                 H{house} · {SIGNS[signIndex].toUpperCase()}
               </text>
               {house === 1 && <text x={x} y={y + 1} textAnchor="middle" fill="hsl(var(--foreground))" fontSize="7" fontWeight="600">ASC</text>}
-              {bodies.map((planet, index) => (
-                <text key={planet.id} x={x} y={y + 8 + index * 11} textAnchor="middle" className={PLANET_CLASSES[planet.name] ?? "fill-current text-foreground"} fontSize="9" fontWeight="700">
-                  {planet.symbol}
-                  <title>{`${planet.name} in ${SIGNS[planet.sign - 1]}, house ${house}`}</title>
-                </text>
-              ))}
+              {bodies.map((planet, index) => {
+                const isDashaLagnaPlanet = Boolean(dashaLord && planet.name === dashaLord.name);
+                const highlightY = y + 12 + index * (isDashaLagnaPlanet ? 30 : 11);
+                return (
+                  <g key={planet.id}>
+                    {isDashaLagnaPlanet && (
+                      <circle
+                        cx={x}
+                        cy={highlightY - 8}
+                        r="18"
+                        fill="hsl(var(--champagne-gold) / 0.16)"
+                        stroke="#D97706"
+                        strokeWidth="2"
+                      />
+                    )}
+                    <text
+                      x={x}
+                      y={highlightY}
+                      textAnchor="middle"
+                      className={isDashaLagnaPlanet ? "fill-[#9A3412] dark:fill-amber-200" : PLANET_CLASSES[planet.name] ?? "fill-current text-foreground"}
+                      fontSize={isDashaLagnaPlanet ? "27" : "9"}
+                      fontWeight="800"
+                      stroke={isDashaLagnaPlanet ? "hsl(var(--card))" : "none"}
+                      strokeWidth={isDashaLagnaPlanet ? "1" : "0"}
+                      paintOrder="stroke"
+                    >
+                      {planet.symbol}
+                      <title>{`${planet.name} · Dasha Lagna planet · in ${SIGNS[planet.sign - 1]}, house ${house}`}</title>
+                    </text>
+                  </g>
+                );
+              })}
             </g>
           );
         })}

@@ -42,7 +42,6 @@ import { TABLES, chaldeanSum, computeProfile, digitSum, kuaOf, masterReduce, pyt
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { isLocalClerkFallback } from "@/lib/clerk-config";
 import CelestiaLoader from "@/components/ui/CelestiaLoader";
-import { AYANAMSA_OPTIONS, getAyanamsaLabel } from "@/lib/ayanamsa-options";
 
 const gridNumbers = [4, 9, 2, 3, 5, 7, 8, 1, 6];
 
@@ -208,9 +207,6 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
   const setBirthProfile = useKundaliStore((state) => state.setProfile);
   const language = useKundaliStore((state) => state.language);
   const setLanguage = useKundaliStore((state) => state.setLanguage);
-  const ayanamsa = useKundaliStore((state) => state.ayanamsa);
-  const setAyanamsa = useKundaliStore((state) => state.setAyanamsa);
-  const zodiacMode = useKundaliStore((state) => state.zodiacMode);
   const languageLabel = language === "initials" ? "English · initials" : language === "hi" ? "Hindi" : language === "mr" ? "Marathi" : "English";
   const [mounted, setMounted] = useState(false);
   const [system, setSystem] = useState(false);
@@ -412,28 +408,13 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
               </svg>
             </span>
             <span className="min-w-0">
-              <span className="hidden truncate text-[13px] font-semibold tracking-[0.02em] min-[375px]:block md:block">Project Celestia</span>
-              <span className="block truncate text-[13px] font-semibold tracking-[0.02em] min-[375px]:hidden md:hidden">Celestia</span>
+              <span className="block truncate text-[13px] font-semibold tracking-[0.02em] md:hidden">Celestia</span>
+              <span className="hidden truncate text-[13px] font-semibold tracking-[0.02em] md:block">Project Celestia</span>
               <span className="hidden text-[9px] tracking-wide text-slate-600 md:block dark:text-slate-400">YOUR PERSONAL COSMIC COMPASS</span>
             </span>
           </a>
 
           <div className="hidden shrink-0 items-center gap-2.5 md:flex">
-            <Select value={ayanamsa} onValueChange={setAyanamsa} disabled={zodiacMode === "tropical"}>
-              <SelectTrigger
-                aria-label={`Ayanamsa, current setting: ${zodiacMode === "tropical" ? "Tropical · Sayana" : getAyanamsaLabel(ayanamsa)}`}
-                title={zodiacMode === "tropical" ? "Ayanamsa applies only to Sidereal (Nirayana) charts" : "Ayanamsa"}
-                className={`h-9 w-[132px] gap-1.5 rounded-xl bg-background px-2 text-[11px] xl:w-[178px] xl:px-2.5 ${zodiacMode === "tropical" ? "text-muted-foreground" : ""}`}
-              >
-                <Orbit aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate text-left">
-                  {zodiacMode === "tropical" ? "Tropical · Sayana" : <><span className="xl:hidden">{getAyanamsaLabel(ayanamsa)}</span><span className="hidden xl:inline">Ayanamsa · {getAyanamsaLabel(ayanamsa)}</span></>}
-                </span>
-              </SelectTrigger>
-              <SelectContent align="end" className="z-[100] max-h-[70vh] bg-card text-card-foreground">
-                {AYANAMSA_OPTIONS.map(({ value, label }) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
-              </SelectContent>
-            </Select>
             <Select value={language} onValueChange={(value) => setLanguage(value as CelestialLanguage)}>
               <SelectTrigger aria-label={`Display language, current setting: ${languageLabel}`} className="h-9 w-[100px] gap-2 rounded-xl bg-background px-2 text-[11px] xl:w-[156px] xl:px-2.5">
                 <Globe2 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
@@ -533,23 +514,6 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
                 </button>
               </div>
               <div className="grid gap-4">
-                <section aria-labelledby="mobile-menu-ayanamsa">
-                  <h3 id="mobile-menu-ayanamsa" className="mb-1.5 text-xs font-semibold text-muted-foreground">Ayanamsa</h3>
-                  <Select value={ayanamsa} onValueChange={setAyanamsa} disabled={zodiacMode === "tropical"}>
-                    <SelectTrigger
-                      aria-label={`Ayanamsa, current setting: ${zodiacMode === "tropical" ? "Tropical · Sayana" : getAyanamsaLabel(ayanamsa)}`}
-                      title={zodiacMode === "tropical" ? "Ayanamsa applies only to Sidereal (Nirayana) charts" : "Ayanamsa"}
-                      className="h-11 w-full gap-2 rounded-xl bg-background text-sm"
-                    >
-                      <Orbit aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-                      <span className="min-w-0 flex-1 truncate text-left">{zodiacMode === "tropical" ? "Tropical · Sayana" : getAyanamsaLabel(ayanamsa)}</span>
-                    </SelectTrigger>
-                    <SelectContent align="start" className="z-[110] max-h-[60vh] bg-card text-card-foreground">
-                      {AYANAMSA_OPTIONS.map(({ value, label }) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  {zodiacMode === "tropical" && <p className="mt-1 text-xs text-muted-foreground">Ayanamsa applies only to Sidereal (Nirayana) charts.</p>}
-                </section>
                 <section aria-labelledby="mobile-menu-language">
                   <h3 id="mobile-menu-language" className="mb-1.5 text-xs font-semibold text-muted-foreground">Language</h3>
                   <Select value={language} onValueChange={(value) => setLanguage(value as CelestialLanguage)}>

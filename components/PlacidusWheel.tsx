@@ -33,10 +33,11 @@ const ASPECTS = [
   { angle: 120, orb: 6, color: "#72b89d" },
   { angle: 180, orb: 8, color: "#df6f7a" },
 ];
+const ELEMENT_COLORS = ["#FCA5A5", "#FDE68A", "#BAE6FD", "#A7F3D0"];
 
 type WheelBody = PlanetPosition & { transit: boolean };
 type Point = { x: number; y: number };
-type AspectLine = { key: string; from: Point; to: Point; color: string };
+type AspectLine = { key: string; from: Point; to: Point; color: string; firstName: string; secondName: string; label: string; orb: number; tight: boolean };
 type BodyPlacement = { body: WheelBody; point: Point; degreePoint: Point };
 
 function normalizeDegrees(degrees: number) {
@@ -128,11 +129,17 @@ function getAspectLines(planets: PlanetPosition[], referenceLongitude: number): 
         .sort((left, right) => left.difference - right.difference)[0];
       if (!aspect) continue;
 
+      const orb = aspect.difference;
       lines.push({
         key: `${from.id}-${to.id}`,
         from: polarToCartesian(from.longitude, ASPECT_RADIUS, referenceLongitude),
         to: polarToCartesian(to.longitude, ASPECT_RADIUS, referenceLongitude),
-        color: aspect.color,
+        color: aspect.angle === 90 || aspect.angle === 180 ? "#DC2626" : aspect.angle === 120 ? "#16A34A" : "#2563EB",
+        firstName: from.name,
+        secondName: to.name,
+        label: aspect.angle === 60 ? "Sextile" : aspect.angle === 90 ? "Square" : aspect.angle === 120 ? "Trine" : aspect.angle === 180 ? "Opposition" : "Conjunction",
+        orb,
+        tight: orb <= 3,
       });
     }
   }
@@ -217,10 +224,6 @@ function PlacidusWheel({
     : null;
   const bodyPlacements = getBodyPlacements(chartBodies, referenceLongitude);
   const aspectLines = getAspectLines(visiblePlanets, referenceLongitude);
-  const ascendantName = preferences.usePlanetIcons
-    ? PLANET_GLYPHS.Ascendant
-    : planetChartName("Ascendant", language, "Ascendant");
-
   return (
     <svg
       viewBox="0 0 1000 1000"
@@ -258,16 +261,15 @@ function PlacidusWheel({
       <circle cx={CENTER} cy={CENTER} r={ZODIAC_OUTER_RADIUS} fill="hsl(var(--card))" fillOpacity="0.5" stroke="hsl(var(--chart-grid))" strokeWidth="1.5" />
       {Array.from({ length: 12 }, (_, sign) => {
         const label = polarToCartesian(sign * 30 + 15, (ZODIAC_OUTER_RADIUS + ZODIAC_INNER_RADIUS) / 2, referenceLongitude);
-        const gradient = ELEMENT_GRADIENTS.find((element) => element.signs.includes(sign))!;
         return (
           <g key={`zodiac-${sign}`} aria-label={signName(SIGNS[sign], language)}>
             <path
               d={ringSegmentPath(sign * 30, (sign + 1) * 30, ZODIAC_OUTER_RADIUS, ZODIAC_INNER_RADIUS, referenceLongitude)}
-              fill={`url(#${gradient.id})`}
-              fillOpacity="0.46"
-              stroke="hsl(var(--chart-grid))"
-              strokeOpacity="0.75"
-              strokeWidth="1"
+              fill={ELEMENT_COLORS[sign % 4]}
+              fillOpacity="0.72"
+              stroke="#64748B"
+              strokeOpacity="0.9"
+              strokeWidth="1.2"
             />
             <text
               x={label.x}
@@ -301,15 +303,18 @@ function PlacidusWheel({
       {Array.from({ length: 360 }, (_, degree) => {
         const major = degree % 10 === 0;
         const medium = degree % 5 === 0;
-        const dot = polarToCartesian(degree, DEGREE_RADIUS, referenceLongitude);
+        const outer = polarToCartesian(degree, ZODIAC_INNER_RADIUS - 4, referenceLongitude);
+        const inner = polarToCartesian(degree, major ? ZODIAC_INNER_RADIUS - 16 : medium ? ZODIAC_INNER_RADIUS - 11 : ZODIAC_INNER_RADIUS - 7, referenceLongitude);
         return (
-          <circle
+          <line
             key={`degree-${degree}`}
-            cx={dot.x}
-            cy={dot.y}
-            r={major ? 2 : medium ? 1.4 : 0.8}
-            fill={major ? "hsl(var(--foreground))" : "hsl(var(--muted-foreground))"}
-            fillOpacity={major ? 0.8 : medium ? 0.65 : 0.42}
+            x1={inner.x}
+            y1={inner.y}
+            x2={outer.x}
+            y2={outer.y}
+            stroke="#475569"
+            strokeOpacity={major ? 0.95 : medium ? 0.72 : 0.42}
+            strokeWidth={major ? 1.2 : medium ? 0.9 : 0.55}
           />
         );
       })}
@@ -345,13 +350,13 @@ function PlacidusWheel({
                   fill="hsl(var(--champagne-gold))"
                 />
                 <text x={label.x} y={label.y + 4} fill="hsl(var(--champagne-gold))" fontSize="12" fontWeight="700" textAnchor="middle">
-                  {cusp.house === 1 ? "ASC" : cusp.house === 4 ? "IC" : cusp.house === 7 ? "DSC" : "MC"}
+                  {cusp.house === 1 ? "AC" : cusp.house === 4 ? "IC" : cusp.house === 7 ? "DC" : "MC"}
                 </text>
               </>
             )}
-            {preferences.showHouseLabels && (
-              <text x={label.x} y={label.y + (majorAxis ? 20 : 4)} fill="hsl(var(--foreground))" fontSize="13" fontWeight="600" textAnchor="middle">
-                H{relativeHouse}
+            {(
+              <text x={label.x} y={label.y + (majorAxis ? 20 : 4)} fill="hsl(var(--foreground))" fontSize="15" fontWeight="800" textAnchor="middle" stroke="hsl(var(--card))" strokeWidth="3" paintOrder="stroke">
+                {relativeHouse}
               </text>
             )}
             {preferences.showBhavaCusps && cuspLabelResult && (() => {
@@ -392,16 +397,25 @@ function PlacidusWheel({
         return <line key={`equal-house-${index}`} x1={start.x} y1={start.y} x2={end.x} y2={end.y} stroke="hsl(var(--muted-foreground))" strokeDasharray="3 4" strokeWidth="1" />;
       })}
 
-      {aspectLines.map((aspect, index) => (
-        <path
-          key={aspect.key}
-          d={`M ${aspect.from.x} ${aspect.from.y} Q ${CENTER} ${CENTER} ${aspect.to.x} ${aspect.to.y}`}
-          fill="none"
-          stroke={`url(#aspect-gradient-${index})`}
-          strokeWidth="1.5"
-          pointerEvents="none"
-        />
-      ))}
+      {aspectLines.map((aspect) => {
+        const highlighted = hoveredPlanet === null || hoveredPlanet === aspect.firstName || hoveredPlanet === aspect.secondName;
+        return (
+          <line
+            key={aspect.key}
+            x1={aspect.from.x}
+            y1={aspect.from.y}
+            x2={aspect.to.x}
+            y2={aspect.to.y}
+            stroke={aspect.color}
+            strokeWidth={highlighted ? (aspect.tight ? 2.2 : 1.8) : 1}
+            strokeOpacity={hoveredPlanet === null ? (aspect.tight ? 0.95 : 0.48) : highlighted ? 1 : 0.12}
+            strokeDasharray={aspect.tight ? undefined : "5 4"}
+            pointerEvents="stroke"
+          >
+            <title>{`${aspect.firstName} ${PLANET_GLYPHS[aspect.firstName] ?? ""} · ${aspect.secondName} ${PLANET_GLYPHS[aspect.secondName] ?? ""} · ${aspect.label} (${aspect.orb.toFixed(2)}° orb)`}</title>
+          </line>
+        );
+      })}
       <circle cx={CENTER} cy={CENTER} r="188" fill="none" stroke="hsl(var(--chart-grid))" strokeOpacity="0.5" strokeWidth="1" />
 
       {bodyPlacements.map(({ body, point, degreePoint }, index) => {
@@ -413,7 +427,7 @@ function PlacidusWheel({
         const highlighted = hoveredPlanet === null
           || body.name === hoveredPlanet
           || (hoveredPlanet === "Vargottama" && vargottama);
-        const glyphSize = glyph.length > 2 ? 6.5 : 10;
+        const glyphSize = glyph.length > 2 ? 10 : 17;
 
         return (
           <g
@@ -437,12 +451,12 @@ function PlacidusWheel({
               strokeOpacity="0.65"
               strokeWidth="0.5"
             />
-            <circle cx={degreePoint.x} cy={degreePoint.y} r="2" fill="hsl(var(--foreground))" fillOpacity="0.8" />
+            <circle cx={degreePoint.x} cy={degreePoint.y} r="3" fill={body.transit ? "#0891B2" : "#0F172A"} fillOpacity="1" stroke="#FFFFFF" strokeWidth="1" />
             {vargottama && <circle cx={point.x} cy={point.y} r="13" fill="none" stroke="#C05A3A" strokeWidth="1.5" />}
             <circle
               cx={point.x}
               cy={point.y}
-              r="11"
+              r="15"
               className="fill-white dark:fill-slate-800"
               stroke={body.transit ? "hsl(var(--chart-1))" : "hsl(var(--chart-grid))"}
               strokeWidth={body.transit ? "1.5" : "1"}
@@ -459,17 +473,25 @@ function PlacidusWheel({
             >
               {body.transit ? "T " : ""}{glyph}{retrograde ? <tspan fontSize="6" dy="-6">R</tspan> : null}
             </text>
+            <text
+              x={point.x}
+              y={point.y + 25}
+              fill="#0F172A"
+              className="dark:fill-slate-100"
+              fontSize="11"
+              fontWeight="800"
+              textAnchor="middle"
+              stroke="hsl(var(--card))"
+              strokeWidth="3"
+              paintOrder="stroke"
+            >
+              {formatPlanetDegree(body.degree)}
+              {retrograde ? <tspan fill="#DC2626" fontSize="12" dx="3">R</tspan> : null}
+            </text>
           </g>
         );
       })}
 
-      <circle cx={CENTER} cy={CENTER} r="3" fill="hsl(var(--champagne-gold))" />
-      <text x={CENTER} y={CENTER - 10} fill="hsl(var(--foreground))" fontSize="13" fontWeight="600" textAnchor="middle">
-        {signName(ascendant.signName, language)}
-      </text>
-      <text x={CENTER} y={CENTER + 11} fill="hsl(var(--muted-foreground))" fontSize="11" textAnchor="middle">
-        {`${ascendantName} · ${formatPlanetDegree(ascendant.degree)}`}
-      </text>
     </svg>
   );
 }

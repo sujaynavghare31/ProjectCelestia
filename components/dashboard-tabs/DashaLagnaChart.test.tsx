@@ -40,5 +40,8 @@ describe("Dasha Lagna chart", () => {
     expect(markup).toContain("Sun rising · Aries");
     expect(markup).toContain("H1 · ARIES");
     expect(markup).toContain("H12 · PISCES");
+    expect(markup).toContain("#fff1f2");
+    expect(markup).toContain('font-size="27"');
+    expect(markup).toContain("Dasha Lagna planet");
   });
 });

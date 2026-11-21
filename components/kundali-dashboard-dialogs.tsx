@@ -204,8 +204,8 @@ export function ChartSettingsDrawer({
                 <legend className="mb-2 text-xs font-medium text-foreground">Zodiac system</legend>
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                   {([
-                    ["sidereal", "Sidereal · Nirayana", "Uses an ayanamsa offset."],
-                    ["tropical", "Tropical · Sayana", "Uses the seasonal zodiac."],
+                    ["sidereal", "Nirayana · Sidereal", "Uses an ayanamsa offset."],
+                    ["tropical", "Sayana · Tropical", "Uses the seasonal zodiac."],
                   ] as const).map(([mode, label, description]) => (
                     <label key={mode} className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${draft.zodiacMode === mode ? "border-primary/30 bg-accent text-accent-foreground" : "border-border bg-card hover:border-primary/40"}`}>
                       <input

@@ -213,11 +213,26 @@ function chartSignDisplay(sign: number, language: CelestialLanguage, preferences
 function signFillClass(sign: number) {
   const classes = [
     "fill-rose-50/70 dark:fill-rose-950/25",
-    "fill-lime-50/70 dark:fill-lime-950/25",
-    "fill-sky-50/70 dark:fill-sky-950/25",
-    "fill-cyan-50/70 dark:fill-cyan-950/25",
+    "fill-amber-50/80 dark:fill-amber-950/25",
+    "fill-sky-50/80 dark:fill-sky-950/25",
+    "fill-cyan-50/75 dark:fill-cyan-950/25",
   ];
   return classes[sign % 4];
+}
+
+function signHtmlFillClass(sign: number) {
+  const classes = [
+    "bg-rose-50/90 dark:bg-rose-950/30",
+    "bg-amber-50/90 dark:bg-amber-950/25",
+    "bg-sky-50/90 dark:bg-sky-950/25",
+    "bg-cyan-50/90 dark:bg-cyan-950/25",
+  ];
+  return classes[sign % 4];
+}
+
+function signSvgFill(sign: number) {
+  const colors = ["#fff1f2", "#fffbeb", "#e0f2fe", "#ecfeff"];
+  return colors[sign % 4];
 }
 
 function formatBirthDate(date: string) {
@@ -629,7 +644,13 @@ function SvgChartComponent({
           const contents = houseBodyGroups[houseNumber - 1].inline;
           return (
             <g key={house.house}>
-              <polygon points={polygon} fill={house.house === 1 ? "hsl(var(--champagne-gold) / 0.12)" : "hsl(var(--card))"} stroke="hsl(var(--chart-grid))" strokeWidth="1" />
+              <polygon
+                points={polygon}
+                fill={signSvgFill(house.sign)}
+                className="dark:opacity-40"
+                stroke={house.house === 1 ? "#D97706" : "hsl(var(--chart-grid))"}
+                strokeWidth={house.house === 1 ? "2" : "1"}
+              />
               <text x={x} y={y - 10} fill="hsl(var(--foreground))" fontSize="8" fontWeight="600" textAnchor="middle">{preferences.showHouseLabels ? `H${house.house} · ` : ""}{chartSignDisplay(house.sign, language, preferences)}</text>
               {preferences.showBhavaCusps && cuspLabelResult && cuspLabelResult.bySign[house.sign].cusps.map((cusp, cuspIndex) => (
                 <text key={`cusp-${cusp.house}`} x={x} y={y + 3 + cuspIndex * 10} fill={cusp.shifted ? "hsl(var(--champagne-gold))" : "hsl(var(--foreground))"} fontSize="7" fontWeight="600" textAnchor="middle" opacity={preferences.cuspLabelStyle === "line" ? 0.9 : 1}>
@@ -645,7 +666,7 @@ function SvgChartComponent({
                   <g key={body.id} opacity={isHighlighted(body, vargottama) ? 1 : 0.4} filter={isHighlighted(body, vargottama) && hoveredPlanet !== null ? "drop-shadow(0 0 6px hsl(var(--foreground)))" : undefined} onMouseEnter={() => onBodyEnter(body)} onMouseLeave={() => setHoveredPlanet(null)}>
                     {body.motion === "R" && <title>Retrograde Motion</title>}
                     {vargottama && <rect x={x - labelWidth / 2} y={bodyBaseline - 9} width={labelWidth} height="11" rx="4" fill="none" stroke="#C05A3A" strokeWidth="1" />}
-                    <text x={x} y={bodyBaseline} fill="hsl(var(--foreground))" fontSize="8" fontWeight="600" textAnchor="middle">
+                    <text x={x} y={bodyBaseline} fill="hsl(var(--foreground))" fontSize={houseNumber >= 9 && houseNumber <= 12 ? "7" : "8"} fontWeight="600" textAnchor="middle" textLength={name.length > 10 ? "48" : undefined} lengthAdjust={name.length > 10 ? "spacingAndGlyphs" : undefined}>
                       {body.isTransit ? "T " : ""}{name}{body.motion === "R" && <tspan fill="hsl(var(--foreground))" fontSize="8" fontWeight="800" dy="-3">ᴿ</tspan>}
                     </text>
                   </g>
@@ -676,7 +697,7 @@ function SvgChartComponent({
           const signHouse = getSignHouse(sign, ascSign);
           const bodies = houseBodyGroups[signHouse - 1].inline;
           return (
-            <div key={sign} className={`flex min-w-0 flex-col items-center justify-center gap-1 border border-slate-200 p-1 text-center dark:border-slate-700 ${signHouse === 1 ? "bg-amber-100/70 dark:bg-amber-400/10" : ""}`}>
+            <div key={sign} className={`flex min-w-0 flex-col items-center justify-center gap-1 border border-slate-200 p-1 text-center dark:border-slate-700 ${signHtmlFillClass(sign)} ${signHouse === 1 ? "ring-2 ring-inset ring-amber-400/70" : ""}`}>
               <span className="text-xs text-foreground">{chartSignDisplay(sign, language, preferences)}{preferences.showHouseLabels ? ` · H${signHouse}` : ""}</span>
               {preferences.showBhavaCusps && cuspLabelResult && cuspLabelResult.bySign[sign].cusps.length > 0 && (
                 <span className="flex flex-wrap justify-center gap-1">
@@ -1856,7 +1877,7 @@ export function KundaliDashboard({
   const midpointUnavailableReason = !displayData
     ? "Load a chart to view its midpoint analysis."
     : displayData.input.zodiacMode === "tropical"
-      ? "Midpoint analysis uses sidereal longitudes. Switch the chart to Sidereal · Nirayana in Chart Settings."
+      ? "Midpoint analysis uses sidereal longitudes. Switch the chart to Nirayana · Sidereal in Chart Settings."
       : null;
   const activeBirthProfile = submittedProfile ?? profile;
   const normalizeChartName = (name: string) => name === "Current transit" ? "" : name.trim() || "Birth chart";
@@ -1943,7 +1964,7 @@ export function KundaliDashboard({
                   <option value="female">Female</option>
                 </select>
               </label>
-              <div className="grid min-w-0 grid-cols-2 gap-2.5 md:contents">
+              <div className="grid min-w-0 grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:contents">
                 <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Birth date
                   <input aria-label="Birth date" type="date" required value={profile.date} onChange={(event) => setProfile({ date: event.target.value })} className={`${CONTROL_CLASS} mt-1 box-border h-11 w-full min-w-0 max-w-full px-2 text-base md:text-sm xl:h-9`} />
                 </label>
@@ -2291,7 +2312,7 @@ export function KundaliDashboard({
                   )}
                 </div>
               </div>
-              <div className="mt-3 grid flex-none grid-cols-2 items-center gap-x-3 gap-y-2 text-[11px] text-slate-600 dark:text-slate-400 sm:flex sm:flex-wrap sm:justify-between sm:text-xs">
+              <div className="mt-3 flex flex-none flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600 dark:text-slate-400 sm:justify-between sm:text-xs">
                 <span className="flex items-center gap-1.5"><span className={`size-2 rounded-full ${chartMode === "transit" ? "bg-cyan-600 dark:bg-cyan-400" : "bg-amber-600 dark:bg-amber-400"}`} /> {chartMode === "transit" ? `Transit · ${currentTransitLabel}` : "Birth chart"}</span>
                 <button type="button" className="flex items-center gap-1.5 rounded px-1 transition hover:bg-[hsl(var(--input))]/50" onMouseEnter={() => setHoveredPlanet("Vargottama")} onMouseLeave={() => setHoveredPlanet(null)} onFocus={() => setHoveredPlanet("Vargottama")} onBlur={() => setHoveredPlanet(null)}><span className="inline-block size-3 rounded-full border border-[#C05A3A]" /> Vargottama</button>
                 <span title="Retrograde Motion"><span className="font-bold text-rose-700 dark:text-rose-300">R</span> = retrograde</span>
@@ -2391,7 +2412,7 @@ export function KundaliDashboard({
 
           <section className={`${PANEL_CLASS} order-3 min-w-0 xl:col-span-2 xl:row-start-2`}>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-              <div><p className="text-xs font-semibold">Planetary positions</p><p className="mt-0.5 text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400">Swiss Ephemeris · sidereal · Jaimini karakas</p></div>
+              <div><p className="text-xs font-semibold">Planetary positions</p><p className="mt-0.5 text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400">Swiss Ephemeris · {zodiacMode === "tropical" ? "Sayana (Tropical)" : "Nirayana (Sidereal)"} · Jaimini karakas</p></div>
               <div className="flex flex-wrap items-center gap-2">
                 <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">Node
                   <select aria-label="Rahu Ketu node mode" value={nodeType} onChange={(event) => setNodeType(event.target.value as "true" | "mean")} className={`${CONTROL_CLASS} h-8 text-xs`}><option value="true">True Node</option><option value="mean">Mean Node</option></select>
