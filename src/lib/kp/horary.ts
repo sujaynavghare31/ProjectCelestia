@@ -79,9 +79,13 @@ export function judgeQuestion(chart: ReturnType<typeof kpChart>, key: HoraryQues
   };
   const main = judgeCusp(q.cusp);
   const secondary = q.secondaryCusp ? judgeCusp(q.secondaryCusp) : null;
-  const verdict = main.favourableFound.length === 0
+  const mainPasses = main.favourableFound.length > 0;
+  const secondaryPasses = !secondary || secondary.favourableFound.length > 0;
+  const hasNegative = main.negativeFound.length > 0
+    || (secondary?.negativeFound.length ?? 0) > 0;
+  const verdict = !mainPasses || !secondaryPasses
     ? "NO — sub lord does not signify a favourable house"
-    : main.negativeFound.length > 0
+    : hasNegative
       ? "YES, with obstacles / delay"
       : "YES — promised";
   const favourableSignificators = chart.planets

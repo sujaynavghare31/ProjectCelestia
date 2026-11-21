@@ -8,6 +8,7 @@ import type { CelestialLanguage, EphemerisResponse, PlanetPosition, ViewPreferen
 import type { ChartStyle } from "@/lib/kundali-types";
 import type { ChartBody, ChartPoint, KpChartModel, SayanaPlanets } from "@/src/lib/kp/chartModel";
 import type { HoraryQuestionKey } from "@/src/lib/kp/horaryQuestions";
+import type { HoraryTiming } from "@/src/lib/kp/horaryTiming";
 
 type ChartRendererProps = {
   style: ChartStyle;
@@ -506,6 +507,7 @@ export default function KpTab({ profile, language, viewPreferences, ChartRendere
   const [horaryData, setHoraryData] = useState<EphemerisResponse | null>(null);
   const [horaryChart, setHoraryChart] = useState<HoraryChart | null>(null);
   const [horaryModel, setHoraryModel] = useState<KpChartModel | null>(null);
+  const [horaryTiming, setHoraryTiming] = useState<HoraryTiming | null>(null);
   const [transit, setTransit] = useState<TransitRow[]>([]);
   const [horaryTransit, setHoraryTransit] = useState<TransitRow[]>([]);
   const [currentRuling, setCurrentRuling] = useState<EngineRuling | null>(null);
@@ -733,6 +735,60 @@ export default function KpTab({ profile, language, viewPreferences, ChartRendere
   }, [mode, horaryNumber, questionKey, question, momentDate, momentTime, profile, horaryData, horaryModel]);
 
   useEffect(() => {
+    if (mode !== "horary" || !horaryChart?.judgement || !horaryModel || !questionKey) {
+      setHoraryTiming(null);
+      return;
+    }
+    if (!horaryChart.judgement.verdict.startsWith("YES")) {
+      setHoraryTiming(null);
+      return;
+    }
+    let cancelled = false;
+    let idleId = 0;
+    const compute = () => {
+      if (cancelled) return;
+      void Promise.all([
+        import("@/src/lib/kp/horaryTiming"),
+        import("@/src/lib/kp/horaryQuestions"),
+      ]).then(([timingModule, questionsModule]) => {
+        if (cancelled) return;
+        const q = questionsModule.HORARY_QUESTIONS[questionKey];
+        const moment = localMoment(momentDate, momentTime, profile);
+        const moon = horaryModel.bodies.find((body) => body.key === "Moon");
+        if (!moon) return;
+        setHoraryTiming(timingModule.horaryTiming({
+          chart: horaryChart,
+          moonLongitude: moon.nirayana,
+          momentUtcMs: moment.instant.getTime(),
+          verdict: horaryChart.judgement!.verdict,
+          questionKey,
+          favourableHouses: q.favourable,
+          timezone: profile.timezone,
+        }));
+      }).catch((loadError: unknown) => {
+        if (!cancelled) setError(loadError instanceof Error ? loadError.message : "Unable to calculate horary timing.");
+      });
+    };
+    const idleWindow = window as unknown as {
+      requestIdleCallback?: (callback: IdleRequestCallback) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    if (typeof idleWindow.requestIdleCallback === "function") {
+      idleId = idleWindow.requestIdleCallback(compute);
+    } else {
+      idleId = window.setTimeout(compute, 0);
+    }
+    return () => {
+      cancelled = true;
+      if (typeof idleWindow.cancelIdleCallback === "function") {
+        idleWindow.cancelIdleCallback(idleId);
+      } else {
+        window.clearTimeout(idleId);
+      }
+    };
+  }, [mode, horaryChart, horaryModel, questionKey, momentDate, momentTime, profile]);
+
+  useEffect(() => {
     if (mode !== "natal") return;
     const timer = window.setInterval(() => {
       if (document.visibilityState === "visible") void load();
@@ -873,7 +929,46 @@ export default function KpTab({ profile, language, viewPreferences, ChartRendere
                 )}
                 {!horaryChart.judgement && <p className="mt-1 text-xs text-stone-500">Choose or type a question to view the KP judgement.</p>}
               </div>
-              {horaryChart.judgement && <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${horaryChart.judgement.verdict.startsWith("YES") ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"}`}>{horaryChart.judgement.verdict}</span>}
+              {horaryChart.judgement && (
+                <div className="max-w-sm space-y-2">
+                  <span className={`rounded-full px-3 py-1.5 text-xs font-bold ${horaryChart.judgement.verdict.startsWith("YES") ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"}`}>{horaryChart.judgement.verdict}</span>
+                  {horaryTiming && (
+                    <div className="mt-2 rounded-xl border border-amber-200 bg-[#FFF8E1] p-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-amber-800">When?</p>
+                      {horaryTiming.windows[0] ? (
+                        <>
+                          <p className="mt-1 text-sm font-semibold text-stone-900">
+                            Between {formatDate(new Date(`${horaryTiming.windows[0].start}T12:00:00Z`), profile.timezone)} and {formatDate(new Date(`${horaryTiming.windows[0].end}T12:00:00Z`), profile.timezone)}
+                          </p>
+                          {horaryTiming.bestDate && <p className="mt-1 text-xs text-stone-700">Most likely around <strong>{formatDate(new Date(`${horaryTiming.bestDate.date}T12:00:00Z`), profile.timezone)}</strong> · {horaryTiming.bestDate.reason}</p>}
+                          {horaryTiming.windows.slice(1, 3).map((window) => (
+                            <p key={`${window.lords.join("-")}-${window.start}`} className="mt-1 text-xs text-stone-600">
+                              Alternative: {window.lords.join("–")} · {formatDate(new Date(`${window.start}T12:00:00Z`), profile.timezone)} – {formatDate(new Date(`${window.end}T12:00:00Z`), profile.timezone)}
+                            </p>
+                          ))}
+                        </>
+                      ) : (
+                        <p className="mt-1 text-sm font-semibold text-stone-800">Not promised — no timing</p>
+                      )}
+                      {horaryTiming.fruitful.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {horaryTiming.fruitful.map((entry) => (
+                            <span key={entry.planet} className="rounded-full bg-white px-2 py-1 text-[11px] font-bold text-[#C05A3A] ring-1 ring-amber-200">{entry.planet} · {entry.level}</span>
+                          ))}
+                        </div>
+                      )}
+                      {horaryTiming.delayedBy.map((item) => (
+                        <p key={item.planet} className="mt-1 text-xs text-red-700 line-through">
+                          {item.planet}{item.directOn ? ` · after it turns direct on ${item.directOn}` : " · retrograde delay"}
+                        </p>
+                      ))}
+                      {horaryTiming.hints.map((hint) => <p key={hint} className="mt-1 text-xs text-stone-600">{hint}</p>)}
+                      <p className="mt-2 text-[11px] text-stone-500">{horaryTiming.explanation}</p>
+                      <p className="mt-1 text-[10px] text-stone-400">KP timing = periods of significators that are also Ruling Planets, confirmed by transit.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
