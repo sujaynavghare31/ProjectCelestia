@@ -20,6 +20,23 @@ export function dashaBalance(moonLongitude: number, opts: DashaOptions = {}) {
 
 const sub9 = (first: Graha) => { const i = DASHA_ORDER.indexOf(first); return Array.from({ length: 9 }, (_, k) => DASHA_ORDER[(i + k) % 9]); };
 
+export function vimshottariFromMoment(moonLongitude: number, momentUtcMs: number, opts: DashaOptions = {}) {
+  const yearMs = (opts.yearDays ?? 365.2425) * 86400000;
+  const balance = dashaBalance(moonLongitude, opts);
+  const order = sub9(balance.lord);
+  const periods: DashaPeriod[] = [];
+  let start = momentUtcMs;
+
+  order.forEach((lord, index) => {
+    const years = index === 0 ? balance.balanceYears : DASHA_YEARS[lord];
+    const end = start + years * yearMs;
+    periods.push({ lords: [lord], start: new Date(start), end: new Date(end) });
+    start = end;
+  });
+
+  return { balance, periods };
+}
+
 /**
  * Full Vimshottari tree. `levels` = 1 (dasha) … 4 (sookshma).
  * The first mahadasha starts BEFORE birth (birth − elapsed part), as KP softwares list it.

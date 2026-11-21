@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowRight, LoaderCircle, Orbit, Search, Trash2, X } from "lucide-react";
 import type { ChartSettings, ChartStyle, CelestialLanguage, HouseSystem, ViewPreferences } from "@/lib/kundali-types";
+import { getAyanamsaLabel } from "@/lib/ayanamsa-options";
 import { matchesSavedProfileQuery } from "@/lib/saved-profile-search";
 import type { SavedProfile } from "@/lib/saved-profiles-cache";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -240,64 +241,6 @@ export function ChartSettingsDrawer({
                   </Select>
                 </label>
                 <label className="block text-xs font-medium text-foreground">
-                  Ayanamsa
-                  <Select
-                    value={draft.ayanamsa}
-                    onValueChange={(value) => setDraft((current) => ({ ...current, ayanamsa: value }))}
-                    disabled={draft.zodiacMode === "tropical"}
-                  >
-                    <SelectTrigger aria-label="Ayanamsa" className="mt-1.5 h-11 w-full md:h-10">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="z-[110] !bg-card !text-foreground shadow-md">
-                      <SelectItem value="lahiri">Lahiri</SelectItem>
-                      <SelectItem value="true-citra">True Citra</SelectItem>
-                      <SelectItem value="ss-citra">S.S. Citra</SelectItem>
-                      <SelectItem value="ss-revati">S.S. Revati</SelectItem>
-                      <SelectItem value="true-revati">True Revati</SelectItem>
-                      <SelectItem value="true-pushya">True Pushya</SelectItem>
-                      <SelectItem value="true-mula">True Mula</SelectItem>
-                      <SelectItem value="de-luce">De Luce</SelectItem>
-                      <SelectItem value="usha-shashi">Usha/Shashi</SelectItem>
-                      <SelectItem value="djwhal-khul">Djwhal Khul</SelectItem>
-                      <SelectItem value="jn-bhasin">J.N. Bhasin</SelectItem>
-                      <SelectItem value="babylonian-kugler-1">Babylonian/Kugler 1</SelectItem>
-                      <SelectItem value="babylonian-kugler-2">Babylonian/Kugler 2</SelectItem>
-                      <SelectItem value="babylonian-kugler-3">Babylonian/Kugler 3</SelectItem>
-                      <SelectItem value="babylonian-huber">Babylonian/Huber</SelectItem>
-                      <SelectItem value="babylonian-eta-piscium">Babylonian/Eta Piscium</SelectItem>
-                      <SelectItem value="babylonian-aldebaran">Babylonian/Aldebaran 15 Tau</SelectItem>
-                      <SelectItem value="hipparchos">Hipparchos</SelectItem>
-                      <SelectItem value="sassanian">Sassanian</SelectItem>
-                      <SelectItem value="galactic-center-0-sag">Galactic Center 0 Sagittarius</SelectItem>
-                      <SelectItem value="j2000">J2000</SelectItem>
-                      <SelectItem value="j1900">J1900</SelectItem>
-                      <SelectItem value="b1950">B1950</SelectItem>
-                      <SelectItem value="suryasiddhanta">Suryasiddhanta</SelectItem>
-                      <SelectItem value="suryasiddhanta-mean-sun">Suryasiddhanta, mean Sun</SelectItem>
-                      <SelectItem value="aryabhata">Aryabhata</SelectItem>
-                      <SelectItem value="aryabhata-mean-sun">Aryabhata, mean Sun</SelectItem>
-                      <SelectItem value="aryabhata-522">Aryabhata 522</SelectItem>
-                      <SelectItem value="babylonian-britton">Babylonian/Britton</SelectItem>
-                      <SelectItem value="vedic-sheoran">Vedic/Sheoran</SelectItem>
-                      <SelectItem value="galactic-center-cochrane">Cochrane Galactic Center</SelectItem>
-                      <SelectItem value="galactic-equator-fiorenza">Galactic Equator (Fiorenza)</SelectItem>
-                      <SelectItem value="galactic-equator-iau1958">Galactic Equator (IAU1958)</SelectItem>
-                      <SelectItem value="galactic-equator">Galactic Equator</SelectItem>
-                      <SelectItem value="galactic-equator-mid-mula">Galactic Equator mid-Mula</SelectItem>
-                      <SelectItem value="skydram">Skydram</SelectItem>
-                      <SelectItem value="dhruva-galactic-center-mula">Dhruva/Galactic Center/Mula</SelectItem>
-                      <SelectItem value="galactic-center-gil-brand">Galactic Center (Gil Brand)</SelectItem>
-                      <SelectItem value="vettius-valens">Vettius Valens</SelectItem>
-                      <SelectItem value="raman">B.V. Raman</SelectItem>
-                      <SelectItem value="krishnamurti">Krishnamurti</SelectItem>
-                      <SelectItem value="fagan-bradley">Fagan–Bradley</SelectItem>
-                      <SelectItem value="yukteshwar">Yukteshwar</SelectItem>
-                      <SelectItem value="custom">Custom Ayanamsa</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </label>
-                <label className="block text-xs font-medium text-foreground">
                   Language &amp; initials
                   <Select
                     value={draft.language}
@@ -317,6 +260,11 @@ export function ChartSettingsDrawer({
                   {draft.viewPreferences.usePlanetIcons && <span className="mt-1.5 block text-xs text-muted-foreground">Unavailable while planet glyphs are enabled.</span>}
                 </label>
               </div>
+              {draft.zodiacMode === "sidereal" && (
+                <p className="rounded-lg bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+                  Active Ayanamsa: <span className="font-medium text-foreground">{getAyanamsaLabel(settings.ayanamsa)}</span> (switch anytime from the top bar)
+                </p>
+              )}
               {draft.zodiacMode === "sidereal" && draft.ayanamsa === "custom" && (
                 <label className="block max-w-sm text-xs font-medium text-foreground">
                   Custom ayanamsa degrees

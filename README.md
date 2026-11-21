@@ -1,157 +1,33 @@
 # Project Celestia
 
-Project Celestia is a Royal Cosmos astrology dashboard for exploring Vedic astrology charts, planetary positions, dashas, and on-demand analysis.
+A Vedic astrology SIG project exploring an idea for an interactive astrology dashboard.
 
-The application is built with Next.js and React, uses Swiss Ephemeris for astronomical calculations, and provides a responsive light/dark dashboard with interactive charts and tables.
+## Tech stack
+
+- Next.js, React, and TypeScript
+- Tailwind CSS and Zustand
+- Swiss Ephemeris for planetary calculations
+- Prisma and PostgreSQL
 
 ## Features
 
-- Current-transit chart initialization using the current date and load time
-- Birth-chart and transit-chart workflows with Mumbai as the default city
-- Guest-only mode; account sign-in and saved-profile persistence are temporarily disabled
-- D1 Rashi, Bhava Chalit, and grouped divisional-chart selection from D2 through D60
-- Hybrid Kundali dashboard with D1 and auxiliary charts plus planetary positions in the core view
-- Virtualized Vimshottari Dasha period list
-- Lazy, URL-synchronized tabs for Vimshottari Dasha, Drishti & Aspects, Ashtakavarga & Strength Analysis, and Medical Astrology
-- Naturally sized core charts and full-height planetary positions, with no internal vertical scroll containers
-- Strength analysis for planetary and house strengths, yogas, and Upagraha details in the Ashtakavarga & Strength Analysis tab
-- Ashtakavarga calculations deferred until the tab is opened and cached for the browser session
-- Interactive D1 chart controls, including birth-time adjustment and planetary highlighting
-- Royal Cosmos semantic theme tokens and light/dark mode
-- Prisma/PostgreSQL schema retained for future account and profile persistence
+- **Kundali:** Birth and transit charts, Bhava Chalit, and Shodashvarga (16 Kundalis)
+- **Vedic astrology:** KP Astrology, Jaimini, Dasha calculator, planetary Avasthas, aspects, midpoints, Ashtakavarga, strength analysis, medical astrology, and transit calendar
+- **Panchang tools:** Panchang and Jamakkol
+- **More tools:** Numerology and match making
 
-## Technology
+## Run locally
 
-- Next.js 16 with the App Router
-- React 19 and TypeScript
-- Tailwind CSS 4
-- Zustand for client-side chart state
-- Recharts for data visualizations
-- Radix UI Select primitives
-- Swiss Ephemeris for planetary calculations
-- Prisma 7 schema for future PostgreSQL persistence
-- Vitest for tests
-
-## Requirements
-
-- Node.js 20 or newer
-- npm
-- Swiss Ephemeris data files available to the runtime when required
-
-## Getting started
-
-Clone the repository and install dependencies:
+Requires Node.js 26. From the project directory, run:
 
 ```bash
-git clone https://github.com/sujaynavghare31/ProjectCelestia.git
-cd ProjectCelestia
 npm install
-```
-
-Account sign-in, registration, and saved chart profiles use Clerk and the PostgreSQL database configured by `DATABASE_URL`. In production, configure this variable and ensure the database is running, reachable from the app, and has the Prisma schema applied; missing configuration, connectivity problems, or an unapplied schema can cause saved charts to return a server error. Configure `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY` in every environment. Keep the secret key private. Set these variables before running the schema commands:
-
-```bash
-npm run db:generate
-npm run db:push
-```
-
-The chart workspace saves and loads a signed-in user's birth details and notes from the profile record.
-
-Start the development server:
-
-```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Then open [http://localhost:3000](http://localhost:3000).
 
-## Available scripts
+## Designers
 
-| Command | Description |
-| --- | --- |
-| `npm run dev` | Start the Next.js development server |
-| `npm run build` | Create a production build |
-| `npm start` | Start the production server after building |
-| `npm test` | Run the Vitest test suite |
-| `npm run db:generate` | Generate the Prisma client |
-| `npm run db:push` | Push the Prisma schema to the configured database |
-
-For a local production check:
-
-```bash
-npm run build
-npm start
-```
-
-## Project structure
-
-```text
-app/
-  api/
-    ephemeris/       Planetary and astrology calculation endpoint
-    geocode/         City and coordinate lookup endpoint
-  page.tsx           Application shell and dashboard entry point
-  globals.css        Theme tokens and shared chart colors
-components/
-  kundali-dashboard.tsx
-                     Main chart dashboard and analytical modules
-  medical-astrology-visualizer.tsx
-                     Kalapurusha visualization
-  ui/select.tsx      Radix-based Select primitives
-lib/
-  astrology/         Calculation services and focused unit tests
-  kundali-store.ts   Zustand chart state
-  kundali-types.ts   Shared ephemeris and chart types
-  prisma.ts          Prisma client setup
-prisma/
-  schema.prisma      PostgreSQL persistence schema
-public/
-  kalapurusha-*.png  Medical astrology visual assets
-```
-
-## Calculation notes
-
-The dashboard uses Swiss Ephemeris-backed calculations through `/api/ephemeris`. The default chart mode is a current transit chart; birth-chart calculations are performed explicitly from the submitted birth details.
-Bhava Chalit placements use each planet's exact longitude against the calculated Placidus house-cusp spans; D1 placements remain based on zodiac signs.
-
-Some dashboard modules are presentation-oriented analytical views. In particular, the current Shadbala display uses a dashboard-side strength model for visualization and should not be treated as a complete traditional Shadbala authority without further domain validation.
-
-The runtime may log a non-blocking Chiron warning when the optional `seas_18.se1` Swiss Ephemeris file is unavailable. The core planetary chart remains available.
-
-## Testing and quality checks
-
-Run the test suite:
-
-```bash
-npm test -- --run
-```
-
-Before opening a pull request, also run:
-
-```bash
-npm run build
-git diff --check
-```
-
-## Deployment
-
-Build and start the application with:
-
-```bash
-npm run build
-npm start
-```
-
-Ensure Swiss Ephemeris data files are installed and discoverable by the deployment runtime if the deployment requires the optional astronomical datasets.
-
-## Contributing
-
-1. Create a focused branch from `main`.
-2. Make the smallest complete change that addresses the issue.
-3. Run the tests, production build, and whitespace check.
-4. Describe user-visible changes and validation steps in the pull request.
-5. Never commit credentials, local environment files, generated secrets, or private database URLs.
-
-## License
-
-No license is currently declared for this repository. Contact the repository owner before redistributing or reusing the source.
+- [Sujay](https://www.linkedin.com/in/sujaynavghare/)
+- [Ashutosh Vashishth](https://www.linkedin.com/in/aashutosh-v-09781452/)

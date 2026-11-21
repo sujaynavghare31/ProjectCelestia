@@ -7,7 +7,7 @@ import { ABBR, DASHA_ORDER, GRAHAS, OUTERS, ROMAN, SIGN_LORD, WEEKDAY_LORD, norm
 import { kpLords, dmsInSign, type KpLords } from "./lords";
 import { ASPECT_ANGLES, DEFAULT_ASPECTS, aspectDistance, conjunct, orbOf, type AspectOptions } from "./aspects";
 import { kpCusps, utcMillis, type BirthMoment } from "./placidus";
-import { dashaAt, vimshottari, type DashaOptions } from "./dasha";
+import { dashaAt, dashaBalance, vimshottari, vimshottariFromMoment, type DashaOptions } from "./dasha";
 
 export interface PlanetInput { longitude: number; speed?: number; retrograde?: boolean }
 export interface KpInput {
@@ -150,7 +150,9 @@ export function kpChart(input: KpInput) {
 
   // ---- dasha
   const birthMs = input.birth ? utcMillis(input.birth.date, input.birth.time, input.birth.tzHours) : null;
-  const dasha = birthMs != null ? vimshottari(lon.Moon!, birthMs, 3, input.dasha) : null;
+  const dasha = birthMs != null
+    ? vimshottariFromMoment(lon.Moon!, birthMs, input.dasha)
+    : null;
 
   return {
     cusps: cuspRows, planets: planetRows, nadi: nadiRows, ruling, dasha,
@@ -199,4 +201,4 @@ export function kpTransit(transitPlanets: KpInput["planets"], natalCusps: number
   });
 }
 
-export { dashaAt, vimshottari, kpLords, kpCusps, ASPECT_ANGLES, DASHA_ORDER };
+export { dashaAt, dashaBalance, vimshottari, vimshottariFromMoment, kpLords, kpCusps, ASPECT_ANGLES, DASHA_ORDER };
