@@ -43,4 +43,23 @@ describe("horary cusps", () => {
     const plain = kpChart({ planets: SAMPLE.planets, cusps: r.cusps.map((c) => c.longitude) });
     expect(r.planets.map((p) => p.significators)).toEqual(plain.planets.map((p) => p.significators));
   });
+
+  it("No. 45 uses Gemini 4°53′20″ as its horary Ascendant", () => {
+    const r = kpHorary({
+      number: 45,
+      moment: SAMPLE.birth,
+      ayanamsa: SAMPLE.ayanamsa,
+      planets: SAMPLE.planets,
+      sunrise: "06:55",
+      questionKey: "win_court_case",
+    });
+
+    expect(r.horary.entry.startText).toBe("Gemini 4° 53′ 20″");
+    expect(r.cusps[0].longitude).toBeCloseTo(64.8888889, 6);
+    expect(r.cusps[0].sign).toBe("Gemini");
+    expect(r.planets.filter((planet) => planet.body !== "Fortuna")).toHaveLength(12);
+    expect(r.dasha?.periods[0].start).toEqual(new Date(
+      Date.UTC(2026, 10, 20, 18, 10, 51) - 5.5 * 3600000,
+    ));
+  });
 });

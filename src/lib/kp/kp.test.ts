@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { kpChart, kpLords, kpCusps, dashaBalance, vimshottari, utcMillis, ABBR, type Body } from "./index";
+import { kpChart, kpLords, kpCusps, dashaBalance, vimshottari, vimshottariFromMoment, utcMillis, ABBR, type Body } from "./index";
 import { SAMPLE } from "./sample";
 
 const chart = kpChart({ planets: SAMPLE.planets, cusps: SAMPLE.cusps, birth: SAMPLE.birth, ayanamsa: SAMPLE.ayanamsa });
@@ -96,6 +96,18 @@ describe("ruling planets, dasha, Placidus", () => {
     expect(day(find("SAT-SUN-SUN").end)).toBe("2027-12-07");
     expect(day(find("SAT-SUN-RAH").start)).toBe("2028-01-25");
     expect(day(find("SAT-MON-MON").end)).toBe("2028-12-19");
+  });
+  it("starts the displayed Maha dasha at the chart moment with the remaining balance", () => {
+    const birth = utcMillis(SAMPLE.birth.date, SAMPLE.birth.time, SAMPLE.birth.tzHours);
+    const result = vimshottariFromMoment(SAMPLE.planets.Moon, birth);
+    expect(result.periods).toHaveLength(9);
+    expect(result.periods[0].start.getTime()).toBeCloseTo(birth, -1);
+    expect(result.periods[0].end.getTime()).toBeCloseTo(
+      birth + result.balance.balanceYears * 365.2425 * 86400000,
+      -2,
+    );
+    expect(result.periods[1].start).toEqual(result.periods[0].end);
+    expect(result.periods[0].lords).toEqual([result.balance.lord]);
   });
   it("Placidus cusps from birth data agree with the KP software within 0.5′", () => {
     const c = kpCusps(SAMPLE.birth, SAMPLE.ayanamsa);

@@ -157,11 +157,12 @@ export default function ChartControls({
           <button
             type="button"
             onClick={onOpenSettings}
-            aria-label="Open chart settings"
-            title="Chart settings"
-            className="grid size-11 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition hover:border-primary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:size-9"
+            aria-label="Chart settings"
+            title="Customize Zodiac system, House cusps, Upagrahas & chart labels"
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border border-[#C05A3A]/40 bg-[#FDF2EC] px-3 text-xs font-semibold text-[#B44E2F] transition-colors hover:bg-[#FBE6DA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C05A3A]/40 sm:text-sm"
           >
-            <Settings className="size-4" />
+            <Settings aria-hidden="true" className="size-4 shrink-0" />
+            Chart settings
           </button>
         </div>
       </div>

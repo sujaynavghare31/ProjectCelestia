@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useTheme } from "next-themes";
 import { UserButton, useAuth } from "@clerk/nextjs";
 import Link from "next/link";
@@ -15,6 +15,7 @@ import {
   CircleHelp,
   Compass,
   Gem,
+  FolderOpen,
   Globe2,
   Heart,
   Info,
@@ -28,6 +29,7 @@ import {
   Wallet,
   WandSparkles,
   Smartphone,
+  X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,6 +42,7 @@ import { TABLES, chaldeanSum, computeProfile, digitSum, kuaOf, masterReduce, pyt
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { isLocalClerkFallback } from "@/lib/clerk-config";
 import CelestiaLoader from "@/components/ui/CelestiaLoader";
+import { AYANAMSA_OPTIONS, getAyanamsaLabel } from "@/lib/ayanamsa-options";
 
 const gridNumbers = [4, 9, 2, 3, 5, 7, 8, 1, 6];
 
@@ -91,7 +94,7 @@ const mobileNavigationItems = [
   { id: "kundali", label: "Kundali", icon: Compass },
   { id: "numerology", label: "Numerology", icon: Sparkles },
   { id: "jamakkol", label: "Jamakkol", icon: Orbit },
-  { id: "match", label: "Match", icon: Heart },
+  { id: "match", label: "Match Making", icon: Heart },
 ] as const;
 
 function NumerologyTabLoading() {
@@ -205,6 +208,9 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
   const setBirthProfile = useKundaliStore((state) => state.setProfile);
   const language = useKundaliStore((state) => state.language);
   const setLanguage = useKundaliStore((state) => state.setLanguage);
+  const ayanamsa = useKundaliStore((state) => state.ayanamsa);
+  const setAyanamsa = useKundaliStore((state) => state.setAyanamsa);
+  const zodiacMode = useKundaliStore((state) => state.zodiacMode);
   const languageLabel = language === "initials" ? "English · initials" : language === "hi" ? "Hindi" : language === "mr" ? "Marathi" : "English";
   const [mounted, setMounted] = useState(false);
   const [system, setSystem] = useState(false);
@@ -215,7 +221,9 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
   const [selectedTab, setSelectedTab] = useState("kundali");
   const [, startTabTransition] = useTransition();
   const [activeNavigation, setActiveNavigation] = useState("kundali");
-  const [utilitiesOpen, setUtilitiesOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const menuCloseButtonRef = useRef<HTMLButtonElement>(null);
   const [dashboardNavigationRequest, setDashboardNavigationRequest] = useState<{ tab: "core" | "jamakkol"; id: number } | null>(null);
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
   const isDark = mounted ? resolvedTheme === "dark" : false;
@@ -231,6 +239,20 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
     setActiveTab(nextTab);
     setSelectedTab(nextTab);
   }, []);
+
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const activeElement = document.activeElement;
+    menuCloseButtonRef.current?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileMenuOpen(false);
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      if (activeElement instanceof HTMLElement) activeElement.focus();
+    };
+  }, [mobileMenuOpen]);
 
   const numerology = useMemo(() => {
     const birth = parseBirthDate(dateOfBirth);
@@ -329,7 +351,7 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
   const missingNumbers = numerology.birth ? gridNumbers.filter((number) => !(numerology.digitCounts[number] > 0)) : [];
   const luckyDates = numerology.profile?.lucky.datesEveryMonth ?? [];
   const navigate = (destination: typeof navigationItems[number]["id"]) => {
-    setUtilitiesOpen(false);
+    setMobileMenuOpen(false);
     setActiveNavigation(destination);
     const nextTab = destination === "jamakkol" ? "kundali" : destination;
     setSelectedTab(nextTab);
@@ -364,7 +386,7 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
         type="button"
         onClick={() => navigate(id)}
         aria-current={active ? "page" : undefined}
-        className={`flex min-h-11 items-center gap-1.5 whitespace-nowrap rounded-lg text-left text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${compact ? "min-w-max px-1.5 text-xs xl:px-2.5 xl:text-sm" : "w-full px-3"} ${active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+        className={`inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 text-left text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${compact ? "text-xs" : "w-full"} ${active ? "border-[#C05A3A]/30 bg-white font-semibold text-[#C05A3A] shadow-xs dark:bg-slate-800" : "border-transparent font-medium text-slate-600 hover:bg-white/70 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"}`}
       >
         <Icon className="size-4 shrink-0" aria-hidden="true" />
         {label}
@@ -379,9 +401,10 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
 
   return (
     <main className="relative z-0 flex min-h-screen min-w-0 flex-col overflow-x-clip bg-background text-foreground">
-        <header className="relative z-50 flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-white px-3 py-2 dark:bg-slate-950 sm:px-6 md:z-30 md:flex-nowrap md:bg-card lg:min-h-[60px] lg:gap-1.5 lg:px-4 lg:py-0 2xl:px-6">
-          <a href="#kundali-charts" onClick={(event) => { event.preventDefault(); navigate("kundali"); }} className="flex min-w-0 items-center gap-2.5" aria-label="Project Celestia Kundali dashboard">
-            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
+      <header className="sticky top-0 z-[70] shrink-0 border-b border-stone-200/70 bg-white/95 backdrop-blur dark:border-slate-700/70 dark:bg-slate-950/95">
+        <div className="mx-auto flex h-14 w-full max-w-7xl items-center justify-between gap-2 px-3 sm:px-6 lg:px-8">
+          <a href="#kundali-charts" onClick={(event) => { event.preventDefault(); navigate("kundali"); }} className="flex min-w-0 items-center gap-2" aria-label="Project Celestia Kundali dashboard">
+            <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
               <svg viewBox="0 0 36 36" aria-hidden="true" className="size-5">
                 <circle cx="18" cy="18" r="6.5" fill="#f59e0b" />
                 <path d="M18 3.5v5M18 27.5v5M3.5 18h5M27.5 18h5M7.75 7.75l3.6 3.6M24.65 24.65l3.6 3.6M28.25 7.75l-3.6 3.6M11.35 24.65l-3.6 3.6" stroke="#fbbf24" strokeWidth="2.2" strokeLinecap="round" />
@@ -389,20 +412,32 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
               </svg>
             </span>
             <span className="min-w-0">
-              <span className="block truncate text-[13px] font-semibold tracking-[0.02em]">Project Celestia</span>
-              <span className="hidden text-[10px] tracking-wide text-slate-600 lg:block dark:text-slate-400">YOUR PERSONAL COSMIC COMPASS</span>
+              <span className="hidden truncate text-[13px] font-semibold tracking-[0.02em] min-[375px]:block md:block">Project Celestia</span>
+              <span className="block truncate text-[13px] font-semibold tracking-[0.02em] min-[375px]:hidden md:hidden">Celestia</span>
+              <span className="hidden text-[9px] tracking-wide text-slate-600 md:block dark:text-slate-400">YOUR PERSONAL COSMIC COMPASS</span>
             </span>
           </a>
-          <nav aria-label="Main navigation" className="hidden min-w-0 flex-1 items-center justify-center gap-1 lg:flex">
-            {renderNavigationItems(true)}
-          </nav>
-          <div className="hidden shrink-0 items-center gap-1 lg:flex xl:gap-2">
-            <Select value={language} onValueChange={(value) => setLanguage(value as CelestialLanguage)}>
-              <SelectTrigger aria-label={`Display language, current setting: ${languageLabel}`} className="h-11 w-[116px] gap-1 bg-background px-1.5 text-xs xl:w-[156px] xl:gap-1.5 xl:px-2">
-                <Globe2 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate whitespace-nowrap">
-                  {languageLabel}
+
+          <div className="hidden shrink-0 items-center gap-2.5 md:flex">
+            <Select value={ayanamsa} onValueChange={setAyanamsa} disabled={zodiacMode === "tropical"}>
+              <SelectTrigger
+                aria-label={`Ayanamsa, current setting: ${zodiacMode === "tropical" ? "Tropical · Sayana" : getAyanamsaLabel(ayanamsa)}`}
+                title={zodiacMode === "tropical" ? "Ayanamsa applies only to Sidereal (Nirayana) charts" : "Ayanamsa"}
+                className={`h-9 w-[132px] gap-1.5 rounded-xl bg-background px-2 text-[11px] xl:w-[178px] xl:px-2.5 ${zodiacMode === "tropical" ? "text-muted-foreground" : ""}`}
+              >
+                <Orbit aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1 truncate text-left">
+                  {zodiacMode === "tropical" ? "Tropical · Sayana" : <><span className="xl:hidden">{getAyanamsaLabel(ayanamsa)}</span><span className="hidden xl:inline">Ayanamsa · {getAyanamsaLabel(ayanamsa)}</span></>}
                 </span>
+              </SelectTrigger>
+              <SelectContent align="end" className="z-[100] max-h-[70vh] bg-card text-card-foreground">
+                {AYANAMSA_OPTIONS.map(({ value, label }) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={language} onValueChange={(value) => setLanguage(value as CelestialLanguage)}>
+              <SelectTrigger aria-label={`Display language, current setting: ${languageLabel}`} className="h-9 w-[100px] gap-2 rounded-xl bg-background px-2 text-[11px] xl:w-[156px] xl:px-2.5">
+                <Globe2 aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1 truncate whitespace-nowrap text-left">{languageLabel}</span>
               </SelectTrigger>
               <SelectContent align="end" className="z-[100] bg-card text-card-foreground">
                 <SelectItem value="en">English</SelectItem>
@@ -411,115 +446,140 @@ function HomeContent({ isSignedIn }: { isSignedIn: boolean }) {
                 <SelectItem value="initials">English · initials</SelectItem>
               </SelectContent>
             </Select>
-            <a href="/saved-charts" className="hidden min-h-11 items-center rounded-lg px-2 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground xl:inline-flex">
-              Saved charts
-            </a>
+            <Link href="/saved-charts" title="Open saved charts" className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-xl border border-[#C05A3A]/40 bg-[#FDF2EC] px-2.5 text-xs font-semibold text-[#B44E2F] transition hover:bg-[#FBE6DA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C05A3A]/40 xl:px-3.5">
+              <FolderOpen aria-hidden="true" className="size-4 shrink-0" />
+              <span>Load chart</span>
+            </Link>
             {isSignedIn ? (
               <UserButton />
             ) : (
-              <>
-                <Link href="/login" prefetch={true} className="inline-flex min-h-11 items-center whitespace-nowrap rounded-lg px-2 py-2 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground">
-                  Sign in
-                </Link>
-                <Link href="/login?mode=signup" prefetch={true} className="inline-flex min-h-11 items-center whitespace-nowrap rounded-lg bg-[#C64F30] px-2 text-xs font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C64F30]/40 sm:px-3">
-                  Sign up
-                </Link>
-              </>
+              <Link href="/login" prefetch={true} className="inline-flex h-9 items-center whitespace-nowrap rounded-xl px-2 text-xs font-semibold text-slate-700 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:text-slate-200 dark:hover:bg-slate-800">
+                Sign in
+              </Link>
             )}
             <button
               type="button"
               onClick={() => setTheme(isDark ? "light" : "dark")}
-              className="grid size-11 shrink-0 place-items-center rounded-xl border border-border bg-card text-muted-foreground shadow-sm transition hover:border-primary hover:text-primary"
+              className="grid size-9 shrink-0 place-items-center rounded-xl border border-border bg-card text-muted-foreground transition hover:border-primary hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
               title={`Switch to ${isDark ? "light" : "dark"} mode`}
             >
               {!mounted || isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
             </button>
           </div>
-          <div className="relative ml-auto flex shrink-0 items-center gap-1 lg:hidden">
+
+          <div className="flex shrink-0 items-center gap-2 md:hidden">
+            <Link href="/saved-charts" title="Open saved charts" className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-xl border border-[#C05A3A]/40 bg-[#FDF2EC] px-2.5 text-xs font-semibold text-[#B44E2F] transition hover:bg-[#FBE6DA] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C05A3A]/40">
+              <FolderOpen aria-hidden="true" className="size-4 shrink-0" />
+              <span>Load</span>
+            </Link>
             {isSignedIn ? (
               <UserButton />
             ) : (
-              <>
-                <Link href="/login" prefetch={true} className="inline-flex min-h-9 items-center justify-center rounded-md px-1.5 text-xs font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
-                  Sign in
-                </Link>
-                <Link href="/login?mode=signup" prefetch={true} className="inline-flex min-h-9 items-center justify-center rounded-md px-1.5 text-xs font-semibold text-[#C05A3A] transition hover:bg-[#C05A3A]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C05A3A]/40">
-                  Sign up
-                </Link>
-              </>
+              <Link href="/login" prefetch={true} className="inline-flex h-9 items-center justify-center rounded-xl px-2 text-xs font-semibold text-slate-700 transition hover:bg-stone-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:text-slate-200 dark:hover:bg-slate-800">
+                Sign in
+              </Link>
             )}
             <button
+              ref={menuButtonRef}
               type="button"
-              onClick={() => setUtilitiesOpen((open) => !open)}
-              aria-label={utilitiesOpen ? "Close utility menu" : "Open utility menu"}
-              aria-expanded={utilitiesOpen}
-              aria-controls="mobile-utility-menu"
-              className="grid size-10 shrink-0 place-items-center rounded-lg border border-border bg-background text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              onClick={() => setMobileMenuOpen(true)}
+              aria-label="Open menu"
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-menu-drawer"
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-stone-300 bg-white px-2.5 text-xs font-semibold text-slate-800 shadow-2xs transition hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
             >
-              <Menu aria-hidden="true" className="size-5" />
+              <Menu aria-hidden="true" className="size-4" />
+              Menu
             </button>
           </div>
-          <nav
-            aria-label="Primary navigation"
-            className="relative z-50 grid w-full basis-full grid-cols-5 gap-1 border-t border-stone-200/80 bg-white py-2 dark:border-stone-700/80 dark:bg-slate-950 md:hidden"
-          >
-            {mobileNavigationItems.map(({ id, label, icon: Icon }) => {
-              const active = activeNavigation === id;
-              return (
-                <button
-                  key={id}
-                  id={`mobile-main-navigation-${id}`}
-                  type="button"
-                  onClick={() => navigate(id)}
-                  aria-current={active ? "page" : undefined}
-                  className={`relative z-50 inline-flex min-h-11 min-w-0 cursor-pointer select-none items-center justify-center gap-1 whitespace-nowrap rounded-lg px-0.5 text-[10px] font-medium touch-manipulation transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${active ? "bg-[#C05A3A]/10 text-[#C05A3A]" : "text-muted-foreground hover:bg-stone-100 hover:text-foreground dark:hover:bg-slate-800"}`}
-                >
-                  <Icon className="size-3.5 shrink-0" aria-hidden="true" />
-                  {label}
-                </button>
-              );
-            })}
+        </div>
+
+        <div className="border-t border-stone-200/60 bg-[#FAF8F5]/90 dark:border-slate-700/70 dark:bg-slate-900/90">
+          <nav aria-label="Primary modules" className="mx-auto hidden h-11 max-w-7xl items-center justify-center gap-2 px-3 md:flex sm:px-6 lg:px-8">
+            {renderNavigationItems(true)}
           </nav>
-          {utilitiesOpen && (
-            <div
-              id="mobile-utility-menu"
-              aria-label="Utility menu"
-              className="absolute right-3 top-full z-[60] mt-1 grid w-64 gap-2 rounded-xl border border-border bg-card p-3 text-card-foreground shadow-lg lg:hidden"
-            >
-              <Select value={language} onValueChange={(value) => setLanguage(value as CelestialLanguage)}>
-                <SelectTrigger aria-label={`Display language, current setting: ${languageLabel}`} className="h-11 w-full bg-background text-sm">
-                  <Globe2 aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate text-left">{languageLabel}</span>
-                </SelectTrigger>
-                <SelectContent align="end" className="z-[100] bg-card text-card-foreground">
-                  <SelectItem value="en">English</SelectItem>
-                  <SelectItem value="hi">Hindi</SelectItem>
-                  <SelectItem value="mr">Marathi</SelectItem>
-                  <SelectItem value="initials">English · initials</SelectItem>
-                </SelectContent>
-              </Select>
-              <button
-                type="button"
-                onClick={() => setTheme(isDark ? "light" : "dark")}
-                className="flex min-h-11 items-center gap-2 rounded-lg px-3 text-left text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-              >
-                {isDark ? <Sun aria-hidden="true" className="size-4" /> : <Moon aria-hidden="true" className="size-4" />}
-                Switch to {isDark ? "light" : "dark"} mode
-              </button>
-              <a href="/saved-charts" className="flex min-h-11 items-center rounded-lg px-3 text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
-                Saved charts
-              </a>
-              <button
-                type="button"
-                onClick={() => navigate("about")}
-                className="min-h-11 rounded-lg px-3 text-left text-sm hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-              >
-                About
-              </button>
-            </div>
-          )}
-        </header>
+          <div className="relative md:hidden">
+            <nav aria-label="Primary modules" className="no-scrollbar flex h-11 snap-x snap-mandatory items-center gap-2 overflow-x-auto px-3 py-2">
+              {mobileNavigationItems.map(({ id, label, icon: Icon }) => {
+                const active = activeNavigation === id;
+                return (
+                  <button
+                    key={id}
+                    id={`mobile-main-navigation-${id}`}
+                    type="button"
+                    onClick={() => navigate(id)}
+                    aria-current={active ? "page" : undefined}
+                    className={`inline-flex h-8 shrink-0 snap-start items-center gap-1.5 whitespace-nowrap rounded-xl border px-3 text-xs font-medium touch-manipulation transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${active ? "border-[#C05A3A]/30 bg-white font-semibold text-[#C05A3A] shadow-xs dark:bg-slate-800" : "border-transparent text-slate-600 hover:bg-white/70 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"}`}
+                  >
+                    <Icon className="size-3.5 shrink-0" aria-hidden="true" />
+                    {label}
+                  </button>
+                );
+              })}
+            </nav>
+            <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 w-7 bg-gradient-to-l from-[#FAF8F5] to-transparent dark:from-slate-900" />
+          </div>
+        </div>
+
+        {mobileMenuOpen && (
+          <div className="fixed inset-0 z-[90] pt-[calc(6.25rem+env(safe-area-inset-top,0px))] md:hidden">
+            <button type="button" aria-label="Close menu" onClick={() => setMobileMenuOpen(false)} className="absolute inset-0 bg-slate-950/30" />
+            <section id="mobile-menu-drawer" role="dialog" aria-modal="true" aria-labelledby="mobile-menu-title" className="relative z-10 max-h-[calc(100dvh-6.25rem)] w-full overflow-y-auto rounded-b-2xl border border-border bg-card p-4 text-card-foreground shadow-xl sm:px-5">
+              <div className="mb-4 flex items-center justify-between gap-3 border-b border-border pb-3">
+                <h2 id="mobile-menu-title" className="text-sm font-semibold">Menu</h2>
+                <button ref={menuCloseButtonRef} type="button" onClick={() => setMobileMenuOpen(false)} aria-label="Close menu" className="grid size-9 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                  <X aria-hidden="true" className="size-4" />
+                </button>
+              </div>
+              <div className="grid gap-4">
+                <section aria-labelledby="mobile-menu-ayanamsa">
+                  <h3 id="mobile-menu-ayanamsa" className="mb-1.5 text-xs font-semibold text-muted-foreground">Ayanamsa</h3>
+                  <Select value={ayanamsa} onValueChange={setAyanamsa} disabled={zodiacMode === "tropical"}>
+                    <SelectTrigger
+                      aria-label={`Ayanamsa, current setting: ${zodiacMode === "tropical" ? "Tropical · Sayana" : getAyanamsaLabel(ayanamsa)}`}
+                      title={zodiacMode === "tropical" ? "Ayanamsa applies only to Sidereal (Nirayana) charts" : "Ayanamsa"}
+                      className="h-11 w-full gap-2 rounded-xl bg-background text-sm"
+                    >
+                      <Orbit aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate text-left">{zodiacMode === "tropical" ? "Tropical · Sayana" : getAyanamsaLabel(ayanamsa)}</span>
+                    </SelectTrigger>
+                    <SelectContent align="start" className="z-[110] max-h-[60vh] bg-card text-card-foreground">
+                      {AYANAMSA_OPTIONS.map(({ value, label }) => <SelectItem key={value} value={value}>{label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {zodiacMode === "tropical" && <p className="mt-1 text-xs text-muted-foreground">Ayanamsa applies only to Sidereal (Nirayana) charts.</p>}
+                </section>
+                <section aria-labelledby="mobile-menu-language">
+                  <h3 id="mobile-menu-language" className="mb-1.5 text-xs font-semibold text-muted-foreground">Language</h3>
+                  <Select value={language} onValueChange={(value) => setLanguage(value as CelestialLanguage)}>
+                    <SelectTrigger aria-label={`Display language, current setting: ${languageLabel}`} className="h-11 w-full gap-2 rounded-xl bg-background text-sm">
+                      <Globe2 aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate text-left">{languageLabel}</span>
+                    </SelectTrigger>
+                    <SelectContent align="start" className="z-[110] bg-card text-card-foreground">
+                      <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="hi">Hindi</SelectItem>
+                      <SelectItem value="mr">Marathi</SelectItem>
+                      <SelectItem value="initials">English · initials</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </section>
+                <section aria-labelledby="mobile-menu-appearance">
+                  <h3 id="mobile-menu-appearance" className="mb-1.5 text-xs font-semibold text-muted-foreground">Appearance</h3>
+                  <button type="button" onClick={() => setTheme(isDark ? "light" : "dark")} className="flex min-h-11 w-full items-center gap-2 rounded-xl border border-border px-3 text-left text-sm transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                    {isDark ? <Sun aria-hidden="true" className="size-4" /> : <Moon aria-hidden="true" className="size-4" />}
+                    Switch to {isDark ? "light" : "dark"} mode
+                  </button>
+                </section>
+                <button type="button" onClick={() => navigate("about")} className="flex min-h-11 items-center rounded-xl border border-border px-3 text-left text-sm font-medium transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40">
+                  About Project Celestia
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
+      </header>
 
         <div id="dashboard-scroll" className="cosmic-grid min-w-0 overflow-x-hidden p-3 sm:p-6 lg:p-8">
           <div className="mx-auto w-full max-w-[1440px] 2xl:max-w-[1600px]">

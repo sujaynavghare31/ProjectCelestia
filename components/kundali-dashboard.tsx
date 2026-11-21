@@ -1149,6 +1149,12 @@ export function KundaliDashboard({
   const [chartMaximized, setChartMaximized] = useState(false);
   const [chartSettingsOpen, setChartSettingsOpen] = useState(false);
   const closeChartSettings = useCallback(() => setChartSettingsOpen(false), []);
+  const applyChartSettings = useCallback((settings: ChartSettings) => {
+    setChartSettings({
+      ...settings,
+      ayanamsa: useKundaliStore.getState().ayanamsa,
+    });
+  }, [setChartSettings]);
   const [auxiliaryType, setAuxiliaryType] = useState<AuxiliaryType>("divisional");
   const [auxiliaryChartId, setAuxiliaryChartId] = useState(`D${varga}`);
   const [targetAge, setTargetAge] = useState(30);
@@ -2063,11 +2069,11 @@ export function KundaliDashboard({
                   </div>
                 )}
               </div>
-              <button type="submit" className={`inline-flex h-11 w-full min-w-0 self-end items-center justify-center gap-1.5 rounded-lg bg-[#C05A3A] px-1 text-xs font-semibold text-white transition hover:bg-[#A94025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C05A3A]/40 xl:h-9 ${chartInputsChanged ? "ring-2 ring-amber-400/60 ring-offset-1 ring-offset-card" : ""}`}>
+              <button type="submit" className={`inline-flex h-11 w-full min-w-0 self-end items-center justify-center gap-1.5 rounded-xl bg-slate-900 px-1 text-xs font-semibold text-white shadow-xs transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-500/40 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 xl:h-9 ${chartInputsChanged ? "ring-2 ring-amber-400/60 ring-offset-1 ring-offset-card" : ""}`}>
                 {chartInputsChanged ? "Update chart" : "Calculate chart"}
                 {chartInputsChanged && <><span className="sr-only">Chart inputs changed since calculation</span><span aria-hidden="true" className="size-1.5 rounded-full bg-amber-200" /></>}
               </button>
-              <button type="button" onClick={openSaveDialog} disabled={savingProfile} className="inline-flex min-h-11 w-full self-end items-center justify-center gap-1 rounded-lg border border-border bg-background px-1 text-[11px] font-medium text-foreground transition hover:border-primary/60 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-wait disabled:opacity-60 xl:min-h-9">
+              <button type="button" onClick={openSaveDialog} disabled={savingProfile} className="inline-flex h-11 w-full self-end items-center justify-center gap-1 rounded-xl bg-[#C05A3A] px-1 text-[11px] font-semibold text-white shadow-xs transition hover:bg-[#AA4C30] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C05A3A]/40 disabled:cursor-wait disabled:opacity-60 xl:h-9">
                 <Save aria-hidden="true" className="size-3.5 shrink-0" />
                 {saveButtonLabel}
               </button>
@@ -2104,6 +2110,9 @@ export function KundaliDashboard({
                 role="tab"
                 aria-selected={selectedDashboardTab === id}
                 aria-controls="kundali-tab-panel"
+                onMouseEnter={() => {
+                  if (id === "kp") void import("@/components/kp/KpTab");
+                }}
                 onClick={() => selectDashboardTab(id)}
                 className={`relative min-h-11 shrink-0 snap-start whitespace-nowrap px-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 after:absolute after:inset-x-2.5 after:-bottom-px after:h-0.5 after:rounded-full after:transition-colors md:px-3.5 md:py-2 md:text-sm ${selectedDashboardTab === id ? "font-semibold text-[#B84E2E] after:bg-[#C05A3A]" : "text-muted-foreground after:bg-transparent hover:text-foreground hover:after:bg-border"}`}
               >
@@ -2489,7 +2498,7 @@ export function KundaliDashboard({
           chartStyle={chartStyle}
           showBirthTimeAdjuster={chartMode === "birth"}
           onAdjustTime={adjustBirthTime}
-          onApply={setChartSettings}
+          onApply={applyChartSettings}
         />
       )}
       {chartMaximized && (
