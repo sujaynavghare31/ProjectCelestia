@@ -8,6 +8,7 @@ import { kpLords, dmsInSign, type KpLords } from "./lords";
 import { ASPECT_ANGLES, DEFAULT_ASPECTS, aspectDistance, conjunct, orbOf, type AspectOptions } from "./aspects";
 import { kpCusps, utcMillis, type BirthMoment } from "./placidus";
 import { dashaAt, dashaBalance, vimshottari, vimshottariFromMoment, type DashaOptions } from "./dasha";
+import { bhavaOf } from "../chart/bhava";
 
 export interface PlanetInput { longitude: number; speed?: number; retrograde?: boolean }
 export interface KpInput {
@@ -45,15 +46,7 @@ const retroOf = (p: PlanetInput | number, b: Body) =>
   b === "Rahu" || b === "Ketu" ? true : typeof p === "number" ? false : p.retrograde ?? (p.speed !== undefined ? p.speed < 0 : false);
 const uniq = <T,>(a: T[]) => [...new Set(a)];
 
-/** Bhava (house) of a longitude: house n runs from cusp n up to (not incl.) cusp n+1. */
-export function bhavaOf(lon: number, cusps: number[]): number {
-  const L = norm360(lon);
-  for (let h = 0; h < 12; h++) {
-    const s = norm360(cusps[h]), span = norm360(cusps[(h + 1) % 12] - s);
-    if (norm360(L - s) < span) return h + 1;
-  }
-  return 12;
-}
+export { bhavaOf };
 
 export function kpChart(input: KpInput) {
   const ao = { ...DEFAULT_ASPECTS, ...input.aspects };

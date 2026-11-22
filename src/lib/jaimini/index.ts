@@ -32,16 +32,20 @@ export interface JaiminiChartInput {
   lagnaLongitude: number;
   moonLongitude: number;
   sunLongitude: number;
+  sunriseSunLongitude: number;
+  rahuLongitude: number;
   birthMinutes: number;
   planets: PlanetPositions;
   scheme?: 7 | 8;
   birthMs: number;
   asOfMs: number;
   sunriseMinutes: number;
-  sunsetMinutes: number;
+  sunriseMs: number;
+  sunsetMs: number;
+  nextSunriseMs: number;
   weekday: number;
   ascendantAt: (dateTimeMs: number) => number;
-  mandiMiddle?: boolean;
+  upagrahaPoint?: "start" | "middle";
 }
 
 export interface JaiminiDashboardResult {
@@ -88,6 +92,8 @@ export function computeJaiminiDashboard(input: JaiminiChartInput): JaiminiDashbo
     lagnaLongitude: input.lagnaLongitude,
     moonLongitude: input.moonLongitude,
     sunLongitude: input.sunLongitude,
+    sunriseSunLongitude: input.sunriseSunLongitude,
+    rahuLongitude: input.rahuLongitude,
     birthMinutes: input.birthMinutes,
     sunriseMinutes: input.sunriseMinutes,
   });
@@ -121,14 +127,13 @@ export function computeJaiminiDashboard(input: JaiminiChartInput): JaiminiDashbo
   const dharma = devataForSign(mod(kk + 5, 12), input.planets);
   const sunUpagrahaValues = sunUpagrahas(input.sunLongitude);
   const timeUpagrahaValues = timeUpagrahas({
-    sunLongitude: input.sunLongitude,
     birthMs: input.birthMs,
-    birthMinutes: input.birthMinutes,
-    sunriseMinutes: input.sunriseMinutes,
-    sunsetMinutes: input.sunsetMinutes,
+    sunriseMs: input.sunriseMs,
+    sunsetMs: input.sunsetMs,
+    nextSunriseMs: input.nextSunriseMs,
     weekday: input.weekday,
     ascendantAt: input.ascendantAt,
-    mandiMiddle: input.mandiMiddle,
+    upagrahaPoint: input.upagrahaPoint,
   });
 
   return {

@@ -1,3 +1,5 @@
+import { bhavaOf } from "@/src/lib/chart/bhava";
+
 export const CUSP_SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"] as const;
 export const CUSP_SIGN_SHORT = ["Ar", "Ta", "Ge", "Cn", "Le", "Vi", "Li", "Sc", "Sg", "Cp", "Aq", "Pi"] as const;
 export const CUSP_SIGN_HI = ["मेष", "वृषभ", "मिथुन", "कर्क", "सिंह", "कन्या", "तुला", "वृश्चिक", "धनु", "मकर", "कुंभ", "मीन"] as const;
@@ -105,15 +107,7 @@ export function cuspLabels(cusps: number[], options: CuspLabelOptions = {}, asce
   };
 }
 
-export function bhavaOf(longitude: number, cusps: number[]) {
-  const value = norm360(longitude);
-  for (let index = 0; index < 12; index += 1) {
-    const start = norm360(cusps[index]);
-    const span = norm360(cusps[(index + 1) % 12] - start);
-    if (norm360(value - start) < span || span === 0) return index + 1;
-  }
-  return 12;
-}
+export { bhavaOf };
 
 export function bhavaChalit(
   planets: Array<{ name: string; longitude: number }>,

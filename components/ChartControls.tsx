@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CalendarDays, Maximize2, Settings } from "lucide-react";
+import { CalendarDays, ChevronDown, Maximize2, Settings } from "lucide-react";
 import type { ChartStyle } from "@/lib/kundali-types";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useKundaliStore } from "@/lib/kundali-store";
@@ -61,12 +61,6 @@ export default function ChartControls({
   onTransitModeChange: (value: "current" | "specific") => void;
 }) {
   const [customPickerOpen, setCustomPickerOpen] = useState(false);
-  const zodiacMode = useKundaliStore((state) => state.zodiacMode);
-  const setZodiacMode = useKundaliStore((state) => state.setZodiacMode);
-  const ayanamsa = useKundaliStore((state) => state.ayanamsa);
-  const setAyanamsa = useKundaliStore((state) => state.setAyanamsa);
-  const houseSystem = useKundaliStore((state) => state.houseSystem);
-  const setHouseSystem = useKundaliStore((state) => state.setHouseSystem);
   const customPickerRef = useRef<HTMLFieldSetElement>(null);
   const transitLabel = chartMode === "transit" ? "Show transit labels" : "Overlay current transit";
   const transitOptions = [
@@ -92,7 +86,7 @@ export default function ChartControls({
   }, [customPickerOpen]);
 
   return (
-    <div className="space-y-2 border-b border-border bg-muted/10 p-3 sm:space-y-3 sm:p-4 lg:space-y-2 lg:px-3 lg:py-2">
+    <div className="flex flex-col justify-between gap-2 border-b border-border bg-muted/10 p-3 sm:gap-3 sm:p-4 lg:min-h-[195px] lg:gap-2 lg:px-3 lg:py-2">
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
           <div className="min-w-0">
@@ -223,39 +217,58 @@ export default function ChartControls({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-2" aria-label="Core calculation controls">
-        <fieldset className="min-w-0">
-          <legend className="sr-only">Zodiac system</legend>
-          <div className="inline-flex rounded-xl bg-background p-0.5">
-            <button type="button" aria-pressed={zodiacMode === "sidereal"} onClick={() => setZodiacMode("sidereal")} className={`h-8 rounded-lg px-2.5 text-[11px] font-semibold ${zodiacMode === "sidereal" ? "bg-accent text-accent-foreground shadow-sm" : "text-muted-foreground"}`}>
-              Nirayana (Sidereal)
-            </button>
-            <button type="button" aria-pressed={zodiacMode === "tropical"} onClick={() => setZodiacMode("tropical")} className={`h-8 rounded-lg px-2.5 text-[11px] font-semibold ${zodiacMode === "tropical" ? "bg-accent text-accent-foreground shadow-sm" : "text-muted-foreground"}`}>
-              Sayana (Tropical)
-            </button>
-          </div>
-        </fieldset>
-        <label className="flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-2 text-[11px] text-muted-foreground" title={zodiacMode === "tropical" ? "Ayanamsa applies only to Nirayana (Sidereal)" : "Ayanamsa"}>
-          <span className="hidden sm:inline">Ayanamsa</span>
+    </div>
+  );
+}
+
+export function CoreCalculationControls({ ayanamsaDegrees }: { ayanamsaDegrees?: number }) {
+  const zodiacMode = useKundaliStore((state) => state.zodiacMode);
+  const setZodiacMode = useKundaliStore((state) => state.setZodiacMode);
+  const ayanamsa = useKundaliStore((state) => state.ayanamsa);
+  const setAyanamsa = useKundaliStore((state) => state.setAyanamsa);
+  const houseSystem = useKundaliStore((state) => state.houseSystem);
+  const setHouseSystem = useKundaliStore((state) => state.setHouseSystem);
+
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-2" aria-label="Core calculation controls">
+      <fieldset className="w-full min-w-0 sm:w-auto">
+        <legend className="sr-only">Zodiac system</legend>
+        <div className="inline-flex rounded-xl bg-stone-100/80 p-0.5">
+          <button type="button" aria-pressed={zodiacMode === "sidereal"} onClick={() => setZodiacMode("sidereal")} className={`h-8 rounded-lg px-2.5 text-[11px] font-semibold transition-colors ${zodiacMode === "sidereal" ? "bg-white text-stone-900 shadow-sm" : "text-stone-600 hover:text-stone-900"}`}>
+            Nirayana (Sidereal)
+          </button>
+          <button type="button" aria-pressed={zodiacMode === "tropical"} onClick={() => setZodiacMode("tropical")} className={`h-8 rounded-lg px-2.5 text-[11px] font-semibold transition-colors ${zodiacMode === "tropical" ? "bg-white text-stone-900 shadow-sm" : "text-stone-600 hover:text-stone-900"}`}>
+            Sayana (Tropical)
+          </button>
+        </div>
+      </fieldset>
+      <label className="flex h-8 items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-2 text-[11px] text-muted-foreground" title={zodiacMode === "tropical" ? "Ayanamsa applies only to Nirayana (Sidereal)" : "Ayanamsa"}>
+        <span>Ayanamsa</span>
+        <span className="relative inline-flex min-w-0 items-center">
           <select
             aria-label="Ayanamsa"
             value={ayanamsa}
             onChange={(event) => setAyanamsa(event.target.value)}
             disabled={zodiacMode === "tropical"}
             title={zodiacMode === "tropical" ? "Ayanamsa applies only to Nirayana (Sidereal)" : "Ayanamsa"}
-            className="max-w-[145px] bg-transparent text-[11px] font-semibold text-foreground outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            className="max-w-[145px] appearance-none bg-transparent pr-5 text-[11px] font-semibold text-foreground outline-none disabled:cursor-not-allowed disabled:opacity-50"
           >
             {AYANAMSA_OPTIONS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
           </select>
-        </label>
-        <label className="flex h-8 items-center gap-1.5 rounded-lg border border-border bg-card px-2 text-[11px] text-muted-foreground">
-          <span>House cusp</span>
-          <select aria-label="House cusp system" value={houseSystem} onChange={(event) => setHouseSystem(event.target.value as "placidus" | "carter")} className="bg-transparent text-[11px] font-semibold text-foreground outline-none">
+          <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-0 size-4 text-slate-400" />
+        </span>
+        <span className="border-l border-stone-200 pl-1.5 font-mono text-[10px] tabular-nums text-slate-500">{ayanamsaDegrees === undefined ? "—" : `${ayanamsaDegrees.toFixed(2)}°`}</span>
+      </label>
+      <label className="flex h-8 items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-2 text-[11px] text-muted-foreground">
+        <span>House cusp</span>
+        <span className="relative inline-flex items-center">
+          <select aria-label="House cusp system" value={houseSystem} onChange={(event) => setHouseSystem(event.target.value as "placidus" | "carter")} className="appearance-none bg-transparent pr-5 text-[11px] font-semibold text-foreground outline-none">
             <option value="placidus">Placidus</option>
             <option value="carter">Carter</option>
           </select>
-        </label>
-      </div>
+          <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-0 size-4 text-slate-400" />
+        </span>
+      </label>
     </div>
   );
 }

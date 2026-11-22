@@ -142,7 +142,7 @@ export function buildChartModel(args: {
     signIndex: Math.floor(lagna / 30),
     degreeText: degreeText(lagna),
     retrograde: false,
-    bhava: 1,
+    bhava: bhavaOf(lagna, siderealCusps),
   };
 
   return {

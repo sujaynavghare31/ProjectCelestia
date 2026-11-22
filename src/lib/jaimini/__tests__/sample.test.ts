@@ -41,11 +41,19 @@ describe("Jaimini sample chart", () => {
     expect(drigDasha(lagna,planets,birth,asOf).periods.map((p)=>p.years)).toEqual([12,9,3,11,1,2,0,1,11,2,4,7]);
   });
   it("calculates special lagnas and shadow planets", () => {
-    const result=specialLagnas({lagnaLongitude:lagna,moonLongitude:135.295833333333,sunLongitude:94.7330555555556,birthMinutes:630,sunriseMinutes:371.3});
+    const result=specialLagnas({
+      lagnaLongitude:lagna,
+      moonLongitude:135.295833333333,
+      sunLongitude:94.7330555555556,
+      sunriseSunLongitude:94.7330555555556,
+      rahuLongitude:20.8458333333333,
+      birthMinutes:630,
+      sunriseMinutes:371.3,
+    });
     expect(result.bl).toBeCloseTo(159.408055555556,3);
     expect(result.hl).toBeCloseTo(224.083055555556,3);
     expect(result.gl).toBeCloseTo(58.108055555556,3);
-    expect(result.il).toBe(9);
+    expect(result.il).toBeCloseTo(285.295833333333, 6);
     const upagrahas = sunUpagrahas(94.7330555555556);
     expect(Object.values(upagrahas).map((value) => Number(value.toFixed(3)))).toEqual([
       228.066,131.934,311.934,48.066,64.733,

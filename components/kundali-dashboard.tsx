@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import type { CarterZodiac, ChartSettings, ChartStyle, CelestialLanguage, EphemerisResponse, HouseSystem, MidpointPreferences, PlanetPosition, ViewPreferences } from "@/lib/kundali-types";
 import PlacidusWheel from "@/components/PlacidusWheel";
-import ChartControls from "@/components/ChartControls";
+import ChartControls, { CoreCalculationControls } from "@/components/ChartControls";
 import { getBirthDateTimeDefaults, getCurrentBirthDateTime, useKundaliStore, type BirthProfile } from "@/lib/kundali-store";
 import { PROFILE_DRAFT_STORAGE_KEY } from "@/lib/astrology/profile-draft";
 import { limitCoordinatePrecision, parseCoordinateDraft } from "@/lib/coordinate-input";
@@ -37,6 +37,7 @@ import { calculateCarterCusps, getCarterPlacementCusps, placeInCarterHouses } fr
 import { cuspLabels, northCuspAnchor } from "@/lib/astrology/cusp-labels";
 import { calculateArudhaPadas, type ArudhaPada } from "@/lib/astrology/arudha-padas";
 import { calculateKharaPoints } from "@/lib/astrology/khara-points";
+import { buildChartViewModel } from "@/src/lib/chart/bhava";
 import dynamic from "next/dynamic";
 import { readAnalysisPreferences, writeAnalysisPreferences } from "@/lib/astrology/analysis-preferences";
 import { createMidpointReport, visibleMidpointRows, visibleMidpointTrees } from "@/lib/astrology/midpoint-chart";
@@ -238,6 +239,22 @@ function signSvgFill(sign: number) {
 function formatBirthDate(date: string) {
   const [year, month, day] = date.split("-");
   return year && month && day ? `${day}/${month}/${year}` : "";
+}
+
+function formatBtrTime(time: string) {
+  const [hours, minutes, seconds] = time.split(":").map(Number);
+  if (![hours, minutes, seconds].every(Number.isFinite)) return "—";
+  const hour12 = hours % 12 || 12;
+  return `${String(hour12).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")} ${hours >= 12 ? "PM" : "AM"}`;
+}
+
+function AvasthaValue({ prefix, value, title }: { prefix: string; value: string; title: string }) {
+  return (
+    <span title={title} className="inline-flex items-baseline gap-1.5 rounded bg-muted/70 px-1.5 py-0.5">
+      <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{prefix}</span>
+      <span className="text-[10px] font-medium text-slate-800 dark:text-slate-200">{value}</span>
+    </span>
+  );
 }
 
 const TITHIS = ["Pratipada", "Dwitiya", "Tritiya", "Chaturthi", "Panchami", "Shashthi", "Saptami", "Ashtami", "Navami", "Dashami", "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi"];
@@ -532,24 +549,44 @@ function SvgChartComponent({
   const hoveredPlanet = useKundaliStore((state) => state.hoveredPlanet);
   const setHoveredPlanet = useKundaliStore((state) => state.setHoveredPlanet);
   const ascSign = normalizeSign(getVargaSign(ascendant, varga) + referenceHouse - 1);
-  const chartHouseForPlanet = (planet: PlanetPosition) => houseBasedPlacement && varga === 1
-    ? normalizeSign(planet.house - referenceHouse) + 1
-    : getSignHouse(getVargaSign(planet, varga), ascSign);
   const visiblePlanets = planets.filter((planet) => chartPlanetVisible(planet, preferences));
   const visiblePoints = points.filter((planet) => chartPointVisible(planet, preferences));
-  const chartBodies = [ascendant, ...visiblePlanets, ...visiblePoints].map((planet) => ({
-    ...planet,
-    chartSign: getVargaSign(planet, varga),
-    chartHouse: chartHouseForPlanet(planet),
-    isTransit: showTransitLabels && planet.name !== "Ascendant",
+  const hasTwelveCusps = houseCusps.length === 12
+    && houseCusps.every(({ longitude }) => Number.isFinite(longitude));
+  const bhavaPlacement = varga === 1 && hasTwelveCusps && (
+    houseBasedPlacement || (style === "diamond" && preferences.showBhavaCusps)
+  );
+  const sourceBodies = [
+    ...[ascendant, ...visiblePlanets, ...visiblePoints].map((planet) => ({
+      ...planet,
+      isTransit: showTransitLabels && planet.name !== "Ascendant",
+    })),
+    ...(overlay ?? []).filter((planet) => chartPlanetVisible(planet, preferences)).map((planet) => ({
+      ...planet,
+      id: `transit-${planet.id}`,
+      isTransit: true,
+    })),
+  ];
+  const chartViewModel = buildChartViewModel(
+    sourceBodies.map((planet) => ({
+      ...planet,
+      longitude: planet.longitude,
+      signIndex: getVargaSign(planet, varga),
+      wholeSignHouse: houseBasedPlacement && varga === 1
+        ? normalizeSign(planet.house - referenceHouse) + 1
+        : getSignHouse(getVargaSign(planet, varga), ascSign),
+      retrograde: planet.motion === "R",
+    })),
+    houseCusps.map(({ longitude }) => longitude),
+    bhavaPlacement ? "bhava" : "rasi",
+  );
+  const chartBodies = chartViewModel.bodies.map(({ source, signIndex, house }) => ({
+    ...source,
+    chartSign: signIndex,
+    chartHouse: house,
   }));
-  const transitBodies = (overlay ?? []).filter((planet) => chartPlanetVisible(planet, preferences)).map((planet) => ({
-    ...planet,
-    id: `transit-${planet.id}`,
-    chartSign: getVargaSign(planet, varga),
-    chartHouse: chartHouseForPlanet(planet),
-    isTransit: true,
-  }));
+  const transitBodies = chartBodies.filter((body) => body.isTransit);
+  const birthBodies = chartBodies.filter((body) => !body.isTransit);
   let arudhaPadas: ArudhaPada[] = [];
   if (preferences.showArudhaPadas) {
     try {
@@ -574,17 +611,25 @@ function SvgChartComponent({
     !spotlightActive || body.name === hoveredPlanet || (hoveredPlanet === "Vargottama" && vargottama);
   const onBodyEnter = (body: PlanetPosition) => setHoveredPlanet(body.name);
   const houses = Array.from({ length: 12 }, (_, index) => {
-    const sign = normalizeSign(ascSign + index);
+    const cusp = houseCusps.find((item) => item.house === index + 1);
+    const sign = bhavaPlacement && cusp
+      ? normalizeSign(Math.floor(cusp.longitude / 30))
+      : normalizeSign(ascSign + index);
     return {
       house: index + 1,
       sign,
-      bodies: chartBodies.filter((body) => body.chartHouse === index + 1),
+      bodies: birthBodies.filter((body) => body.chartHouse === index + 1),
     };
   });
-  const houseBodyGroups = houses.map((house) => ({
-    house: house.house,
-    ...splitHouseBodies([...house.bodies, ...transitBodies.filter((body) => body.chartHouse === house.house)]),
-  }));
+  const houseBodyGroups = houses.map((house) => {
+    const bodies = [...house.bodies, ...transitBodies.filter((body) => body.chartHouse === house.house)];
+    if (bhavaPlacement && houseCusps.length === 12) {
+      const start = houseCusps.find((cusp) => cusp.house === house.house)!.longitude;
+      const distanceFromCusp = (body: PlanetPosition) => normalizeDegrees(body.longitude - start);
+      bodies.sort((a, b) => distanceFromCusp(a) - distanceFromCusp(b));
+    }
+    return { house: house.house, ...splitHouseBodies(bodies) };
+  });
   const overflowGroups: HouseOverflowGroup[] = houseBodyGroups.flatMap(({ house, overflow }) => (
     overflow.length > 0 ? [{ house, sign: houses[house - 1].sign, bodies: overflow }] : []
   ));
@@ -651,7 +696,11 @@ function SvgChartComponent({
                 stroke={house.house === 1 ? "#D97706" : "hsl(var(--chart-grid))"}
                 strokeWidth={house.house === 1 ? "2" : "1"}
               />
-              <text x={x} y={y - 10} fill="hsl(var(--foreground))" fontSize="8" fontWeight="600" textAnchor="middle">{preferences.showHouseLabels ? `H${house.house} · ` : ""}{chartSignDisplay(house.sign, language, preferences)}</text>
+              <text x={x} y={y - 10} fill="hsl(var(--foreground))" fontSize="8" fontWeight="600" textAnchor="middle">
+                {bhavaPlacement
+                  ? `${preferences.showHouseLabels ? `H${house.house} · ` : ""}${chartSignDisplay(house.sign, language, preferences)}`
+                  : `${preferences.showHouseLabels ? `H${house.house} · ` : ""}${chartSignDisplay(house.sign, language, preferences)}`}
+              </text>
               {preferences.showBhavaCusps && cuspLabelResult && cuspLabelResult.bySign[house.sign].cusps.map((cusp, cuspIndex) => (
                 <text key={`cusp-${cusp.house}`} x={x} y={y + 3 + cuspIndex * 10} fill={cusp.shifted ? "hsl(var(--champagne-gold))" : "hsl(var(--foreground))"} fontSize="7" fontWeight="600" textAnchor="middle" opacity={preferences.cuspLabelStyle === "line" ? 0.9 : 1}>
                   {cusp.label}
@@ -695,7 +744,10 @@ function SvgChartComponent({
         {signOrder.map((sign, index) => {
           if (sign < 0) return <div key={`empty-${index}`} className="border border-border bg-muted dark:bg-muted/60" />;
           const signHouse = getSignHouse(sign, ascSign);
-          const bodies = houseBodyGroups[signHouse - 1].inline;
+          const bodies = [
+            ...birthBodies.filter((body) => body.chartSign === sign),
+            ...transitBodies.filter((body) => body.chartSign === sign),
+          ];
           return (
             <div key={sign} className={`flex min-w-0 flex-col items-center justify-center gap-1 border border-slate-200 p-1 text-center dark:border-slate-700 ${signHtmlFillClass(sign)} ${signHouse === 1 ? "ring-2 ring-inset ring-amber-400/70" : ""}`}>
               <span className="text-xs text-foreground">{chartSignDisplay(sign, language, preferences)}{preferences.showHouseLabels ? ` · H${signHouse}` : ""}</span>
@@ -712,9 +764,11 @@ function SvgChartComponent({
                 {bodies.map((body) => {
                   const name = chartPlanetDisplay(body, language, preferences.usePlanetIcons);
                   const vargottama = body.name !== "Ascendant" && body.sign === getVargaSign(body, 9);
+                  const superscript = ["", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹", "¹⁰", "¹¹", "¹²"][body.chartHouse] ?? "";
+                  const bodyLabel = `${name}${bhavaPlacement ? superscript : ""}`;
                   return (
-                    <span key={body.id} title={body.name} className={`inline-flex items-center gap-0.5 whitespace-nowrap font-semibold text-foreground ${vargottama ? "rounded-full border border-[#C05A3A] px-1" : ""}`}>
-                      {body.isTransit ? "T " : ""}{name}{body.motion === "R" && <span className="font-bold text-foreground">R</span>}
+                    <span key={body.id} title={`${body.name}${body.name === "Ascendant" && bhavaPlacement && body.chartHouse !== 1 ? " · Ascendant falls before cusp 1 in this house system" : ""}`} className={`inline-flex items-center gap-0.5 whitespace-nowrap font-semibold text-foreground ${vargottama ? "rounded-full border border-[#C05A3A] px-1" : ""}`}>
+                      {body.isTransit ? "T " : ""}{bodyLabel}{body.motion === "R" && <span className="font-bold text-foreground">R</span>}
                     </span>
                   );
                 })}
@@ -736,7 +790,7 @@ function SvgChartComponent({
 
   const centers: Record<number, [number, number]> = {
     1: [180, 78], 2: [88, 42], 3: [42, 90], 4: [84, 180], 5: [42, 270], 6: [88, 318],
-    7: [180, 282], 8: [272, 318], 9: [318, 270], 10: [276, 180], 11: [318, 90], 12: [272, 42],
+    7: [180, 282], 8: [262, 318], 9: [318, 270], 10: [265, 180], 11: [318, 90], 12: [272, 42],
   };
   return (
     <ChartOverflowFrame overflow={overflowGroups} language={language} usePlanetIcons={preferences.usePlanetIcons} onBodyEnter={onBodyEnter} onBodyLeave={() => setHoveredPlanet(null)} arudhaPadas={arudhaPadas}>
@@ -757,7 +811,7 @@ function SvgChartComponent({
           11: "350,180 265,95 350,10",
           12: "350,10 265,95 180,10",
         };
-        return <polygon key={`sign-fill-${house.house}`} points={polygonByHouse[house.house]} className={signFillClass(house.sign)} />;
+        return <polygon key={`sign-fill-${house.house}`} points={polygonByHouse[house.house]} className={bhavaPlacement ? "fill-background" : signFillClass(house.sign)} />;
       })}
       <path d="M10 10 350 350M350 10 10 350M180 10 350 180 180 350 10 180 180 10" fill="none" stroke="hsl(var(--chart-grid))" strokeWidth="1" />
       {houses.map((house) => {
@@ -765,11 +819,15 @@ function SvgChartComponent({
         const isAscHouse = house.house === 1;
         const inlineBodies = houseBodyGroups[house.house - 1].inline;
         const compactBottomBodies = y >= 300 && inlineBodies.length >= 3;
-        const bodyLineHeight = y >= 270 ? (compactBottomBodies ? 8 : 10) : 13;
-        const bodyStartY = compactBottomBodies ? y - 2 : y + 10;
+        const bodyLineHeight = y >= 270 ? 10 : 13;
+        const bodyStartY = compactBottomBodies ? y - 3 : y + 10;
         return (
           <g key={house.house}>
-            <text x={x} y={y - 15} fill="hsl(var(--foreground))" fontSize="9" textAnchor="middle">{preferences.showHouseLabels ? isAscHouse ? "1ST HOUSE" : `H${house.house}` : ""}{preferences.showHouseLabels ? " · " : ""}{chartSignDisplay(house.sign, language, preferences).toUpperCase()}</text>
+            <text x={x} y={y - 15} fill="hsl(var(--foreground))" fontSize="9" textAnchor="middle">
+              {bhavaPlacement
+                ? `${preferences.showHouseLabels ? `H${house.house} · ` : ""}${chartSignDisplay(house.sign, language, preferences).toUpperCase()}`
+                : `${preferences.showHouseLabels ? isAscHouse ? "1ST HOUSE · " : `H${house.house} · ` : ""}${chartSignDisplay(house.sign, language, preferences).toUpperCase()}`}
+            </text>
             {preferences.showBhavaCusps && preferences.cuspLabelStyle === "box" && cuspLabelResult && cuspLabelResult.boxes[house.house - 1].cusps.map((cusp, cuspIndex) => (
               <text key={`cusp-${cusp.house}`} x={x} y={y - 3 + cuspIndex * 9} fill={cusp.shifted ? "hsl(var(--champagne-gold))" : "hsl(var(--foreground))"} fontSize="7" fontWeight="600" textAnchor="middle">
                 {cusp.label}
@@ -786,7 +844,7 @@ function SvgChartComponent({
               const labelWidth = Math.min(estimatedLabelWidth, availableLabelWidth);
               return (
                 <g key={body.id} opacity={isHighlighted(body, vargottama) ? 1 : 0.4} filter={isHighlighted(body, vargottama) && hoveredPlanet !== null ? "drop-shadow(0 0 6px hsl(var(--foreground)))" : undefined} onMouseEnter={() => onBodyEnter(body)} onMouseLeave={() => setHoveredPlanet(null)}>
-                  <title>{`${body.name} · ${formatPlanetDegree(body.degree)}${body.motion === "R" ? " · Retrograde" : ""}${vargottama ? " · Vargottama" : ""}`}</title>
+                  <title>{`${body.name} · ${formatPlanetDegree(body.degree)}${body.motion === "R" ? " · Retrograde" : ""}${vargottama ? " · Vargottama" : ""}${body.name === "Ascendant" && bhavaPlacement && body.chartHouse !== 1 ? " · Ascendant falls before cusp 1 in this house system" : ""}`}</title>
                   {vargottama && <rect x={x - labelWidth / 2} y={bodyY - 9} width={labelWidth} height="12" rx="4" fill="none" stroke="#C05A3A" strokeWidth="1" />}
                   <text
                     x={x}
@@ -800,6 +858,13 @@ function SvgChartComponent({
                   >
                     {body.isTransit ? "T " : ""}{name}{body.motion === "R" && <tspan fill="hsl(var(--foreground))" fontSize="8" fontWeight="800" dy="-3">ᴿ</tspan>}
                   </text>
+                  {body.name === "Ascendant" && bhavaPlacement && body.chartHouse !== 1 && (
+                    <g transform={`translate(${x + 14} ${bodyY - 7})`}>
+                      <title>Ascendant falls before cusp 1 in this house system</title>
+                      <circle r="4" fill="hsl(var(--card))" stroke="hsl(var(--muted-foreground))" />
+                      <text y="2.5" textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize="6" fontWeight="700">i</text>
+                    </g>
+                  )}
                 </g>
               );
             })}
@@ -945,10 +1010,10 @@ function PlanetTableComponent({
                 <td className="px-1.5 py-1.5">
                   {detailedAvastha ? (
                     <div className="flex min-w-36 flex-wrap gap-1 text-[10px] text-slate-600 dark:text-slate-400">
-                      <span title={`Baladi: ${detailedAvastha.baladi.state}`} className="rounded bg-muted px-1.5 py-0.5"><strong>Bal</strong> {detailedAvastha.baladi.state}</span>
-                      <span title={`Jagradadi: ${detailedAvastha.jagradadi.state}. ${detailedAvastha.jagradadi.reasons.join(" ")}`} className="rounded bg-muted px-1.5 py-0.5"><strong>Jag</strong> {detailedAvastha.jagradadi.state}</span>
-                      {detailedAvastha.shayanadi && <span title={`Shayanadi: ${detailedAvastha.shayanadi.state}`} className="rounded bg-muted px-1.5 py-0.5"><strong>Sha</strong> {detailedAvastha.shayanadi.state}</span>}
-                      {!!detailedAvastha.lajjitadi?.length && <span title={`Lajjitadi: ${detailedAvastha.lajjitadi.map(({ state }) => state).join(", ")}`} className="rounded bg-muted px-1.5 py-0.5"><strong>Laj</strong> {detailedAvastha.lajjitadi.map(({ state }) => state).join(", ")}</span>}
+                      <AvasthaValue prefix="Bal" value={detailedAvastha.baladi.state} title={`Baladi: ${detailedAvastha.baladi.state}`} />
+                      <AvasthaValue prefix="Jag" value={detailedAvastha.jagradadi.state} title={`Jagradadi: ${detailedAvastha.jagradadi.state}. ${detailedAvastha.jagradadi.reasons.join(" ")}`} />
+                      {detailedAvastha.shayanadi && <AvasthaValue prefix="Sha" value={detailedAvastha.shayanadi.state} title={`Shayanadi: ${detailedAvastha.shayanadi.state}`} />}
+                      {!!detailedAvastha.lajjitadi?.length && <AvasthaValue prefix="Laj" value={detailedAvastha.lajjitadi.map(({ state }) => state).join(", ")} title={`Lajjitadi: ${detailedAvastha.lajjitadi.map(({ state }) => state).join(", ")}`} />}
                     </div>
                   ) : "—"}
                 </td>
@@ -1012,10 +1077,10 @@ function PlanetTableComponent({
                     <td className="min-w-[220px] px-3 py-2 text-slate-700">
                       {detailedAvastha ? (
                         <div className="flex flex-wrap gap-1">
-                          <span title={`Baladi: ${detailedAvastha.baladi.state}`} className="rounded bg-muted px-1.5 py-0.5"><strong>Bal</strong> {detailedAvastha.baladi.state}</span>
-                          <span title={`Jagradadi: ${detailedAvastha.jagradadi.state}. ${detailedAvastha.jagradadi.reasons.join(" ")}`} className="rounded bg-muted px-1.5 py-0.5"><strong>Jag</strong> {detailedAvastha.jagradadi.state}</span>
-                          {detailedAvastha.shayanadi && <span title={`Shayanadi: ${detailedAvastha.shayanadi.state}`} className="rounded bg-muted px-1.5 py-0.5"><strong>Sha</strong> {detailedAvastha.shayanadi.state}</span>}
-                          {!!detailedAvastha.lajjitadi?.length && <span title={`Lajjitadi: ${detailedAvastha.lajjitadi.map(({ state }) => state).join(", ")}`} className="rounded bg-muted px-1.5 py-0.5"><strong>Laj</strong> {detailedAvastha.lajjitadi.map(({ state }) => state).join(", ")}</span>}
+                          <AvasthaValue prefix="Bal" value={detailedAvastha.baladi.state} title={`Baladi: ${detailedAvastha.baladi.state}`} />
+                          <AvasthaValue prefix="Jag" value={detailedAvastha.jagradadi.state} title={`Jagradadi: ${detailedAvastha.jagradadi.state}. ${detailedAvastha.jagradadi.reasons.join(" ")}`} />
+                          {detailedAvastha.shayanadi && <AvasthaValue prefix="Sha" value={detailedAvastha.shayanadi.state} title={`Shayanadi: ${detailedAvastha.shayanadi.state}`} />}
+                          {!!detailedAvastha.lajjitadi?.length && <AvasthaValue prefix="Laj" value={detailedAvastha.lajjitadi.map(({ state }) => state).join(", ")} title={`Lajjitadi: ${detailedAvastha.lajjitadi.map(({ state }) => state).join(", ")}`} />}
                         </div>
                       ) : "—"}
                     </td>
@@ -1187,6 +1252,7 @@ export function KundaliDashboard({
   const [dashaLagnaMode, setDashaLagnaMode] = useState<DashaLagnaMode>("maha-lord");
   const [notesExpanded, setNotesExpanded] = useState(false);
   const [chartMode, setChartMode] = useState<"transit" | "birth">("transit");
+  const [btrOffsetSeconds, setBtrOffsetSeconds] = useState(0);
   const [transitDate, setTransitDate] = useState(() => getCurrentBirthDateTime().date);
   const [transitTime, setTransitTime] = useState(() => getCurrentBirthDateTime().time);
   const [transitMode, setTransitMode] = useState<"current" | "specific">("current");
@@ -1317,6 +1383,7 @@ export function KundaliDashboard({
       };
 
       setProfile(birthProfile);
+      setBtrOffsetSeconds(0);
       setSavedProfileId(savedProfile.id);
       setLocationSearch(birthProfile.city);
       setLatitudeDraft(birthProfile.lat.toFixed(2));
@@ -1365,6 +1432,7 @@ export function KundaliDashboard({
     }
 
     setProfile(draft);
+    setBtrOffsetSeconds(0);
     setSavedProfileId(draft.id || null);
     setLocationSearch(draft.city);
     setLatitudeDraft(draft.lat.toFixed(2));
@@ -1603,6 +1671,7 @@ export function KundaliDashboard({
       return;
     }
     setSubmittedProfile({ ...profile, name: profile.name.trim() || "Birth chart" });
+    setBtrOffsetSeconds(0);
     setProfileCollapsed(true);
     setChartMode("birth");
     setError(null);
@@ -1667,6 +1736,7 @@ export function KundaliDashboard({
       if (previousSavedProfilesUserId.current !== clerkUserId) return false;
       const saved = result.profile;
       setSavedProfileId(saved.id);
+      setBtrOffsetSeconds(0);
       if (clerkUserId) updateCachedSavedProfile(clerkUserId, saved);
       setSaveDialogName(saved.chartName || saved.fullName);
       setSaveToast(`${targetId ? "Updated" : "Saved"} "${saved.chartName || saved.fullName}"`);
@@ -1723,9 +1793,20 @@ export function KundaliDashboard({
     setLocationError(null);
   };
   const adjustBirthTime = (seconds: number) => {
+    if (!profile.date || !profile.time) return;
     adjustTime(seconds);
     const adjustedProfile = useKundaliStore.getState().profile;
-    setSubmittedProfile((current) => current ? { ...current, date: adjustedProfile.date, time: adjustedProfile.time } : current);
+    const baseProfile = submittedProfile ?? profile;
+    const name = baseProfile.name === "Current transit" ? "Birth chart" : baseProfile.name.trim() || "Birth chart";
+    setProfile({ name });
+    setSubmittedProfile({
+      ...baseProfile,
+      date: adjustedProfile.date,
+      time: adjustedProfile.time,
+      name,
+    });
+    setBtrOffsetSeconds((current) => current + seconds);
+    setChartMode("birth");
   };
   const selectDashboardTab = (nextTab: DashboardTab) => {
     setSelectedDashboardTab(nextTab);
@@ -1913,25 +1994,32 @@ export function KundaliDashboard({
             </div>
           )}
           <form onSubmit={submitBirthChart} className={`${profileCollapsed ? "hidden md:block" : ""} min-w-0 space-y-2`}>
-            <div className={`grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2 ${useCoordinates ? "xl:grid-cols-[minmax(0,1.35fr)_minmax(76px,.7fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(232px,2fr)_minmax(135px,1.35fr)_minmax(112px,1.1fr)_minmax(110px,1fr)]" : "xl:grid-cols-[minmax(0,1.35fr)_minmax(76px,.7fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(152px,1.5fr)_minmax(135px,1.35fr)_minmax(112px,1.1fr)_minmax(110px,1fr)]"}`}>
+            <div className={`grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2 ${useCoordinates ? "xl:grid-cols-[minmax(0,1.35fr)_minmax(100px,.85fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(232px,2fr)_minmax(135px,1.35fr)_minmax(112px,1.1fr)_minmax(110px,1fr)]" : "xl:grid-cols-[minmax(0,1.35fr)_minmax(100px,.85fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(152px,1.5fr)_minmax(135px,1.35fr)_minmax(112px,1.1fr)_minmax(110px,1fr)]"}`}>
               <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">
                 Chart name
                 <input aria-label="Chart name" type="text" maxLength={100} value={profile.name === "Current transit" ? "" : profile.name} placeholder="Enter Jataka's name" onChange={(event) => setProfile({ name: event.target.value })} className={`${CONTROL_CLASS} mt-1 h-11 w-full text-base placeholder:text-slate-600 dark:placeholder:text-slate-400 md:text-sm xl:h-9`} />
               </label>
               <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Gender
-                <select aria-label="Gender" value={profile.sex} onChange={(event) => setProfile({ sex: event.target.value as BirthProfile["sex"] })} className={`${CONTROL_CLASS} mt-1 h-11 w-full min-w-0 px-2 pr-8 text-base md:text-sm xl:h-9`}>
-                  <option value="not-applicable">Not specified</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                </select>
+                <span className="relative mt-1 block">
+                  <select aria-label="Gender" value={profile.sex} onChange={(event) => setProfile({ sex: event.target.value as BirthProfile["sex"] })} className={`${CONTROL_CLASS} h-11 w-full min-w-0 appearance-none px-2 pr-8 text-base md:text-sm xl:h-9`}>
+                    <option value="not-applicable">Not specified</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                  </select>
+                  <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                </span>
               </label>
               <div className="grid min-w-0 grid-cols-1 gap-3 min-[420px]:grid-cols-2 md:contents">
                 <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Birth date
-                  <input aria-label="Birth date" type="date" required value={profile.date} onChange={(event) => setProfile({ date: event.target.value })} className={`${CONTROL_CLASS} mt-1 box-border h-11 w-full min-w-0 max-w-full px-2 text-base md:text-sm xl:h-9`} />
+                  <input aria-label="Birth date" type="date" required value={profile.date} onChange={(event) => {
+                    setBtrOffsetSeconds(0);
+                    setProfile({ date: event.target.value });
+                  }} className={`${CONTROL_CLASS} mt-1 box-border h-11 w-full min-w-0 max-w-full px-2 text-base md:text-sm xl:h-9`} />
                 </label>
                 <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">Birth time
                   <input aria-label="Time of birth" type="time" step={1} value={profile.time} onChange={(event) => {
                     const time = event.target.value;
+                    setBtrOffsetSeconds(0);
                     setProfile({ time: time ? (time.length === 5 ? `${time}:00` : time) : "" });
                   }} required className={`${CONTROL_CLASS} mt-1 box-border h-11 w-full min-w-0 max-w-full px-2 text-base font-mono md:text-sm xl:h-9`} />
                 </label>
@@ -2136,6 +2224,11 @@ export function KundaliDashboard({
               loading={loading}
               error={error}
               onCalculateBirthChart={calculateBirthChart}
+              chartStyle={chartStyle}
+              onChartStyleChange={setChartStyle}
+              viewPreferences={viewPreferences}
+              language={language}
+              ChartRenderer={SvgChart}
             />
           )}
         </RetainedTab>
@@ -2202,44 +2295,60 @@ export function KundaliDashboard({
           {visitedTabs.has("core") && (
         <div className="flex flex-col gap-4">
         {displayError && <div role="alert" className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-xs text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/30 dark:text-rose-200"><AlertCircle className="mt-0.5 size-4 shrink-0" /><span>{displayError}</span></div>}
-        <div className="order-2 lg:order-1">
+        <div>
           <PanchangStrip date={displayData?.input.date ?? profile.date} planets={displayData?.planets ?? []} houseSystem={houseSystem} />
         </div>
-        {kharaPoints.length > 0 && (
-          <section aria-label="Khara divisional points" className="order-3 overflow-hidden rounded-xl border border-border bg-card text-card-foreground md:rounded-2xl md:border-stone-200/80 md:shadow-[0_1px_3px_rgba(15,23,42,0.04)]">
-            <div className="px-4 py-3">
-              <h2 className="text-sm font-semibold">Khara positions</h2>
-              <p className="mt-1 text-[11px] text-muted-foreground">64th Navamsha and 22nd Drekkana from the Lagna and Moon.</p>
+        <section aria-label="Calculation and birth time rectification controls" className="rounded-2xl border border-stone-200/80 bg-white px-3 py-3 shadow-[0_1px_3px_rgba(15,23,42,0.04)] sm:px-4 sm:py-2.5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
+            <CoreCalculationControls ayanamsaDegrees={displayData?.ayanamsa.degrees} />
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-t border-stone-200/70 pt-2 md:border-0 md:pt-0">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+                <span title="Birth Time Rectification — nudge birth time to test Lagna & D9 shifts" className="inline-flex h-6 items-center rounded-md bg-[#FBE9E1] px-2 text-[10px] font-bold tracking-wide text-[#A9472A]">BTR</span>
+                <span className="text-xs font-medium text-stone-700">Birth time rectification</span>
+                <time className="font-mono text-xs font-semibold tabular-nums text-stone-900" dateTime={`${activeBirthProfile.date}T${activeBirthProfile.time}`}>
+                  {formatBtrTime(activeBirthProfile.time)}
+                </time>
+                {btrOffsetSeconds !== 0 && (
+                  <span aria-label={`Birth time offset ${btrOffsetSeconds > 0 ? "plus" : "minus"} ${Math.abs(btrOffsetSeconds) / 60} minutes`} className="inline-flex h-6 items-center rounded-full bg-[#FBE9E1] px-2 text-[10px] font-semibold tabular-nums text-[#A9472A]">
+                    {btrOffsetSeconds > 0 ? "+" : "-"}{Math.abs(btrOffsetSeconds) / 60}m
+                  </span>
+                )}
+              </div>
+              <div role="group" aria-label="Birth time adjustment" className="flex shrink-0 items-center gap-1">
+                {([
+                  { seconds: -300, label: "-5m", title: "Subtract 5 minutes" },
+                  { seconds: -60, label: "-1m", title: "Subtract 1 minute" },
+                  { seconds: 60, label: "+1m", title: "Add 1 minute" },
+                  { seconds: 300, label: "+5m", title: "Add 5 minutes" },
+                ]).map(({ seconds, label, title }) => (
+                  <button
+                    key={seconds}
+                    type="button"
+                    onClick={() => adjustBirthTime(seconds)}
+                    disabled={!activeBirthProfile.date || !activeBirthProfile.time}
+                    title={title}
+                    aria-label={title}
+                    className="h-9 min-w-[42px] rounded-lg border border-stone-200 bg-white px-2.5 text-xs font-semibold tabular-nums text-stone-700 transition-colors hover:border-[#D9A18B] hover:bg-[#FDF2EC] hover:text-[#A9472A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C05A3A]/40 disabled:cursor-not-allowed disabled:opacity-50 md:h-8 md:min-w-0"
+                  >
+                    {label}
+                  </button>
+                ))}
+                {btrOffsetSeconds !== 0 && (
+                  <button
+                    type="button"
+                    onClick={() => adjustBirthTime(-btrOffsetSeconds)}
+                    className="ml-1 h-9 rounded-lg px-2 text-xs font-medium text-stone-500 transition-colors hover:bg-stone-100 hover:text-stone-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:h-8"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="grid divide-y divide-border border-t border-border md:grid-cols-2 md:divide-x md:divide-y-0">
-              {kharaPoints.map((points) => (
-                <div key={points.name} className="min-w-0 px-4 py-3">
-                  <h3 className="mb-2 text-xs font-semibold">{points.name}</h3>
-                  <dl className="space-y-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <dt className="text-xs font-medium">64th Navamsha</dt>
-                        <dd className="text-[10px] text-muted-foreground">8th from {signName(SIGNS[points.navamsaSign], language)} Navamsha</dd>
-                      </div>
-                      <dd className="text-right text-sm font-semibold">{signName(SIGNS[points.sixtyFourthNavamsaSign], language)}</dd>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 border-t border-border/70 pt-2">
-                      <div>
-                        <dt className="text-xs font-medium">22nd Drekkana</dt>
-                        <dd className="text-[10px] text-muted-foreground">8th from {signName(SIGNS[points.drekkanaSign], language)} Drekkana</dd>
-                      </div>
-                      <dd className="text-right text-sm font-semibold">{signName(SIGNS[points.twentySecondDrekkanaSign], language)}</dd>
-                    </div>
-                  </dl>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+          </div>
+        </section>
 
-        {/* Core chart panels grow with their controls and charts; wide tables keep horizontal-only overflow. */}
-        <div id="kundali-charts" className="order-1 grid w-full grid-cols-1 items-stretch gap-4 scroll-mt-4 lg:order-2 lg:grid-cols-2 lg:gap-6">
-          <div className="row-start-1 flex min-h-0 min-w-0 lg:col-start-1">
+        <div id="kundali-charts" className="grid w-full grid-cols-1 items-stretch gap-4 scroll-mt-4 lg:grid-cols-2 lg:gap-6">
+          <div className="flex min-h-0 min-w-0 lg:col-start-1">
             <section className="relative flex h-full min-h-0 w-full flex-col rounded-xl border border-border bg-card text-card-foreground shadow-sm md:rounded-2xl md:border-stone-200/80 md:shadow-[0_1px_3px_rgba(15,23,42,0.04)]" aria-label="Primary D1 chart">
               <ChartControls
                 chartMode={chartMode}
@@ -2260,7 +2369,7 @@ export function KundaliDashboard({
                 onTransitModeChange={handleTransitModeChange}
               />
               <div className="relative w-full min-w-0 bg-card p-2 sm:p-4">
-                <div className="relative mx-auto w-full max-w-[640px]">
+                <div className="relative mx-auto aspect-square w-full max-w-[460px]">
                   {displayData ? <SvgChart style={chartStyle} ascendant={displayData.ascendant} planets={displayData.planets} points={displayData.points} houseCusps={displayData.houseCusps} varga={1} referenceHouse={referenceHouseNumber} overlay={chartMode === "birth" && overlayTransits ? transitData?.planets : undefined} showTransitLabels={chartMode === "transit" && overlayTransits} language={language} preferences={viewPreferences} /> : displayLoading ? <EphemerisLoader title="Calculating birth chart" description="Finding planetary positions and house cusps…" detail={`${profile.city || "Birth chart"} · Swiss Ephemeris`} activity="Calculating chart" tone="dashboard" compact /> : <div className="grid aspect-square w-full place-items-center text-xs text-muted-foreground">Chart unavailable</div>}
                   {overlayTransits && transitLoading && (
                     <div role="status" aria-live="polite" className="absolute right-5 top-5 z-10 inline-flex items-center gap-2 rounded-full border border-stone-300 bg-card/95 px-3 py-1.5 text-xs font-medium text-stone-700 shadow-sm dark:border-stone-700 dark:text-stone-300">
@@ -2270,7 +2379,7 @@ export function KundaliDashboard({
                   )}
                 </div>
               </div>
-              <div className="mt-3 flex flex-none flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-slate-600 dark:text-slate-400 sm:justify-between sm:text-xs">
+              <div className="mx-2 mt-3 flex flex-none flex-wrap items-center justify-between gap-x-4 gap-y-1 px-2 pb-3 text-[11px] text-slate-600 dark:text-slate-400 sm:text-xs">
                 <span className="flex items-center gap-1.5"><span className={`size-2 rounded-full ${chartMode === "transit" ? "bg-cyan-600 dark:bg-cyan-400" : "bg-amber-600 dark:bg-amber-400"}`} /> {chartMode === "transit" ? `Transit · ${currentTransitLabel}` : "Birth chart"}</span>
                 <button type="button" className="flex items-center gap-1.5 rounded px-1 transition hover:bg-[hsl(var(--input))]/50" onMouseEnter={() => setHoveredPlanet("Vargottama")} onMouseLeave={() => setHoveredPlanet(null)} onFocus={() => setHoveredPlanet("Vargottama")} onBlur={() => setHoveredPlanet(null)}><span className="inline-block size-3 rounded-full border border-[#C05A3A]" /> Vargottama</button>
                 <span title="Retrograde Motion"><span className="font-bold text-rose-700 dark:text-rose-300">R</span> = retrograde</span>
@@ -2285,9 +2394,9 @@ export function KundaliDashboard({
             </section>
           </div>
 
-          <div className="order-2 flex min-h-0 min-w-0 lg:col-start-2 lg:row-start-1">
+          <div className="flex min-h-0 min-w-0 lg:col-start-2 lg:row-start-1">
             <section id="auxiliary-chart" className="relative flex h-full min-h-0 w-full flex-col rounded-xl border border-border bg-card text-card-foreground shadow-sm md:rounded-2xl md:border-stone-200/80 md:shadow-[0_1px_3px_rgba(15,23,42,0.04)]" aria-label="Auxiliary chart viewer">
-              <div className="flex flex-col gap-3 border-b border-border bg-muted/10 p-4 lg:min-h-[96px] lg:justify-center lg:gap-0 lg:p-3">
+              <div className="flex flex-col gap-3 border-b border-border bg-muted/10 p-4 lg:min-h-[195px] lg:justify-between lg:gap-2 lg:p-3">
               <div className="grid flex-none grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)] lg:w-full lg:items-center lg:gap-3">
                   <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-muted-foreground">Chart
                     <Select
@@ -2325,12 +2434,54 @@ export function KundaliDashboard({
                     </Select>
                   </label>
                   <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-muted-foreground">Reference Lagna
-                    <select aria-label="Auxiliary reference lagna" value={auxiliaryReferenceName} onChange={(event) => setAuxiliaryReferenceName(event.target.value)} className={`${CONTROL_CLASS} w-full pr-9`}>
-                      <option value="Ascendant">Ascendant</option>
-                      {Array.from({ length: 12 }, (_, index) => <option key={index} value={`house:${index + 1}`}>House {index + 1}</option>)}
-                    </select>
+                    <span className="relative block">
+                      <select aria-label="Auxiliary reference lagna" value={auxiliaryReferenceName} onChange={(event) => setAuxiliaryReferenceName(event.target.value)} className={`${CONTROL_CLASS} w-full appearance-none pr-8`}>
+                        <option value="Ascendant">Ascendant</option>
+                        {Array.from({ length: 12 }, (_, index) => <option key={index} value={`house:${index + 1}`}>House {index + 1}</option>)}
+                      </select>
+                      <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                    </span>
                   </label>
               </div>
+              {kharaPoints.length > 0 && (
+                <section aria-label="Khara positions" className="rounded-xl border border-stone-200/70 bg-stone-50/80 px-3 py-2">
+                  <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
+                    <h2 className="text-[11px] font-semibold text-stone-800">Khara positions</h2>
+                    <p className="text-[9px] text-stone-500">64th Navamsha &amp; 22nd Drekkana</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {kharaPoints.map((points) => (
+                      <div key={points.name} className="min-w-0">
+                        <h3 className="mb-1 text-[10px] font-semibold text-stone-700">{points.name}</h3>
+                        <dl className="space-y-1">
+                          {[
+                            {
+                              label: "64th Navamsha",
+                              source: `8th from ${signName(SIGNS[points.navamsaSign], language)} D9`,
+                              sign: points.sixtyFourthNavamsaSign,
+                            },
+                            {
+                              label: "22nd Drekkana",
+                              source: `8th from ${signName(SIGNS[points.drekkanaSign], language)} D3`,
+                              sign: points.twentySecondDrekkanaSign,
+                            },
+                          ].map(({ label, source, sign }) => (
+                            <div key={label} className="flex min-w-0 items-center justify-between gap-1">
+                              <div className="min-w-0">
+                                <dt className="truncate text-[9px] font-medium leading-tight text-stone-700">{label}</dt>
+                                <dd className="truncate text-[8px] leading-tight text-stone-500" title={source}>{source}</dd>
+                              </div>
+                              <dd className="inline-flex shrink-0 rounded-full bg-[#FBE9E1] px-2 py-0.5 text-[9px] font-semibold text-[#A9472A]">
+                                {signName(SIGNS[sign], language)}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
               {(auxiliaryType === "solar" || auxiliaryType === "tajika") && (
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto]">
                   <label className="text-xs font-medium text-slate-600 dark:text-slate-400">Required age
@@ -2350,7 +2501,7 @@ export function KundaliDashboard({
               )}
               </div>
               <div className="relative w-full min-w-0 bg-card p-2 sm:p-4">
-                <div className="relative mx-auto w-full max-w-[640px]">
+                <div className="relative mx-auto aspect-square w-full max-w-[460px]">
                   {auxiliaryAscendant && auxiliaryPlanets
                     ? <SvgChart style={chartStyle} ascendant={auxiliaryAscendant} planets={auxiliaryPlanets} points={auxiliaryPoints ?? []} houseCusps={auxiliaryCusps ?? []} varga={auxiliaryVarga} houseBasedPlacement={isBhavaChalitChart} referenceHouse={auxiliaryReferenceHouseNumber} overlay={undefined} language={language} preferences={viewPreferences} />
                     : displayLoading ? <EphemerisLoader title="Preparing chart view" description="Applying the selected chart settings…" detail={selectedAuxiliaryChart.label} activity="Updating chart" tone="dashboard" compact /> : <div className="grid aspect-square w-full place-items-center px-6 text-center text-xs text-muted-foreground">Auxiliary chart unavailable</div>}
@@ -2373,7 +2524,10 @@ export function KundaliDashboard({
               <div><p className="text-xs font-semibold">Planetary positions</p><p className="mt-0.5 text-xs uppercase tracking-wider text-slate-600 dark:text-slate-400">Swiss Ephemeris · {zodiacMode === "tropical" ? "Sayana (Tropical)" : "Nirayana (Sidereal)"} · Jaimini karakas</p></div>
               <div className="flex flex-wrap items-center gap-2">
                 <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">Node
-                  <select aria-label="Rahu Ketu node mode" value={nodeType} onChange={(event) => setNodeType(event.target.value as "true" | "mean")} className={`${CONTROL_CLASS} h-8 text-xs`}><option value="true">True Node</option><option value="mean">Mean Node</option></select>
+                  <span className="relative inline-flex">
+                    <select aria-label="Rahu Ketu node mode" value={nodeType} onChange={(event) => setNodeType(event.target.value as "true" | "mean")} className={`${CONTROL_CLASS} h-8 appearance-none pr-8 text-xs`}><option value="true">True Node</option><option value="mean">Mean Node</option></select>
+                    <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-2 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                  </span>
                 </label>
                 <div role="group" aria-label="Longitude display format" className="flex rounded-lg bg-muted p-1">
                   {([["dms", false], ["decimal", true]] as const).map(([label, decimal]) => <button key={label} type="button" aria-pressed={decimalDegrees === decimal} onClick={() => setDecimalDegrees(decimal)} className={`rounded-md px-2 py-1.5 text-xs ${decimalDegrees === decimal ? "bg-card font-semibold text-foreground shadow-sm" : "text-muted-foreground"}`}>{label === "dms" ? "DMS" : "Decimal"}</button>)}
@@ -2475,8 +2629,6 @@ export function KundaliDashboard({
           onClose={closeChartSettings}
           settings={chartSettings}
           chartStyle={chartStyle}
-          showBirthTimeAdjuster={chartMode === "birth"}
-          onAdjustTime={adjustBirthTime}
           onApply={applyChartSettings}
         />
       )}

@@ -1,24 +1,36 @@
-import { mod, sign } from "./constants";
+import { mod } from "./constants";
 
 export type AscendantAt = (dateTimeMs: number) => number;
 
-export interface UpagrahaInput {
-  sunLongitude: number;
+export interface TimeUpagrahaInput {
   birthMs: number;
-  birthMinutes: number;
-  sunriseMinutes: number;
-  sunsetMinutes: number;
+  sunriseMs: number;
+  sunsetMs: number;
+  nextSunriseMs: number;
   weekday: number;
+  upagrahaPoint?: "start" | "middle";
+}
+
+export interface UpagrahaInput extends TimeUpagrahaInput {
   ascendantAt: AscendantAt;
-  mandiMiddle?: boolean;
 }
 
 export interface TimeUpagraha {
   name: string;
   planet: number;
   startMinutes: number;
+  momentMs: number;
   longitude: number;
 }
+
+const DAY_LORDS = [0, 1, 2, 3, 4, 5, 6] as const;
+const TIME_UPAGRAHAS = [
+  { name: "Kala", planet: 0 },
+  { name: "Mrityu", planet: 2 },
+  { name: "Ardhaprahara", planet: 3 },
+  { name: "Yamaghantaka", planet: 4 },
+  { name: "Gulika", planet: 6 },
+] as const;
 
 export function sunUpagrahas(sunLongitude: number): Record<"dhuma" | "vyatipata" | "parivesha" | "indrachapa" | "upaketu", number> {
   const dhuma = mod(sunLongitude + 133 + 20 / 60, 360);
@@ -34,28 +46,48 @@ export function weekdayAtSunrise(utcWeekday: number, birthMinutes: number, sunri
   return birthMinutes < sunriseMinutes ? mod(weekday - 1, 7) : weekday;
 }
 
-export function timeUpagrahas(input: UpagrahaInput): TimeUpagraha[] {
-  const wd = mod(input.weekday, 7);
-  const isDay = input.birthMinutes >= input.sunriseMinutes && input.birthMinutes < input.sunsetMinutes;
-  const dayStart = [0, 1, 2, 3, 4, 5, 6];
-  const nightStart = mod(wd + 4, 7);
-  const startLord = isDay ? dayStart[wd] : nightStart;
-  const start = isDay ? input.sunriseMinutes : input.sunsetMinutes;
-  const length = isDay
-    ? (input.sunsetMinutes - input.sunriseMinutes) / 8
-    : mod(input.sunriseMinutes + 1440 - input.sunsetMinutes, 1440) / 8;
-  const definitions = [
-    { name: "Kala", planet: 0 },
-    { name: "Mrityu", planet: 2 },
-    { name: "Ardhaprahara", planet: 3 },
-    { name: "Yamaghantaka", planet: 4 },
-    { name: "Gulika", planet: 6 },
-  ];
-  return definitions.map((d) => {
-    const part = mod(d.planet - startLord, 7) + 1;
-    let startMinutes = start + (part - 1) * length;
-    if (d.name === "Gulika" && input.mandiMiddle) startMinutes += length / 2;
-    const dateTimeMs = input.birthMs + (startMinutes - input.birthMinutes) * 60000;
-    return { ...d, startMinutes: mod(startMinutes, 1440), longitude: mod(input.ascendantAt(dateTimeMs), 360) };
+export function timeUpagrahaMoments(input: TimeUpagrahaInput): Omit<TimeUpagraha, "longitude">[] {
+  const { birthMs, sunriseMs, sunsetMs, nextSunriseMs } = input;
+  if (![birthMs, sunriseMs, sunsetMs, nextSunriseMs].every(Number.isFinite)
+    || !(sunriseMs < sunsetMs && sunsetMs < nextSunriseMs)
+    || birthMs < sunriseMs
+    || birthMs >= nextSunriseMs) {
+    throw new Error("Time-based upagrahas require ordered sunrise, sunset, next sunrise, and birth instants.");
+  }
+
+  const isDay = birthMs < sunsetMs;
+  const startMs = isDay ? sunriseMs : sunsetMs;
+  const endMs = isDay ? sunsetMs : nextSunriseMs;
+  const partLengthMs = (endMs - startMs) / 8;
+  const weekdayLord = mod(input.weekday, 7);
+  const firstLord = isDay ? DAY_LORDS[weekdayLord] : mod(weekdayLord + 4, 7);
+  const partStart = (planet: number) => {
+    const partIndex = mod(planet - firstLord, 7);
+    return startMs + partIndex * partLengthMs;
+  };
+  const pointOffset = input.upagrahaPoint === "middle" ? partLengthMs / 2 : 0;
+  const positions: Omit<TimeUpagraha, "longitude">[] = TIME_UPAGRAHAS.map((upagraha) => {
+    const momentMs = partStart(upagraha.planet) + pointOffset;
+    return {
+      ...upagraha,
+      momentMs,
+      startMinutes: ((momentMs - sunriseMs) / 60_000 % 1440 + 1440) % 1440,
+    };
   });
+  const saturnPartStart = partStart(6);
+  const mandiMs = saturnPartStart + partLengthMs / 2;
+  positions.push({
+    name: "Mandi",
+    planet: 6,
+    momentMs: mandiMs,
+    startMinutes: ((mandiMs - sunriseMs) / 60_000 % 1440 + 1440) % 1440,
+  });
+  return positions;
+}
+
+export function timeUpagrahas(input: UpagrahaInput): TimeUpagraha[] {
+  return timeUpagrahaMoments(input).map((upagraha) => ({
+    ...upagraha,
+    longitude: mod(input.ascendantAt(upagraha.momentMs), 360),
+  }));
 }

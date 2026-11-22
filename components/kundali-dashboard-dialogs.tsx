@@ -12,28 +12,6 @@ import { Switch } from "@/components/ui/switch";
 
 const CONTROL_CLASS = "h-9 rounded-lg border border-input bg-card px-2.5 text-xs text-card-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/40";
 
-function BirthTimeAdjuster({ onAdjust }: { onAdjust: (seconds: number) => void }) {
-  const adjustments = [
-    { seconds: -300, label: "−5 min", description: "Subtract 5 minutes" },
-    { seconds: -60, label: "−1 min", description: "Subtract 1 minute" },
-    { seconds: 60, label: "+1 min", description: "Add 1 minute" },
-    { seconds: 300, label: "+5 min", description: "Add 5 minutes" },
-  ];
-
-  return (
-    <div role="group" aria-label="Birth time rectification" className="inline-flex h-[58px] shrink-0 items-center gap-1 rounded-lg border border-border bg-card p-1.5">
-      <span className="px-1 text-[10px] font-semibold text-muted-foreground" title="Birth time rectification">BTR</span>
-      <div className="flex h-full items-center gap-1">
-        {adjustments.map(({ seconds, label, description }) => (
-          <button key={seconds} type="button" onClick={() => onAdjust(seconds)} className="h-11 rounded-md px-2 text-[10px] font-semibold tabular-nums text-foreground transition hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 md:h-10" aria-label={description} title={description}>
-            {label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 const CHART_STYLE_LABELS: Record<ChartStyle, string> = {
   diamond: "North",
   south: "South",
@@ -76,16 +54,12 @@ export function ChartSettingsDrawer({
   onClose,
   settings,
   chartStyle,
-  showBirthTimeAdjuster,
-  onAdjustTime,
   onApply,
 }: {
   open: boolean;
   onClose: () => void;
   settings: ChartSettings;
   chartStyle: ChartStyle;
-  showBirthTimeAdjuster: boolean;
-  onAdjustTime: (seconds: number) => void;
   onApply: (settings: ChartSettings) => void;
 }) {
   const drawerRef = useRef<HTMLElement>(null);
@@ -386,13 +360,6 @@ export function ChartSettingsDrawer({
               </div>
             </div>
           </section>
-          {showBirthTimeAdjuster && (
-            <section aria-labelledby="birth-time-adjustments-title">
-              <h3 id="birth-time-adjustments-title" className="border-b border-border pb-2 text-sm font-semibold">Birth time adjustments</h3>
-              <p className="mt-2 text-xs text-muted-foreground">Adjust the birth time to compare nearby chart calculations.</p>
-              <div className="mt-3"><BirthTimeAdjuster onAdjust={onAdjustTime} /></div>
-            </section>
-          )}
         </div>
         <footer className="flex flex-col gap-3 border-t border-border px-1 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-2">
           <p className="text-xs text-muted-foreground">Your changes stay pending until applied.</p>
