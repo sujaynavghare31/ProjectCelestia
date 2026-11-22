@@ -1,5 +1,6 @@
 export type NodeType = "true" | "mean";
-export type ChartStyle = "diamond" | "south" | "east" | "placidus";
+export type ChartStyle = "diamond" | "south" | "east" | "placidus" | "bhava";
+export type CuspSystem = "placidus" | "kp" | "sripati" | "equal" | "carter";
 export type CelestialLanguage = "en" | "hi" | "mr" | "initials";
 export type ZodiacMode = "sidereal" | "tropical";
 export type HouseSystem = "placidus" | "carter";

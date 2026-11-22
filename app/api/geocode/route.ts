@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { metric } from "@vercel/functions";
 import tzLookup from "tz-lookup";
 import { findStaticCities } from "@/lib/geocode/city-index";
 import { consumeRateLimit } from "@/lib/server/rate-limit";
@@ -19,20 +20,25 @@ interface NominatimResult {
     county?: string;
     state?: string;
     country?: string;
+    country_code?: string;
   };
 }
 
 type GeocodeResult = {
   label: string;
   city: string;
+  name: string;
+  admin?: string;
+  country: string;
+  countryCode?: string;
   latitude: number;
   longitude: number;
   timezone: string;
 };
 
 const CACHE_LIMIT = 500;
-const CACHE_TTL_MS = 24 * 60 * 60_000;
-const RESPONSE_CACHE_CONTROL = "public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800";
+const CACHE_TTL_MS = 30 * 24 * 60 * 60_000;
+const RESPONSE_CACHE_CONTROL = "public, max-age=86400, s-maxage=2592000, stale-while-revalidate=604800";
 const queryCache = new Map<string, { expiresAt: number; results: GeocodeResult[] }>();
 let nominatimQueue = Promise.resolve();
 let lastNominatimRequestAt = 0;
@@ -60,6 +66,7 @@ function getCachedResults(key: string) {
 }
 
 function cacheResults(key: string, results: GeocodeResult[]) {
+  if (results.length === 0) return;
   queryCache.delete(key);
   queryCache.set(key, { results, expiresAt: Date.now() + CACHE_TTL_MS });
   if (queryCache.size > CACHE_LIMIT) {
@@ -68,7 +75,9 @@ function cacheResults(key: string, results: GeocodeResult[]) {
   }
 }
 
-function fetchNominatim(url: URL) {
+async function fetchNominatim(url: URL) {
+  const startedAt = performance.now();
+  let outcome = "error";
   const result = nominatimQueue.then(async () => {
     const waitMs = Math.max(0, lastNominatimRequestAt + 1_000 - Date.now());
     if (waitMs > 0) await new Promise((resolve) => setTimeout(resolve, waitMs));
@@ -83,11 +92,21 @@ function fetchNominatim(url: URL) {
     });
   });
   nominatimQueue = result.then(() => undefined, () => undefined);
-  return result;
+  try {
+    const response = await result;
+    outcome = response.ok ? "success" : "http_error";
+    return response;
+  } catch (error) {
+    outcome = error instanceof DOMException && error.name === "TimeoutError" ? "timeout" : "error";
+    throw error;
+  } finally {
+    metric("geocode.nominatim_requests", 1, { outcome });
+    metric("geocode.nominatim_duration_ms", performance.now() - startedAt, { outcome });
+  }
 }
 
-export async function GET(request: Request) {
-  const limit = consumeRateLimit(request, "geocode");
+async function handleGet(request: Request) {
+  const limit = consumeRateLimit(request, "geocode", 30, 0.5);
   if (!limit.allowed) {
     return jsonResponse(
       { error: "Too many location requests. Please try again shortly." },
@@ -152,8 +171,14 @@ export async function GET(request: Request) {
   const localResults = findStaticCities(query);
   if (localResults.length > 0) {
     cacheResults(cacheKey, localResults);
-    return jsonResponse({ results: localResults });
+    return jsonResponse({ results: localResults, source: "offline" });
   }
+
+  const offlineFallback = () => {
+    const results = findStaticCities(query);
+    cacheResults(cacheKey, results);
+    return jsonResponse({ results, source: "offline" });
+  };
 
   let upstream: Response;
   try {
@@ -162,17 +187,17 @@ export async function GET(request: Request) {
       q: query,
       format: "jsonv2",
       addressdetails: "1",
-      limit: "6",
+      limit: "8",
     }).toString();
     upstream = await fetchNominatim(url);
   } catch (error) {
     console.error("[geocode] Place search request failed", error);
-    return jsonResponse({ error: "The place search service is temporarily unavailable." }, 502);
+    return offlineFallback();
   }
 
   if (!upstream.ok) {
     console.error("[geocode] Place search returned an error", upstream.status);
-    return jsonResponse({ error: "The place search service returned an error." }, 502);
+    return offlineFallback();
   }
 
   let places: NominatimResult[];
@@ -180,7 +205,7 @@ export async function GET(request: Request) {
     places = await upstream.json() as NominatimResult[];
   } catch (error) {
     console.error("[geocode] Place search returned invalid JSON", error);
-    return jsonResponse({ error: "The place search service returned invalid data." }, 502);
+    return offlineFallback();
   }
 
   const results = places.flatMap((place) => {
@@ -191,7 +216,9 @@ export async function GET(request: Request) {
     }
 
     const address = place.address ?? {};
-    const city = address.city ?? address.town ?? address.village ?? address.municipality ?? address.county ?? address.state ?? place.display_name;
+    const city = address.city ?? address.town ?? address.village ?? address.municipality ?? address.county ?? address.state ?? place.display_name.split(",")[0];
+    const country = address.country ?? "";
+    const admin = address.state;
     let timezone: string;
     try {
       timezone = tzLookup(latitude, longitude);
@@ -202,7 +229,11 @@ export async function GET(request: Request) {
 
     return [{
       label: place.display_name,
-      city: address.country ? `${city}, ${address.country}` : city,
+      city: [city, admin || country].filter(Boolean).join(", "),
+      name: city,
+      admin,
+      country,
+      countryCode: address.country_code?.toUpperCase(),
       latitude,
       longitude,
       timezone,
@@ -210,5 +241,18 @@ export async function GET(request: Request) {
   });
 
   cacheResults(cacheKey, results);
-  return jsonResponse({ results });
+  return jsonResponse({ results, source: "online" });
+}
+
+export async function GET(request: Request) {
+  const startedAt = performance.now();
+  let outcome = "error";
+  try {
+    const response = await handleGet(request);
+    outcome = response.status === 429 ? "rate_limited" : response.ok ? "success" : "error";
+    return response;
+  } finally {
+    metric("geocode.requests", 1, { outcome });
+    metric("geocode.duration_ms", performance.now() - startedAt, { outcome });
+  }
 }

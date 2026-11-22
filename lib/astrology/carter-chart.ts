@@ -1,7 +1,8 @@
 import { carterCusps, type CuspMethod } from "./engines/carter";
 import type { CarterZodiac } from "@/lib/kundali-types";
 import { houseOf } from "./engines/carter";
-import { localDateTimeToUtc } from "./timezone";
+import { getTimezoneOffsetHours } from "./timezone";
+export { getTimezoneOffsetHours } from "./timezone";
 
 export interface CarterChartSource {
   input: {
@@ -14,16 +15,6 @@ export interface CarterChartSource {
   ayanamsa: { degrees: number };
   /** Defaults to "ascPlus30"; "raSteps" preserves the previous RA-per-house calculation. */
   cuspMethod?: CuspMethod;
-}
-
-export function getTimezoneOffsetHours(date: string, time: string, timezone: string): number {
-  const [year, month, day] = date.split("-").map(Number);
-  const [hour, minute, second = 0] = time.split(":").map(Number);
-  const localAsUtc = new Date(0);
-  localAsUtc.setUTCFullYear(year, month - 1, day);
-  localAsUtc.setUTCHours(hour, minute, second, 0);
-  const utc = localDateTimeToUtc(date, time, timezone);
-  return (localAsUtc.getTime() - utc.getTime()) / 3_600_000;
 }
 
 export function calculateCarterCusps(data: CarterChartSource) {

@@ -17,6 +17,7 @@ const CHART_STYLE_LABELS: Record<ChartStyle, string> = {
   south: "South",
   east: "East",
   placidus: "Placidus",
+  bhava: "Bhava Cusps",
 };
 
 type BooleanPreferenceKey = {
@@ -31,8 +32,8 @@ type PreferenceOption = {
 };
 
 const CHART_ELEMENT_OPTIONS: PreferenceOption[] = [
-  { key: "showHouseLabels", label: "House labels", description: "Show house numbers around the chart." },
-  { key: "showSignNumbers", label: "Sign numbers", description: "Use Aries = 1 through Pisces = 12." },
+  { key: "showHouseLabels", label: "House numbers", description: "Show H1–H12 around the chart; off by default." },
+  { key: "showSignNumbers", label: "Sign numbers", description: "Use Aries = 1 through Pisces = 12.", disabledFor: ["bhava"] },
 ];
 
 const CELESTIAL_BODY_OPTIONS: PreferenceOption[] = [
@@ -272,11 +273,13 @@ export function ChartSettingsDrawer({
                   </span>
                   <Switch
                     aria-label="Bhava cusp labels"
-                    checked={draft.viewPreferences.showBhavaCusps}
+                    checked={chartStyle === "bhava" || draft.viewPreferences.showBhavaCusps}
+                    disabled={chartStyle === "bhava"}
                     onCheckedChange={(checked) => setPreference("showBhavaCusps", checked)}
                   />
                 </div>
-                <fieldset disabled={!draft.viewPreferences.showBhavaCusps} className="mt-3 grid gap-3 sm:grid-cols-3 disabled:opacity-50">
+                {chartStyle === "bhava" && <p className="mt-2 text-xs text-muted-foreground">Always shown in the dedicated Bhava Cusps chart mode.</p>}
+                <fieldset disabled={chartStyle === "bhava" || !draft.viewPreferences.showBhavaCusps} className="mt-3 grid gap-3 sm:grid-cols-3 disabled:opacity-50">
                   <label className="text-xs font-medium">
                     Cusp sign labels
                     <select

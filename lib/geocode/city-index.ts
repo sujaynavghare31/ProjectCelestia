@@ -1,4 +1,5 @@
 import tzLookup from "tz-lookup";
+import { INDIA_CITY_FALLBACK } from "./india-cities";
 
 type CityRow = readonly [
   name: string,
@@ -7,6 +8,15 @@ type CityRow = readonly [
   longitude: number,
   aliases?: readonly string[],
 ];
+type IndexedCity = {
+  name: string;
+  country: string;
+  admin?: string;
+  latitude: number;
+  longitude: number;
+  aliases: readonly string[];
+  timezone: string;
+};
 
 const cityRows = [
   ["Mumbai", "India", 19.076, 72.8777, ["Bombay"]],
@@ -21,6 +31,7 @@ const cityRows = [
   ["Jaipur", "India", 26.9124, 75.7873],
   ["Surat", "India", 21.1702, 72.8311],
   ["Lucknow", "India", 26.8467, 80.9462],
+  ["Prayagraj", "India", 25.4358, 81.8463, ["Allahabad"]],
   ["Nagpur", "India", 21.1458, 79.0882],
   ["Thane", "India", 19.2183, 72.9781],
   ["Navi Mumbai", "India", 19.033, 73.0297],
@@ -175,18 +186,85 @@ const cityRows = [
   ["Auckland", "New Zealand", -36.8509, 174.7645],
 ] as const satisfies readonly CityRow[];
 
-export const staticCities = cityRows.map(([name, country, latitude, longitude, aliases = []]) => ({
+export const staticCities: IndexedCity[] = cityRows.map(([name, country, latitude, longitude, aliases = []]) => ({
   name,
   country,
+  admin: country === "India" ? (({
+    Mumbai: "Maharashtra",
+    Pune: "Maharashtra",
+    Delhi: "Delhi",
+    Bengaluru: "Karnataka",
+    Chennai: "Tamil Nadu",
+    Kolkata: "West Bengal",
+    Hyderabad: "Telangana",
+    Ahmedabad: "Gujarat",
+    Nashik: "Maharashtra",
+    Jaipur: "Rajasthan",
+    Surat: "Gujarat",
+    Lucknow: "Uttar Pradesh",
+    Nagpur: "Maharashtra",
+    Thane: "Maharashtra",
+    "Navi Mumbai": "Maharashtra",
+    Indore: "Madhya Pradesh",
+    Bhopal: "Madhya Pradesh",
+    Patna: "Bihar",
+    Vadodara: "Gujarat",
+    Rajkot: "Gujarat",
+    Ludhiana: "Punjab",
+    Agra: "Uttar Pradesh",
+    Varanasi: "Uttar Pradesh",
+    Prayagraj: "Uttar Pradesh",
+    Kanpur: "Uttar Pradesh",
+    Meerut: "Uttar Pradesh",
+    Amritsar: "Punjab",
+    Chandigarh: "Chandigarh",
+    Coimbatore: "Tamil Nadu",
+    Kochi: "Kerala",
+    Thiruvananthapuram: "Kerala",
+    Mangaluru: "Karnataka",
+    Mysuru: "Karnataka",
+    Visakhapatnam: "Andhra Pradesh",
+    Vijayawada: "Andhra Pradesh",
+    Bhubaneswar: "Odisha",
+    Guwahati: "Assam",
+    Ranchi: "Jharkhand",
+    Jodhpur: "Rajasthan",
+    Dehradun: "Uttarakhand",
+    Srinagar: "Jammu and Kashmir",
+    Panaji: "Goa",
+    Noida: "Uttar Pradesh",
+    Gurugram: "Haryana",
+    Ghaziabad: "Uttar Pradesh",
+    Jabalpur: "Madhya Pradesh",
+    "Chhatrapati Sambhajinagar": "Maharashtra",
+  } as Record<string, string>)[name] ?? "India") : undefined,
   latitude,
   longitude,
   aliases,
   timezone: tzLookup(latitude, longitude),
 }));
 
+const curatedNames = new Set(staticCities.filter(({ country }) => country === "India").map(({ name }) => normalize(name)));
+const indiaFallbackCities = INDIA_CITY_FALLBACK
+  .filter(({ name }) => !curatedNames.has(normalize(name)))
+  .map(({ name, admin, latitude, longitude }) => ({
+    name,
+    country: "India",
+    admin,
+    latitude,
+    longitude,
+    aliases: [] as readonly string[],
+    timezone: tzLookup(latitude, longitude),
+  }));
+staticCities.push(...indiaFallbackCities);
+
 export type StaticCityResult = {
   label: string;
   city: string;
+  name: string;
+  admin?: string;
+  country: string;
+  countryCode?: string;
   latitude: number;
   longitude: number;
   timezone: string;
@@ -209,10 +287,14 @@ export function findStaticCities(query: string): StaticCityResult[] {
     })
     .filter(({ rank }) => rank >= 0)
     .sort((left, right) => left.rank - right.rank)
-    .slice(0, 6)
+    .slice(0, 8)
     .map(({ place }) => ({
-      label: `${place.name}, ${place.country}`,
+      label: [place.name, place.admin, place.country].filter(Boolean).join(", "),
       city: `${place.name}, ${place.country}`,
+      name: place.name,
+      admin: place.admin,
+      country: place.country,
+      countryCode: place.country === "India" ? "IN" : undefined,
       latitude: place.latitude,
       longitude: place.longitude,
       timezone: place.timezone,

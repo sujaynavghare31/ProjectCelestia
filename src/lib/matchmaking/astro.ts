@@ -82,6 +82,7 @@ function planetGeo(name: PlanetName, d: number, sunLon: number, sunR: number) {
 export interface BirthInput {
   date: string; time: string;           // local "YYYY-MM-DD", "HH:MM[:SS]"
   tzHours: number; latitude: number; longitude: number;
+  placeName?: string;
   ayanamsa?: AyanamsaName | number;     // name or J2000 value; default Lahiri
   node?: "true" | "mean";
 }

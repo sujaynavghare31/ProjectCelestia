@@ -315,6 +315,9 @@ export default function JaiminiDashboard({
   const [solarRetry, setSolarRetry] = useState(0);
   const [activeSection, setActiveSection] = useState("dashas");
   const [activeTabNode, setActiveTabNode] = useState<HTMLButtonElement | null>(null);
+  const tabBarRef = useRef<HTMLElement | null>(null);
+  const navigationIntent = useRef<string | null>(null);
+  const navigationResetTimeout = useRef<number | null>(null);
   const deepLinkHandled = useRef(false);
   const asOfMs = useMemo(() => asOfTimestamp(asOf, profile.timezone), [asOf, profile.timezone]);
 
@@ -412,8 +415,18 @@ export default function JaiminiDashboard({
       const visible = entries
         .filter((entry) => entry.isIntersecting)
         .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
-      if (visible) setActiveSection(visible.target.id.replace("jaimini-", ""));
-    }, { rootMargin: "-15% 0px -65% 0px", threshold: 0 });
+      if (!visible) return;
+      const nextSection = visible.target.id.replace("jaimini-", "");
+      if (navigationIntent.current && navigationIntent.current !== nextSection) return;
+      if (navigationIntent.current === nextSection) {
+        navigationIntent.current = null;
+        if (navigationResetTimeout.current !== null) {
+          window.clearTimeout(navigationResetTimeout.current);
+          navigationResetTimeout.current = null;
+        }
+      }
+      setActiveSection(nextSection);
+    }, { rootMargin: "-20% 0px -60% 0px", threshold: 0 });
     const sections = SECTION_TABS
       .map(([id]) => document.getElementById(`jaimini-${id}`))
       .filter((section): section is HTMLElement => section !== null);
@@ -422,8 +435,20 @@ export default function JaiminiDashboard({
   }, [result]);
 
   useEffect(() => {
-    if (activeTabNode) activeTabNode.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+    const tabBar = tabBarRef.current;
+    if (!activeTabNode || !tabBar) return;
+    const tabRect = activeTabNode.getBoundingClientRect();
+    const barRect = tabBar.getBoundingClientRect();
+    if (tabRect.left < barRect.left) {
+      tabBar.scrollTo({ left: tabBar.scrollLeft + tabRect.left - barRect.left - 12, behavior: "smooth" });
+    } else if (tabRect.right > barRect.right) {
+      tabBar.scrollTo({ left: tabBar.scrollLeft + tabRect.right - barRect.right + 12, behavior: "smooth" });
+    }
   }, [activeTabNode]);
+
+  useEffect(() => () => {
+    if (navigationResetTimeout.current !== null) window.clearTimeout(navigationResetTimeout.current);
+  }, []);
 
   useEffect(() => {
     if (!result || deepLinkHandled.current) return;
@@ -436,6 +461,12 @@ export default function JaiminiDashboard({
   function jumpToSection(id: string) {
     const section = document.getElementById(`jaimini-${id}`);
     if (!section) return;
+    navigationIntent.current = id;
+    if (navigationResetTimeout.current !== null) window.clearTimeout(navigationResetTimeout.current);
+    navigationResetTimeout.current = window.setTimeout(() => {
+      navigationIntent.current = null;
+      navigationResetTimeout.current = null;
+    }, 1800);
     setActiveSection(id);
     window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#${id}`);
     requestAnimationFrame(() => {
@@ -575,7 +606,7 @@ export default function JaiminiDashboard({
         </div>
       </div>
 
-      <nav className="sticky top-16 z-20 flex w-full snap-x snap-mandatory gap-1 overflow-x-auto rounded-xl border border-border bg-card/95 p-1 shadow-sm backdrop-blur-sm" aria-label="Jaimini analysis sections">
+      <nav ref={tabBarRef} className="sticky top-16 z-20 flex w-full snap-x snap-mandatory gap-1 overflow-x-auto rounded-xl border border-border bg-card/95 p-1 shadow-sm backdrop-blur-sm" aria-label="Jaimini analysis sections">
         {SECTION_TABS.map(([id,label])=><button key={id} ref={activeSection === id ? setActiveTabNode : null} type="button" aria-controls={`jaimini-${id}`} aria-current={activeSection === id ? "location" : undefined} onClick={()=>jumpToSection(id)} className={`shrink-0 snap-start rounded-lg px-3 py-2 text-xs underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${activeSection===id?"bg-accent font-bold text-accent-foreground underline":"font-medium text-muted-foreground hover:bg-muted"}`}>{label}</button>)}
       </nav>
 

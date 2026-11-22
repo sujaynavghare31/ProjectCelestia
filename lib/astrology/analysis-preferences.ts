@@ -1,6 +1,6 @@
 import { PLANET_ORDER } from "./engines/midpoints";
 import type { MidpointMode } from "./engines/midpoints";
-import type { ArudhaPadaMode, CarterZodiac, HouseSystem, MidpointPreferences } from "@/lib/kundali-types";
+import type { ArudhaPadaMode, CarterZodiac, ChartStyle, CuspSystem, HouseSystem, MidpointPreferences } from "@/lib/kundali-types";
 
 const STORAGE_KEY = "celestia-analysis-preferences";
 const MIDPOINT_MODES: MidpointMode[] = ["conjunction", "conjOpp", "hard", "hard45"];
@@ -9,6 +9,8 @@ const CUSP_RECEIVERS: MidpointPreferences["cuspReceivers"][] = ["axes", "all", "
 export interface AnalysisPreferences {
   houseSystem: HouseSystem;
   carterZodiac: CarterZodiac;
+  chartStyle: ChartStyle;
+  cuspSystem: CuspSystem;
   midpointPreferences: MidpointPreferences;
   showArudhaPadas: boolean;
   arudhaPadaMode: ArudhaPadaMode;
@@ -52,6 +54,12 @@ export function readAnalysisPreferences(fallback: AnalysisPreferences): Analysis
       carterZodiac: parsed.carterZodiac === "sayana" || parsed.carterZodiac === "nirayanaA" || parsed.carterZodiac === "nirayanaB"
         ? parsed.carterZodiac
         : fallback.carterZodiac,
+      chartStyle: ["diamond", "south", "east", "placidus", "bhava"].includes(parsed.chartStyle as string)
+        ? parsed.chartStyle as ChartStyle
+        : fallback.chartStyle,
+      cuspSystem: ["placidus", "kp", "sripati", "equal", "carter"].includes(parsed.cuspSystem as string)
+        ? parsed.cuspSystem as CuspSystem
+        : fallback.cuspSystem,
       midpointPreferences: readMidpointPreferences(parsed.midpointPreferences, fallback.midpointPreferences),
       showArudhaPadas: typeof parsed.showArudhaPadas === "boolean" ? parsed.showArudhaPadas : fallback.showArudhaPadas,
       arudhaPadaMode: parsed.arudhaPadaMode === "all" || parsed.arudhaPadaMode === "al_ul_only"

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { CalendarDays, ChevronDown, Maximize2, Settings } from "lucide-react";
-import type { ChartStyle } from "@/lib/kundali-types";
+import type { ChartStyle, CuspSystem } from "@/lib/kundali-types";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useKundaliStore } from "@/lib/kundali-store";
 import { AYANAMSA_OPTIONS } from "@/lib/ayanamsa-options";
@@ -12,6 +12,7 @@ const CHART_STYLES: Array<{ value: ChartStyle; label: string }> = [
   { value: "south", label: "South" },
   { value: "east", label: "East" },
   { value: "placidus", label: "Placidus" },
+  { value: "bhava", label: "Bhava Cusps" },
 ];
 
 function ChartStyleIcon({ style }: { style: ChartStyle }) {
@@ -21,6 +22,7 @@ function ChartStyleIcon({ style }: { style: ChartStyle }) {
       {style === "south" && <path d="M3 3h18v18H3zM9 3v18M15 3v18M3 9h18M3 15h18" />}
       {style === "east" && <path d="M3 3h18v18H3zM12 3v18M3 12h18M3 3l18 18M21 3 3 21" />}
       {style === "placidus" && <path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20ZM2 12h20M12 2v20M5 5l14 14M19 5 5 19" />}
+      {style === "bhava" && <path d="M12 2 22 12 12 22 2 12 12 2Zm0 0v20M2 12h20M6 6l12 12M18 6 6 18" />}
     </svg>
   );
 }
@@ -29,6 +31,9 @@ export default function ChartControls({
   chartMode,
   chartStyle,
   onChartStyleChange,
+  cuspSystem,
+  onCuspSystemChange,
+  onChartStylePrefetch,
   overlayTransits,
   onOverlayTransitsChange,
   ascendantLabel,
@@ -46,6 +51,9 @@ export default function ChartControls({
   chartMode: "transit" | "birth";
   chartStyle: ChartStyle;
   onChartStyleChange: (style: ChartStyle) => void;
+  cuspSystem: CuspSystem;
+  onCuspSystemChange: (system: CuspSystem) => void;
+  onChartStylePrefetch: () => void;
   overlayTransits: boolean;
   onOverlayTransitsChange: (checked: boolean) => void;
   ascendantLabel: string;
@@ -180,6 +188,12 @@ export default function ChartControls({
                 role="radio"
                 aria-checked={chartStyle === value}
                 aria-label={`${label}${value === "diamond" ? " / Diamond" : ""} chart`}
+                onMouseEnter={() => {
+                  if (value === "bhava") onChartStylePrefetch();
+                }}
+                onFocus={() => {
+                  if (value === "bhava") onChartStylePrefetch();
+                }}
                 onClick={() => onChartStyleChange(value)}
                 className={`inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 lg:min-h-9 ${chartStyle === value ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
               >
@@ -190,9 +204,27 @@ export default function ChartControls({
           </div>
         </fieldset>
 
+        {chartStyle === "bhava" && (
+          <label className="flex h-11 min-w-0 items-center gap-2 rounded-xl border border-input bg-card px-3 text-xs font-medium text-muted-foreground lg:h-9">
+            <span className="shrink-0">Cusps:</span>
+            <select
+              aria-label="Bhava cusp system"
+              value={cuspSystem}
+              onChange={(event) => onCuspSystemChange(event.target.value as CuspSystem)}
+              className="min-w-0 flex-1 appearance-none bg-transparent text-xs font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            >
+              <option value="placidus">Placidus</option>
+              <option value="kp">KP (Krishnamurti)</option>
+              <option value="sripati">Sripati</option>
+              <option value="equal">Equal</option>
+              <option value="carter">Carter</option>
+            </select>
+          </label>
+        )}
+
         <div className="w-full min-w-[160px] max-w-[210px] sm:w-auto">
-          <Select value={referenceName} onValueChange={onReferenceNameChange}>
-            <SelectTrigger aria-label="D1 reference lagna" className="h-11 w-full rounded-full bg-card pr-9 text-xs lg:h-9">
+          <Select value={chartStyle === "bhava" ? "Ascendant" : referenceName} onValueChange={onReferenceNameChange}>
+            <SelectTrigger aria-label="D1 reference lagna" className="h-11 w-full rounded-full bg-card pr-9 text-xs lg:h-9" title={chartStyle === "bhava" ? "Bhava Cusps charts are counted from the Ascendant." : undefined}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="z-[110] !bg-card !text-foreground shadow-md">
@@ -202,18 +234,19 @@ export default function ChartControls({
               </SelectGroup>
               <SelectGroup>
                 <SelectLabel>Planet reference</SelectLabel>
-                <SelectItem value="Sun">Sun</SelectItem>
-                <SelectItem value="Moon">Moon</SelectItem>
-                <SelectItem value="Jupiter">Jupiter</SelectItem>
+                <SelectItem value="Sun" disabled={chartStyle === "bhava"}>Sun</SelectItem>
+                <SelectItem value="Moon" disabled={chartStyle === "bhava"}>Moon</SelectItem>
+                <SelectItem value="Jupiter" disabled={chartStyle === "bhava"}>Jupiter</SelectItem>
               </SelectGroup>
               <SelectGroup>
                 <SelectLabel>House reference</SelectLabel>
                 {Array.from({ length: 12 }, (_, index) => (
-                  <SelectItem key={index} value={`house:${index + 1}`}>House {index + 1}</SelectItem>
+                  <SelectItem key={index} value={`house:${index + 1}`} disabled={chartStyle === "bhava"}>House {index + 1}</SelectItem>
                 ))}
               </SelectGroup>
             </SelectContent>
           </Select>
+          {chartStyle === "bhava" && <p className="mt-1 px-2 text-[10px] text-muted-foreground">Bhava Cusps charts are counted from the Ascendant.</p>}
         </div>
       </div>
 

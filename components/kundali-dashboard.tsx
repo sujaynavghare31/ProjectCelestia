@@ -14,30 +14,28 @@ import {
   Globe2,
   Info,
   LoaderCircle,
-  MapPin,
   Maximize2,
   Minimize2,
   Orbit,
-  Search,
   Save,
   X,
 } from "lucide-react";
-import type { CarterZodiac, ChartSettings, ChartStyle, CelestialLanguage, EphemerisResponse, HouseSystem, MidpointPreferences, PlanetPosition, ViewPreferences } from "@/lib/kundali-types";
+import type { CarterZodiac, ChartSettings, ChartStyle, CelestialLanguage, CuspSystem, EphemerisResponse, HouseSystem, MidpointPreferences, PlanetPosition, ViewPreferences } from "@/lib/kundali-types";
 import PlacidusWheel from "@/components/PlacidusWheel";
 import ChartControls, { CoreCalculationControls } from "@/components/ChartControls";
 import { getBirthDateTimeDefaults, getCurrentBirthDateTime, useKundaliStore, type BirthProfile } from "@/lib/kundali-store";
 import { PROFILE_DRAFT_STORAGE_KEY } from "@/lib/astrology/profile-draft";
-import { limitCoordinatePrecision, parseCoordinateDraft } from "@/lib/coordinate-input";
 import { formatPlanetDegree, planetChartDisplayName, planetName, signName } from "@/lib/astrology/localization";
 import { splitHouseBodies } from "@/lib/astrology/chart-layout";
 import { dagdhaRashis } from "@/lib/astrology/dagdha-rashi";
 import { getBirthDateTimeError } from "@/lib/astrology/ephemeris-input";
 import { readSavedAstrologyConfig } from "@/lib/astrology/config-storage";
 import { calculateCarterCusps, getCarterPlacementCusps, placeInCarterHouses } from "@/lib/astrology/carter-chart";
-import { cuspLabels, northCuspAnchor } from "@/lib/astrology/cusp-labels";
+import { CUSP_SIGNS, cuspLabels, northCuspAnchor } from "@/lib/astrology/cusp-labels";
 import { calculateArudhaPadas, type ArudhaPada } from "@/lib/astrology/arudha-padas";
 import { calculateKharaPoints } from "@/lib/astrology/khara-points";
 import { buildChartViewModel } from "@/src/lib/chart/bhava";
+import { DEFAULT_PLACE, formatPlaceLabel, type Place } from "@/src/lib/geocode/place";
 import dynamic from "next/dynamic";
 import { readAnalysisPreferences, writeAnalysisPreferences } from "@/lib/astrology/analysis-preferences";
 import { createMidpointReport, visibleMidpointRows, visibleMidpointTrees } from "@/lib/astrology/midpoint-chart";
@@ -58,6 +56,14 @@ const ChartSettingsDrawer = dynamic(
   () => import("@/components/kundali-dashboard-dialogs").then((module) => module.ChartSettingsDrawer),
   { loading: () => <CelestiaLoader label="Loading Chart Settings…" compact tone="dashboard" /> },
 );
+const PlaceSearch = dynamic(() => import("@/src/components/place/PlaceSearch"), {
+  loading: () => (
+    <div className="min-w-0">
+      <span className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300">Birth city</span>
+      <div className="h-11 animate-pulse rounded-lg border border-input bg-muted/40 xl:h-9" aria-hidden="true" />
+    </div>
+  ),
+});
 const SaveChartDialog = dynamic(
   () => import("@/components/kundali-dashboard-dialogs").then((module) => module.SaveChartDialog),
   { loading: () => <CelestiaLoader label="Loading saved chart form…" compact tone="dashboard" /> },
@@ -177,6 +183,18 @@ function normalizeSign(sign: number) {
 
 function normalizeDegrees(degrees: number) {
   return ((degrees % 360) + 360) % 360;
+}
+
+function planetAtLongitude(position: PlanetPosition, longitude: number): PlanetPosition {
+  const normalized = normalizeDegrees(longitude);
+  const sign = Math.floor(normalized / 30);
+  return {
+    ...position,
+    longitude: normalized,
+    sign,
+    signName: CUSP_SIGNS[sign],
+    degree: normalized - sign * 30,
+  };
 }
 
 const PLANET_GLYPHS: Record<string, string> = {
@@ -554,7 +572,7 @@ function SvgChartComponent({
   const hasTwelveCusps = houseCusps.length === 12
     && houseCusps.every(({ longitude }) => Number.isFinite(longitude));
   const bhavaPlacement = varga === 1 && hasTwelveCusps && (
-    houseBasedPlacement || (style === "diamond" && preferences.showBhavaCusps)
+    houseBasedPlacement || style === "bhava" || (style === "diamond" && preferences.showBhavaCusps)
   );
   const sourceBodies = [
     ...[ascendant, ...visiblePlanets, ...visiblePoints].map((planet) => ({
@@ -823,9 +841,12 @@ function SvgChartComponent({
         const bodyStartY = compactBottomBodies ? y - 3 : y + 10;
         return (
           <g key={house.house}>
+            {style === "bhava" && preferences.showHouseLabels && (
+              <text x={x} y={y - 25} fill="hsl(var(--muted-foreground))" fontSize="7" fontWeight="600" textAnchor="middle">H{house.house}</text>
+            )}
             <text x={x} y={y - 15} fill="hsl(var(--foreground))" fontSize="9" textAnchor="middle">
               {bhavaPlacement
-                ? `${preferences.showHouseLabels ? `H${house.house} · ` : ""}${chartSignDisplay(house.sign, language, preferences).toUpperCase()}`
+                ? `${preferences.showHouseLabels && style !== "bhava" ? `H${house.house} · ` : ""}${chartSignDisplay(house.sign, language, preferences).toUpperCase()}`
                 : `${preferences.showHouseLabels ? isAscHouse ? "1ST HOUSE · " : `H${house.house} · ` : ""}${chartSignDisplay(house.sign, language, preferences).toUpperCase()}`}
             </text>
             {preferences.showBhavaCusps && preferences.cuspLabelStyle === "box" && cuspLabelResult && cuspLabelResult.boxes[house.house - 1].cusps.map((cusp, cuspIndex) => (
@@ -1130,16 +1151,30 @@ function SecondaryTabSkeleton() {
   );
 }
 
-interface GeocodeResult {
-  label: string;
-  city: string;
-  latitude: number;
-  longitude: number;
-  timezone: string;
-}
-
 const CONTROL_CLASS = "h-9 rounded-lg border border-input bg-card px-2.5 text-xs text-card-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/40";
 const PANEL_CLASS = "min-w-0 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm md:rounded-2xl md:border-stone-200/80 md:shadow-[0_1px_3px_rgba(15,23,42,0.04)]";
+type CuspCalculator = typeof import("@/src/lib/chart/cusps");
+type KpCuspResponse = { key: string; data?: EphemerisResponse; error?: string; loading: boolean };
+type BhavaChartCalculation = {
+  data: EphemerisResponse;
+  ascendant: PlanetPosition;
+  houseCusps: EphemerisResponse["houseCusps"];
+  error: string | null;
+  warning: string | null;
+};
+
+const CUSP_SYSTEMS = ["placidus", "kp", "sripati", "equal", "carter"] as const satisfies readonly CuspSystem[];
+const CUSP_SYSTEM_LABELS: Record<CuspSystem, string> = {
+  placidus: "Placidus",
+  kp: "KP (Krishnamurti)",
+  sripati: "Sripati",
+  equal: "Equal",
+  carter: "Carter",
+};
+
+function isCuspSystem(value: string | null): value is CuspSystem {
+  return value !== null && CUSP_SYSTEMS.includes(value as CuspSystem);
+}
 
 async function readProfileApiResponse<T>(response: Response): Promise<T> {
   try {
@@ -1229,6 +1264,10 @@ export function KundaliDashboard({
   const [error, setError] = useState<string | null>(null);
   const [transitError, setTransitError] = useState<string | null>(null);
   const [referenceName, setReferenceName] = useState("Ascendant");
+  const [cuspSystem, setCuspSystem] = useState<CuspSystem>("placidus");
+  const [cuspCalculator, setCuspCalculator] = useState<CuspCalculator | null>(null);
+  const [cuspModuleError, setCuspModuleError] = useState<string | null>(null);
+  const [kpCuspResult, setKpCuspResult] = useState<KpCuspResponse | null>(null);
   const [auxiliaryReferenceName, setAuxiliaryReferenceName] = useState("Ascendant");
   const [overlayTransits, setOverlayTransits] = useState(false);
   const [transitRefreshKey, setTransitRefreshKey] = useState(0);
@@ -1268,15 +1307,9 @@ export function KundaliDashboard({
   const saveToastTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [profileActionError, setProfileActionError] = useState<string | null>(null);
   const [profileActionMessage, setProfileActionMessage] = useState<string | null>(null);
-  const [locationSearch, setLocationSearch] = useState(profile.city);
-  const [useCoordinates, setUseCoordinates] = useState(false);
-  const [latitudeDraft, setLatitudeDraft] = useState(profile.lat.toFixed(2));
-  const [longitudeDraft, setLongitudeDraft] = useState(profile.lng.toFixed(2));
+  const [placeSelectionInvalid, setPlaceSelectionInvalid] = useState(false);
   const [analysisPreferencesLoaded, setAnalysisPreferencesLoaded] = useState(false);
-  const [locationResults, setLocationResults] = useState<GeocodeResult[]>([]);
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
-  const [coordinateTimezoneError, setCoordinateTimezoneError] = useState<string | null>(null);
+  const cuspCalculatorPromise = useRef<Promise<CuspCalculator> | null>(null);
   const initialProfileSubmitted = useRef(false);
   const openedSavedProfileId = useRef<string | null>(null);
   const jaiminiAutoloadKey = useRef<string | null>(null);
@@ -1294,11 +1327,80 @@ export function KundaliDashboard({
     viewPreferences,
   }), [zodiacMode, ayanamsa, customAyanamsaDegrees, houseSystem, carterZodiac, language, viewPreferences]);
 
+  const profilePlace = useMemo<Place>(() => {
+    if (
+      profile.city === "Mumbai"
+      && Math.abs(profile.lat - DEFAULT_PLACE.latitude) < 0.001
+      && Math.abs(profile.lng - DEFAULT_PLACE.longitude) < 0.001
+      && profile.timezone === DEFAULT_PLACE.timezone
+    ) return DEFAULT_PLACE;
+    return {
+      name: profile.city || "Custom coordinates",
+      country: "",
+      latitude: profile.lat,
+      longitude: profile.lng,
+      timezone: profile.timezone,
+      source: "custom",
+    };
+  }, [profile.city, profile.lat, profile.lng, profile.timezone]);
+
+  const handlePlaceChange = useCallback((place: Place) => {
+    setProfile({
+      city: formatPlaceLabel(place),
+      lat: place.latitude,
+      lng: place.longitude,
+      timezone: place.timezone,
+    });
+    setPlaceSelectionInvalid(false);
+    setProfileActionError(null);
+  }, [setProfile]);
+
+  const loadCuspCalculator = useCallback(async () => {
+    if (!cuspCalculatorPromise.current) cuspCalculatorPromise.current = import("@/src/lib/chart/cusps");
+    try {
+      const calculator = await cuspCalculatorPromise.current;
+      setCuspCalculator(calculator);
+      setCuspModuleError(null);
+    } catch (caught) {
+      console.error("[kundali] Unable to load Bhava Cusps calculations.", caught);
+      cuspCalculatorPromise.current = null;
+      setCuspModuleError("Bhava Cusps calculations could not be loaded. Refresh the page and try again.");
+    }
+  }, []);
+
+  const replaceChartUrl = useCallback((style: ChartStyle, system: CuspSystem) => {
+    const url = new URL(window.location.href);
+    if (style === "bhava") {
+      url.searchParams.set("chart", "bhava");
+      url.searchParams.set("cusps", system);
+    } else {
+      url.searchParams.delete("chart");
+      url.searchParams.delete("cusps");
+    }
+    window.history.replaceState(null, "", url);
+  }, []);
+
+  const handleChartStyleChange = useCallback((nextStyle: ChartStyle) => {
+    setChartStyle(nextStyle);
+    if (nextStyle === "bhava") {
+      setReferenceName("Ascendant");
+      void loadCuspCalculator();
+    }
+    replaceChartUrl(nextStyle, cuspSystem);
+  }, [cuspSystem, loadCuspCalculator, replaceChartUrl, setChartStyle]);
+
+  const handleCuspSystemChange = useCallback((nextSystem: CuspSystem) => {
+    setCuspSystem(nextSystem);
+    replaceChartUrl(chartStyle, nextSystem);
+  }, [chartStyle, replaceChartUrl]);
+
   useEffect(() => {
     const state = useKundaliStore.getState();
     const saved = readAnalysisPreferences({
       houseSystem: state.houseSystem,
       carterZodiac: state.carterZodiac,
+      chartStyle: state.chartStyle,
+      cuspSystem: "placidus",
       midpointPreferences: state.midpointPreferences,
       showArudhaPadas: state.viewPreferences.showArudhaPadas,
       arudhaPadaMode: state.viewPreferences.arudhaPadaMode,
@@ -1306,23 +1408,41 @@ export function KundaliDashboard({
     if (saved) {
       setHouseSystem(saved.houseSystem);
       setCarterZodiac(saved.carterZodiac);
+      setChartStyle(saved.chartStyle);
+      setCuspSystem(saved.cuspSystem);
       setMidpointPreferences(saved.midpointPreferences);
       setViewPreference("showArudhaPadas", saved.showArudhaPadas);
       setViewPreference("arudhaPadaMode", saved.arudhaPadaMode);
     }
     setAnalysisPreferencesLoaded(true);
-  }, [setHouseSystem, setCarterZodiac, setMidpointPreferences, setViewPreference]);
+  }, [setChartStyle, setHouseSystem, setCarterZodiac, setMidpointPreferences, setViewPreference]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("chart") !== "bhava") return;
+    setChartStyle("bhava");
+    const requestedSystem = params.get("cusps");
+    if (isCuspSystem(requestedSystem)) setCuspSystem(requestedSystem);
+    setReferenceName("Ascendant");
+    void loadCuspCalculator();
+  }, [loadCuspCalculator, setChartStyle]);
 
   useEffect(() => {
     if (!analysisPreferencesLoaded) return;
     writeAnalysisPreferences({
       houseSystem,
       carterZodiac,
+      chartStyle,
+      cuspSystem,
       midpointPreferences,
       showArudhaPadas: viewPreferences.showArudhaPadas,
       arudhaPadaMode: viewPreferences.arudhaPadaMode,
     });
-  }, [analysisPreferencesLoaded, houseSystem, carterZodiac, midpointPreferences, viewPreferences.showArudhaPadas, viewPreferences.arudhaPadaMode]);
+  }, [analysisPreferencesLoaded, houseSystem, carterZodiac, chartStyle, cuspSystem, midpointPreferences, viewPreferences.showArudhaPadas, viewPreferences.arudhaPadaMode]);
+
+  useEffect(() => {
+    if (chartStyle === "bhava") void loadCuspCalculator();
+  }, [chartStyle, loadCuspCalculator]);
 
   useEffect(() => {
     const syncTab = () => {
@@ -1385,10 +1505,6 @@ export function KundaliDashboard({
       setProfile(birthProfile);
       setBtrOffsetSeconds(0);
       setSavedProfileId(savedProfile.id);
-      setLocationSearch(birthProfile.city);
-      setLatitudeDraft(birthProfile.lat.toFixed(2));
-      setLongitudeDraft(birthProfile.lng.toFixed(2));
-      setUseCoordinates(false);
       initialProfileSubmitted.current = true;
       setSubmittedProfile({ ...birthProfile, name: birthProfile.name.trim() || "Birth chart" });
       setProfileCollapsed(true);
@@ -1434,10 +1550,6 @@ export function KundaliDashboard({
     setProfile(draft);
     setBtrOffsetSeconds(0);
     setSavedProfileId(draft.id || null);
-    setLocationSearch(draft.city);
-    setLatitudeDraft(draft.lat.toFixed(2));
-    setLongitudeDraft(draft.lng.toFixed(2));
-    setUseCoordinates(false);
     initialProfileSubmitted.current = true;
     setSubmittedProfile({ ...draft, name: draft.name.trim() || "Birth chart" });
     setProfileCollapsed(true);
@@ -1461,10 +1573,6 @@ export function KundaliDashboard({
   }, [profile.date, profile.time, profile.lat, profile.lng, profile.timezone, profile.name, profile.sex, setProfile]);
 
   useEffect(() => {
-    setLocationSearch(profile.city);
-  }, [profile.city]);
-
-  useEffect(() => {
     if (!notesExpanded) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setNotesExpanded(false);
@@ -1474,69 +1582,6 @@ export function KundaliDashboard({
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [notesExpanded]);
-
-  useEffect(() => {
-    const query = locationSearch.trim();
-    if (query.length < 3 || query === profile.city) {
-      setLocationResults([]);
-      setLocationError(null);
-      setLocationLoading(false);
-      return;
-    }
-
-    let isMounted = true;
-    const timeout = window.setTimeout(async () => {
-      setLocationLoading(true);
-      setLocationError(null);
-      try {
-        const response = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`);
-        const result = await response.json() as { results?: GeocodeResult[]; error?: string };
-        if (!isMounted) return;
-        if (!response.ok || result.error) throw new Error(result.error ?? `Place search failed (${response.status}).`);
-        if (!Array.isArray(result.results)) throw new Error("Place search returned an invalid result.");
-        setLocationResults(result.results);
-      } catch (requestError) {
-        if (!isMounted) return;
-        setLocationError(requestError instanceof Error ? requestError.message : "Unable to search for this location.");
-      } finally {
-        if (isMounted) setLocationLoading(false);
-      }
-    }, 850);
-    return () => {
-      isMounted = false;
-      window.clearTimeout(timeout);
-    };
-  }, [locationSearch, profile.city]);
-
-  useEffect(() => {
-    if (!Number.isFinite(profile.lat) || !Number.isFinite(profile.lng)) return;
-    if (
-      chartMode === "birth"
-      && submittedProfile?.id
-      && submittedProfile.lat === profile.lat
-      && submittedProfile.lng === profile.lng
-      && submittedProfile.timezone === profile.timezone
-    ) return;
-
-    let isMounted = true;
-    const timeout = window.setTimeout(async () => {
-      try {
-        const response = await fetch(`/api/geocode?lat=${encodeURIComponent(profile.lat)}&lng=${encodeURIComponent(profile.lng)}`);
-        const result = await response.json() as { timezone?: string; error?: string };
-        if (!isMounted) return;
-        if (!response.ok || !result.timezone) throw new Error(result.error ?? `Time zone lookup failed (${response.status}).`);
-        setCoordinateTimezoneError(null);
-        if (result.timezone !== profile.timezone) setProfile({ timezone: result.timezone });
-      } catch (requestError) {
-        if (!isMounted) return;
-        setCoordinateTimezoneError(requestError instanceof Error ? requestError.message : "Could not update the birth place time zone.");
-      }
-    }, 350);
-    return () => {
-      isMounted = false;
-      window.clearTimeout(timeout);
-    };
-  }, [profile.lat, profile.lng, profile.timezone, chartMode, submittedProfile]);
 
   useEffect(() => {
     const previousUserId = previousSavedProfilesUserId.current;
@@ -1689,6 +1734,10 @@ export function KundaliDashboard({
   }, [chartMode, dashboardTab, profile.date, profile.time, profile.timezone, profile.lat, profile.lng, profile.name, profile.sex]);
   const submitBirthChart = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (placeSelectionInvalid) {
+      setError("Choose a birth place from the suggestions or apply its coordinates.");
+      return;
+    }
     calculateBirthChart();
   };
   const redirectToSignIn = () => {
@@ -1711,8 +1760,8 @@ export function KundaliDashboard({
       setSaveDialogError("Add a birth date and time before saving this chart.");
       return false;
     }
-    if (!useCoordinates && locationSearch.trim() !== profile.city.trim()) {
-      setSaveDialogError("Choose a birth city from the search suggestions before saving.");
+    if (placeSelectionInvalid) {
+      setSaveDialogError("Choose a birth place from the suggestions or apply its coordinates before saving.");
       return false;
     }
 
@@ -1778,20 +1827,6 @@ export function KundaliDashboard({
     const targetId = mode === "update" ? savedProfileId : null;
     if (await saveProfile(targetId, chartName)) setSaveDialogOpen(false);
   };
-  const chooseLocation = (location: GeocodeResult) => {
-    setProfile({
-      city: location.city,
-      lat: location.latitude,
-      lng: location.longitude,
-      timezone: location.timezone,
-    });
-    setLatitudeDraft(location.latitude.toFixed(2));
-    setLongitudeDraft(location.longitude.toFixed(2));
-    setUseCoordinates(false);
-    setLocationSearch(location.city);
-    setLocationResults([]);
-    setLocationError(null);
-  };
   const adjustBirthTime = (seconds: number) => {
     if (!profile.date || !profile.time) return;
     adjustTime(seconds);
@@ -1854,8 +1889,113 @@ export function KundaliDashboard({
       houseCuspSystem: "Carter (Poli-Equatorial)",
     };
   }, [sourceDisplayData, houseSystem, carterResult, carterZodiac]);
+  const kpCuspRequestKey = sourceDisplayData
+    ? JSON.stringify([sourceDisplayData.input, "krishnamurti", "kp"])
+    : "";
+  useEffect(() => {
+    if (chartStyle !== "bhava" || cuspSystem !== "kp" || !sourceDisplayData) return;
+    const key = kpCuspRequestKey;
+    const controller = new AbortController();
+    setKpCuspResult({ key, loading: true });
+    void (async () => {
+      try {
+        const response = await fetch("/api/ephemeris", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            ...sourceDisplayData.input,
+            zodiacMode: "sidereal",
+            ayanamsa: "krishnamurti",
+            calculationMode: "kp",
+            kp: true,
+          }),
+        });
+        const payload = await response.json() as EphemerisResponse | { error?: string };
+        if (!response.ok || !("ascendant" in payload)) {
+          throw new Error("error" in payload ? payload.error ?? "KP cusps could not be calculated." : "KP cusps could not be calculated.");
+        }
+        if (!controller.signal.aborted) setKpCuspResult({ key, data: payload, loading: false });
+      } catch (caught) {
+        if (controller.signal.aborted) return;
+        const message = caught instanceof Error ? caught.message : "KP cusps could not be calculated.";
+        console.error("[kundali] KP cusp calculation failed.", caught);
+        setKpCuspResult({ key, error: message, loading: false });
+      }
+    })();
+    return () => controller.abort();
+  }, [chartStyle, cuspSystem, kpCuspRequestKey, sourceDisplayData]);
+  const kpCuspForChart = kpCuspResult?.key === kpCuspRequestKey ? kpCuspResult : null;
+  const bhavaCalculation = useMemo<BhavaChartCalculation | null>(() => {
+    if (chartStyle !== "bhava" || !cuspCalculator) return null;
+    const cuspSource = cuspSystem === "kp" ? kpCuspForChart?.data : sourceDisplayData;
+    if (!cuspSource) return null;
+    try {
+      const ayanamsaId = cuspSource.input.zodiacMode === "tropical" ? "tropical" : cuspSource.input.ayanamsa;
+      const carterCusps = cuspSystem === "carter"
+        ? getCarterPlacementCusps(
+          calculateCarterCusps(cuspSource),
+          cuspSource.input.zodiacMode === "tropical" ? "sayana" : carterZodiac,
+        ).map((cusp) => cusp.longitude)
+        : undefined;
+      const cuspLongitudes = cuspCalculator.getBhavaCusps(cuspSystem, {
+        ascendantLongitude: cuspSource.ascendant.longitude,
+        midheavenLongitude: cuspSource.mc.longitude,
+        placidusCusps: cuspSource.houseCusps.map((cusp) => cusp.longitude),
+        kpCusps: cuspSystem === "kp" ? cuspSource.houseCusps.map((cusp) => cusp.longitude) : undefined,
+        carterCusps,
+        latitude: cuspSource.input.lat,
+        ayanamsaId,
+      }, {
+        id: ayanamsaId,
+        degrees: cuspSource.ayanamsa.degrees,
+      });
+      const houseCusps = cuspLongitudes.map((longitude, index) => {
+        const sign = Math.floor(normalizeDegrees(longitude) / 30);
+        return { house: index + 1, longitude, sign, signName: CUSP_SIGNS[sign] };
+      });
+      const ascendant = cuspSystem === "carter"
+        ? planetAtLongitude(cuspSource.ascendant, cuspLongitudes[0])
+        : cuspSource.ascendant;
+      const warning = Math.abs(cuspSource.input.lat) >= 66 && (cuspSystem === "placidus" || cuspSystem === "kp")
+        ? `${CUSP_SYSTEM_LABELS[cuspSystem]} is undefined above 66° latitude; Equal cusps are shown instead.`
+        : null;
+      return { data: cuspSource, ascendant, houseCusps, error: null, warning };
+    } catch (caught) {
+      return {
+        data: cuspSource,
+        ascendant: cuspSource.ascendant,
+        houseCusps: [],
+        error: caught instanceof Error ? caught.message : `${CUSP_SYSTEM_LABELS[cuspSystem]} cusps could not be calculated.`,
+        warning: null,
+      };
+    }
+  }, [chartStyle, cuspCalculator, cuspSystem, kpCuspForChart, sourceDisplayData, carterZodiac]);
   const displayLoading = chartMode === "transit" ? transitLoading : loading;
   const displayError = chartMode === "transit" ? transitError : error;
+  const primaryChartData = chartStyle === "bhava"
+    ? bhavaCalculation?.error ? null : bhavaCalculation?.data ?? null
+    : displayData;
+  const primaryChartAscendant = chartStyle === "bhava"
+    ? bhavaCalculation?.error ? null : bhavaCalculation?.ascendant ?? null
+    : displayData?.ascendant ?? null;
+  const primaryChartCusps = chartStyle === "bhava"
+    ? bhavaCalculation?.error ? [] : bhavaCalculation?.houseCusps ?? []
+    : displayData?.houseCusps ?? [];
+  const primaryChartError = chartStyle === "bhava"
+    ? bhavaCalculation?.error ?? cuspModuleError ?? (cuspSystem === "kp" ? kpCuspForChart?.error ?? null : null) ?? (!sourceDisplayData ? displayError : null)
+    : displayError;
+  const primaryChartLoading = chartStyle === "bhava"
+    ? !primaryChartData && !primaryChartError
+    : displayLoading;
+  const primaryChartWarning = chartStyle === "bhava" ? bhavaCalculation?.warning : null;
+  const primaryChartPreferences: ViewPreferences = chartStyle === "bhava"
+    ? { ...viewPreferences, showSignNumbers: false, useSignIcons: false, showBhavaCusps: true }
+    : viewPreferences;
+  const primaryChartLanguage = chartStyle === "bhava" ? "en" : language;
+  const cuspDetailData = chartStyle === "bhava" ? primaryChartData : displayData;
+  const cuspDetailCusps = chartStyle === "bhava" ? primaryChartCusps : displayData?.houseCusps ?? [];
+  const cuspDetailAscendant = chartStyle === "bhava" ? primaryChartAscendant : displayData?.ascendant ?? null;
   const kharaPoints = useMemo(() => {
     if (dashboardTab !== "core" || !displayData) return [];
     const references = [
@@ -1873,16 +2013,16 @@ export function KundaliDashboard({
     if (displayData && !displayLoading) setProfileCollapsed(true);
   }, [displayData, displayLoading]);
   const displayCuspLabels = useMemo(() => {
-    if (!displayData || displayData.houseCusps.length !== 12) return null;
+    if (!cuspDetailAscendant || cuspDetailCusps.length !== 12) return null;
     return cuspLabels(
-      displayData.houseCusps.map((cusp) => cusp.longitude),
+      cuspDetailCusps.map((cusp) => cusp.longitude),
       {
         signStyle: viewPreferences.cuspLabelSignStyle,
         degreeFormat: viewPreferences.cuspLabelDegreeFormat,
       },
-      displayData.ascendant.longitude,
+      cuspDetailAscendant.longitude,
     );
-  }, [displayData, viewPreferences.cuspLabelDegreeFormat, viewPreferences.cuspLabelSignStyle]);
+  }, [cuspDetailAscendant, cuspDetailCusps, viewPreferences.cuspLabelDegreeFormat, viewPreferences.cuspLabelSignStyle]);
   const midpointReport = useMemo(() => {
     if (dashboardTab !== "midpoints" || !displayData) return null;
     const cacheKey = JSON.stringify([
@@ -1928,16 +2068,18 @@ export function KundaliDashboard({
     || profile.sex !== submittedProfile.sex
     || profile.date !== submittedProfile.date
     || profile.time !== submittedProfile.time
-    || locationSearch.trim() !== submittedProfile.city.trim()
+    || placeSelectionInvalid
+    || profile.city !== submittedProfile.city
     || profile.lat !== submittedProfile.lat
     || profile.lng !== submittedProfile.lng
   ));
   const referenceHouseNumber = getReferenceHouse(referenceName, displayData?.planets ?? []);
-  const referenceLabel = referenceName === "Ascendant"
+  const primaryReferenceHouseNumber = chartStyle === "bhava" ? 1 : referenceHouseNumber;
+  const referenceLabel = chartStyle === "bhava" || referenceName === "Ascendant"
     ? "Ascendant"
     : ["Sun", "Moon", "Jupiter"].includes(referenceName)
       ? `${referenceName} reference`
-      : `House ${referenceHouseNumber}`;
+      : `House ${primaryReferenceHouseNumber}`;
   const auxiliaryReferenceHouseNumber = getReferenceHouse(auxiliaryReferenceName);
   const auxiliaryChart = auxiliaryType === "transit" ? transitData
     : auxiliaryType === "solar" || auxiliaryType === "tajika" ? data?.solarReturn
@@ -1994,7 +2136,7 @@ export function KundaliDashboard({
             </div>
           )}
           <form onSubmit={submitBirthChart} className={`${profileCollapsed ? "hidden md:block" : ""} min-w-0 space-y-2`}>
-            <div className={`grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2 ${useCoordinates ? "xl:grid-cols-[minmax(0,1.35fr)_minmax(100px,.85fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(232px,2fr)_minmax(135px,1.35fr)_minmax(112px,1.1fr)_minmax(110px,1fr)]" : "xl:grid-cols-[minmax(0,1.35fr)_minmax(100px,.85fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(152px,1.5fr)_minmax(135px,1.35fr)_minmax(112px,1.1fr)_minmax(110px,1fr)]"}`}>
+            <div className="grid min-w-0 grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-[minmax(0,1.35fr)_minmax(100px,.85fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(190px,1.7fr)_minmax(135px,1.35fr)_minmax(112px,1.1fr)_minmax(110px,1fr)]">
               <label className="flex min-w-0 flex-col text-xs font-medium text-slate-700 dark:text-slate-300">
                 Chart name
                 <input aria-label="Chart name" type="text" maxLength={100} value={profile.name === "Current transit" ? "" : profile.name} placeholder="Enter Jataka's name" onChange={(event) => setProfile({ name: event.target.value })} className={`${CONTROL_CLASS} mt-1 h-11 w-full text-base placeholder:text-slate-600 dark:placeholder:text-slate-400 md:text-sm xl:h-9`} />
@@ -2024,52 +2166,14 @@ export function KundaliDashboard({
                   }} required className={`${CONTROL_CLASS} mt-1 box-border h-11 w-full min-w-0 max-w-full px-2 text-base font-mono md:text-sm xl:h-9`} />
                 </label>
               </div>
-              <div className="relative min-w-0 text-xs font-medium text-slate-700 dark:text-slate-300">
-                {!useCoordinates ? (
-                  <>
-                    <label htmlFor="birth-city-search">Birth city</label>
-                    <span className="relative mt-1 block">
-                      <MapPin className="pointer-events-none absolute left-2.5 top-2.5 size-3.5 text-muted-foreground" />
-                      <input id="birth-city-search" aria-label="Birth city; search anywhere" type="search" maxLength={160} value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="Search city…" autoComplete="off" aria-autocomplete="list" aria-expanded={locationResults.length > 0} className={`${CONTROL_CLASS} h-11 w-full min-w-0 pl-8 pr-14 text-base md:text-sm xl:h-9 xl:pr-12`} />
-                      {locationLoading && <Search className="absolute right-16 top-2.5 size-3.5 animate-pulse text-primary xl:right-14" />}
-                      <button type="button" onClick={() => {
-                        if (Number.isFinite(profile.lat)) setLatitudeDraft(profile.lat.toFixed(2));
-                        if (Number.isFinite(profile.lng)) setLongitudeDraft(profile.lng.toFixed(2));
-                        setUseCoordinates(true);
-                        setLocationError(null);
-                      }} title="Enter birth coordinates" aria-label="Enter birth coordinates" className="absolute right-0 top-1/2 grid h-11 w-11 -translate-y-1/2 place-items-center rounded text-[9px] font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 xl:h-9 xl:w-10">Coords</button>
-                    </span>
-                    {locationError && <p role="status" className="absolute z-10 mt-1 rounded bg-rose-50 px-1 text-xs text-rose-800 dark:bg-rose-950/30 dark:text-rose-200">{locationError}</p>}
-                    {locationResults.length > 0 && (
-                      <ul role="listbox" aria-label="Location search results" className="absolute left-0 right-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-xl border border-border bg-card p-1 shadow-xl">
-                        {locationResults.map((location) => <li key={`${location.label}-${location.latitude}-${location.longitude}`} role="option" aria-selected={false}><button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => chooseLocation(location)} className="w-full rounded-lg px-2.5 py-2 text-left transition hover:bg-muted"><span className="block truncate text-xs font-medium text-foreground">{location.city}</span><span className="mt-0.5 block truncate text-xs text-muted-foreground">{location.label} · {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)} · {location.timezone}</span></button></li>)}
-                      </ul>
-                    )}
-                  </>
-                ) : (
-                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem] items-end gap-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.25rem]">
-                    <label className="min-w-0">Latitude
-                      <input aria-label="Latitude" type="text" inputMode="decimal" autoComplete="off" value={latitudeDraft} onChange={(event) => {
-                        const value = limitCoordinatePrecision(event.target.value);
-                        setLatitudeDraft(value);
-                        setProfile({ lat: parseCoordinateDraft(value) });
-                      }} className={`${CONTROL_CLASS} mt-1 h-11 w-full min-w-0 px-1 text-base font-mono tabular-nums md:text-sm xl:h-9`} placeholder="28.66" />
-                    </label>
-                    <label className="min-w-0">Longitude
-                      <input aria-label="Longitude" type="text" inputMode="decimal" autoComplete="off" value={longitudeDraft} onChange={(event) => {
-                        const value = limitCoordinatePrecision(event.target.value);
-                        setLongitudeDraft(value);
-                        setProfile({ lng: parseCoordinateDraft(value) });
-                      }} className={`${CONTROL_CLASS} mt-1 h-11 w-full min-w-0 px-1 text-base font-mono tabular-nums md:text-sm xl:h-9`} placeholder="72.87" />
-                    </label>
-                    <button type="button" onClick={() => {
-                      setUseCoordinates(false);
-                      setLocationError(null);
-                    }} title="Search for a birth city" aria-label="Search for a birth city" className="grid size-11 place-items-center rounded-lg border border-input text-muted-foreground transition hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 xl:size-9">
-                      <MapPin className="size-3.5" />
-                    </button>
-                  </div>
-                )}
+              <div className="min-w-0">
+                <PlaceSearch
+                  label="Birth city"
+                  value={profilePlace}
+                  onChange={handlePlaceChange}
+                  onInvalidDraftChange={setPlaceSelectionInvalid}
+                  compact
+                />
               </div>
               <div className="relative min-w-0">
                 <label htmlFor="chart-notes" className="block text-xs font-medium text-slate-700 dark:text-slate-300">Chart notes</label>
@@ -2148,7 +2252,6 @@ export function KundaliDashboard({
           </form>
           {profileActionError && <p role="alert" className="mt-2 text-xs text-rose-800 dark:text-rose-200">{profileActionError}</p>}
           {profileActionMessage && <p role="status" className="mt-2 text-xs text-emerald-700 dark:text-emerald-300">{profileActionMessage}</p>}
-          {coordinateTimezoneError && <p role="status" className="mt-1 truncate text-[11px] text-rose-700 dark:text-rose-300">{coordinateTimezoneError}</p>}
         </section>
 
         {saveDialogOpen && (
@@ -2225,7 +2328,7 @@ export function KundaliDashboard({
               error={error}
               onCalculateBirthChart={calculateBirthChart}
               chartStyle={chartStyle}
-              onChartStyleChange={setChartStyle}
+              onChartStyleChange={handleChartStyleChange}
               viewPreferences={viewPreferences}
               language={language}
               ChartRenderer={SvgChart}
@@ -2353,10 +2456,13 @@ export function KundaliDashboard({
               <ChartControls
                 chartMode={chartMode}
                 chartStyle={chartStyle}
-                onChartStyleChange={setChartStyle}
+                onChartStyleChange={handleChartStyleChange}
+                cuspSystem={cuspSystem}
+                onCuspSystemChange={handleCuspSystemChange}
+                onChartStylePrefetch={() => { void loadCuspCalculator(); }}
                 overlayTransits={overlayTransits}
                 onOverlayTransitsChange={handleTransitOverlayChange}
-                ascendantLabel={displayData ? `${signName(displayData.ascendant.signName, language)} rising` : "Calculating lagna"}
+                ascendantLabel={primaryChartAscendant ? `${signName(primaryChartAscendant.signName, primaryChartLanguage)} rising` : primaryChartLoading ? "Calculating lagna" : "Lagna unavailable"}
                 referenceName={referenceName}
                 onReferenceNameChange={setReferenceName}
                 onOpenSettings={() => setChartSettingsOpen(true)}
@@ -2370,7 +2476,7 @@ export function KundaliDashboard({
               />
               <div className="relative w-full min-w-0 bg-card p-2 sm:p-4">
                 <div className="relative mx-auto aspect-square w-full max-w-[460px]">
-                  {displayData ? <SvgChart style={chartStyle} ascendant={displayData.ascendant} planets={displayData.planets} points={displayData.points} houseCusps={displayData.houseCusps} varga={1} referenceHouse={referenceHouseNumber} overlay={chartMode === "birth" && overlayTransits ? transitData?.planets : undefined} showTransitLabels={chartMode === "transit" && overlayTransits} language={language} preferences={viewPreferences} /> : displayLoading ? <EphemerisLoader title="Calculating birth chart" description="Finding planetary positions and house cusps…" detail={`${profile.city || "Birth chart"} · Swiss Ephemeris`} activity="Calculating chart" tone="dashboard" compact /> : <div className="grid aspect-square w-full place-items-center text-xs text-muted-foreground">Chart unavailable</div>}
+                  {primaryChartData && primaryChartAscendant ? <SvgChart style={chartStyle} ascendant={primaryChartAscendant} planets={primaryChartData.planets} points={primaryChartData.points} houseCusps={primaryChartCusps} varga={1} referenceHouse={primaryReferenceHouseNumber} overlay={chartMode === "birth" && overlayTransits ? transitData?.planets : undefined} showTransitLabels={chartMode === "transit" && overlayTransits} language={primaryChartLanguage} preferences={primaryChartPreferences} /> : primaryChartLoading ? <EphemerisLoader title={cuspSystem === "kp" && chartStyle === "bhava" ? "Calculating KP cusps" : "Calculating birth chart"} description="Finding planetary positions and house cusps…" detail={`${profile.city || "Birth chart"} · Swiss Ephemeris`} activity="Calculating chart" tone="dashboard" compact /> : <div role="alert" className="grid aspect-square w-full place-items-center px-6 text-center text-xs text-destructive">{primaryChartError ?? "Chart unavailable"}</div>}
                   {overlayTransits && transitLoading && (
                     <div role="status" aria-live="polite" className="absolute right-5 top-5 z-10 inline-flex items-center gap-2 rounded-full border border-stone-300 bg-card/95 px-3 py-1.5 text-xs font-medium text-stone-700 shadow-sm dark:border-stone-700 dark:text-stone-300">
                       <LoaderCircle className="size-3.5 animate-spin" />
@@ -2388,7 +2494,8 @@ export function KundaliDashboard({
               <p className="mt-2 flex flex-wrap items-center gap-x-1.5 text-[10px] text-slate-600 dark:text-slate-400">
                 <span>{chartMode === "transit" ? transitLoading ? "Refreshing current sky…" : transitError ?? "Live transit positions" : overlayTransits ? transitLoading ? "Refreshing transit sky…" : transitError ?? `Transit positions · ${currentTransitLabel}` : "Birth chart positions"}</span>
                 <span aria-hidden="true">·</span>
-                <span>House cusps: {houseSystem === "carter" ? "Carter (Poli-Equatorial)" : "Placidus"} · planetary houses: {houseSystem === "carter" ? "Carter" : "Whole Sign"}</span>
+                <span>House cusps: {chartStyle === "bhava" ? CUSP_SYSTEM_LABELS[cuspSystem] : houseSystem === "carter" ? "Carter (Poli-Equatorial)" : "Placidus"} · planetary houses: {chartStyle === "bhava" ? "selected cusps" : houseSystem === "carter" ? "Carter" : "Whole Sign"}</span>
+                {primaryChartWarning && <span role="status">{primaryChartWarning}</span>}
                 {data && <span className="inline-flex items-center gap-1"><Clock3 aria-hidden="true" className="size-3" /> Calculated {new Date(data.calculatedAt).toLocaleTimeString()}</span>}
               </p>
             </section>
@@ -2537,16 +2644,16 @@ export function KundaliDashboard({
             <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800">
               {displayData ? <PlanetTable data={displayData} decimal={decimalDegrees} language={language} preferences={viewPreferences} nodeType={nodeType} interceptedSigns={displayData.interceptedSigns} /> : <div className="grid h-60 place-items-center text-xs text-muted-foreground">{displayLoading ? <span className="inline-flex items-center gap-2"><LoaderCircle className="size-4 animate-spin text-primary" /> Calculating positions</span> : "No planetary data"}</div>}
             </div>
-            {displayData && (
+            {cuspDetailData && (
               <details className="group mt-3 rounded-lg border border-border bg-muted dark:bg-muted/40">
                 <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-xs marker:content-none">
                   <Crosshair className="size-3.5 text-amber-700 dark:text-amber-300" />
-                  <span className="font-medium">{houseSystem === "carter" ? "Carter house cusps" : "Bhava Chalit cusps"}</span><span className="text-slate-600">· {displayData.houseCuspSystem}</span>
+                  <span className="font-medium">{chartStyle === "bhava" ? "Selected Bhava cusps" : houseSystem === "carter" ? "Carter house cusps" : "Bhava Chalit cusps"}</span><span className="text-slate-600">· {chartStyle === "bhava" ? CUSP_SYSTEM_LABELS[cuspSystem] : displayData?.houseCuspSystem}</span>
                   <ChevronDown className="ml-auto size-3.5 text-slate-600 transition group-open:rotate-180" />
                 </summary>
                 <div className="grid grid-cols-2 gap-1.5 border-t border-slate-200 p-2 sm:grid-cols-3 lg:grid-cols-4 dark:border-slate-800">
-                  {displayData.houseCusps.map((cusp, index) => {
-                    const next = displayData.houseCusps[(index + 1) % 12];
+                  {cuspDetailCusps.map((cusp, index) => {
+                    const next = cuspDetailCusps[(index + 1) % 12];
                     const span = ((next.longitude - cusp.longitude + 360) % 360).toFixed(2);
                     return <div key={cusp.house} className="rounded-md bg-card px-2 py-1.5"><p className="text-xs uppercase text-muted-foreground">House {cusp.house}</p><p className="mt-0.5 truncate font-mono text-xs">{cusp.signName} {degreeToDms(((cusp.longitude % 30) + 30) % 30)}</p><p className="mt-0.5 text-[10px] text-muted-foreground">to {next.signName} · {span}° span</p></div>;
                   })}
@@ -2557,7 +2664,7 @@ export function KundaliDashboard({
                       <span><strong>Intercepted:</strong> {displayCuspLabels.interceptedSigns.length ? displayCuspLabels.interceptedSigns.join(", ") : "None"}</span>
                       <span><strong>Double-cusp signs:</strong> {displayCuspLabels.signsWithTwoCusps.length ? displayCuspLabels.signsWithTwoCusps.join(", ") : "None"}</span>
                     </div>
-                    <p className="mt-1 text-muted-foreground">Bhava Chalit comparison is available from the chart selector; cusp houses use the start-to-next-cusp spans shown above.</p>
+                    <p className="mt-1 text-muted-foreground">{chartStyle === "bhava" ? "Each house spans its selected cusp to the next cusp." : "Bhava Chalit comparison is available from the chart selector; cusp houses use the start-to-next-cusp spans shown above."}</p>
                   </div>
                 )}
               </details>
@@ -2578,7 +2685,7 @@ export function KundaliDashboard({
                 { label: "Ascendant", value: displayData?.ascendant.signName ?? "—", icon: Compass, color: "text-amber-700 dark:text-amber-300" },
                 { label: "Ayanamsa", value: displayData ? `${displayData.ayanamsa.degrees.toFixed(4)}°` : "—", icon: Orbit, color: "text-cyan-700 dark:text-cyan-300" },
                 { label: "Node mode", value: `${nodeType === "true" ? "True" : "Mean"} Node`, icon: ArrowDownUp, color: "text-cyan-700 dark:text-cyan-300" },
-                { label: "House system", value: houseSystem === "carter" ? "Carter (Poli-Equatorial)" : "Whole Sign + Placidus", icon: Globe2, color: "text-slate-600" },
+                { label: "House system", value: chartStyle === "bhava" ? `Bhava Cusps · ${CUSP_SYSTEM_LABELS[cuspSystem]}` : houseSystem === "carter" ? "Carter (Poli-Equatorial)" : "Whole Sign + Placidus", icon: Globe2, color: "text-slate-600" },
               ].map(({ label, value, icon: Icon, color }) => <div key={label} className="flex items-center gap-2 rounded-lg border border-border bg-muted px-2.5 py-2"><Icon className={`size-3.5 shrink-0 ${color}`} /><div className="min-w-0"><p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p><p className="truncate text-xs">{value}</p></div></div>)}
             </div>
           </section>
@@ -2642,11 +2749,11 @@ export function KundaliDashboard({
               <button type="button" onClick={() => setChartMaximized(false)} aria-label="Close maximized chart" className="grid size-9 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"><Minimize2 className="size-4" /></button>
             </header>
             <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-border bg-muted p-2">
-              {displayData
-                ? <div className="relative mx-auto aspect-square w-full max-w-[min(88vh,1000px)] [&>div]:!max-w-none [&>svg]:!max-w-none"><SvgChart style={chartStyle} ascendant={displayData.ascendant} planets={displayData.planets} points={displayData.points} houseCusps={displayData.houseCusps} varga={1} referenceHouse={referenceHouseNumber} overlay={chartMode === "birth" && overlayTransits ? transitData?.planets : undefined} showTransitLabels={chartMode === "transit" && overlayTransits} language={language} preferences={viewPreferences} /></div>
-                : <div className="grid min-h-[50vh] place-items-center text-sm text-slate-600">{displayLoading ? "Calculating chart…" : "Chart is unavailable."}</div>}
+              {primaryChartData && primaryChartAscendant
+                ? <div className="relative mx-auto aspect-square w-full max-w-[min(88vh,1000px)] [&>div]:!max-w-none [&>svg]:!max-w-none"><SvgChart style={chartStyle} ascendant={primaryChartAscendant} planets={primaryChartData.planets} points={primaryChartData.points} houseCusps={primaryChartCusps} varga={1} referenceHouse={primaryReferenceHouseNumber} overlay={chartMode === "birth" && overlayTransits ? transitData?.planets : undefined} showTransitLabels={chartMode === "transit" && overlayTransits} language={primaryChartLanguage} preferences={primaryChartPreferences} /></div>
+                : <div role={primaryChartError ? "alert" : "status"} className="grid min-h-[50vh] place-items-center px-6 text-center text-sm text-slate-600">{primaryChartError ?? (primaryChartLoading ? "Calculating chart…" : "Chart is unavailable.")}</div>}
             </div>
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600"><span>{chartStyle === "placidus" ? "Placidus · Ascendant at 9 o’clock · MC above IC" : `${chartStyle} · D1 Rasi`}</span><span>{chartMode === "transit" ? "Current transit placements" : overlayTransits ? "Cyan placements are current transits" : "Birth chart placements"}</span></div>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600"><span>{chartStyle === "bhava" ? `Bhava Cusps · ${CUSP_SYSTEM_LABELS[cuspSystem]}` : chartStyle === "placidus" ? "Placidus · Ascendant at 9 o’clock · MC above IC" : `${chartStyle} · D1 Rasi`}</span><span>{chartMode === "transit" ? "Current transit placements" : overlayTransits ? "Cyan placements are current transits" : "Birth chart placements"}</span></div>
           </section>
         </div>
       )}

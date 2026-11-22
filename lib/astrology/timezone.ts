@@ -39,6 +39,15 @@ export function localDateTimeToUtc(date: string, time: string, timezone: string)
   return new Date(localAsUtc - offset * 60_000);
 }
 
+export function getTimezoneOffsetHours(date: string, time: string, timezone: string): number {
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute, second = 0] = time.split(":").map(Number);
+  const localAsUtc = new Date(0);
+  localAsUtc.setUTCFullYear(year, month - 1, day);
+  localAsUtc.setUTCHours(hour, minute, second, 0);
+  return (localAsUtc.getTime() - localDateTimeToUtc(date, time, timezone).getTime()) / 3_600_000;
+}
+
 export function shiftLocalDate(date: string, dayOffset: number): string {
   const [year, month, day] = date.split("-").map(Number);
   const shifted = new Date(0);

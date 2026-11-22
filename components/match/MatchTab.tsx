@@ -1,17 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CalendarDays, Check, Download, Heart, MapPin, Share2, Sparkles, UserRound, X } from "lucide-react";
+import dynamic from "next/dynamic";
+import { CalendarDays, Check, Download, Heart, Share2, Sparkles, UserRound, X } from "lucide-react";
+import { getTimezoneOffsetHours } from "@/lib/astrology/timezone";
+import { matchBirthInput } from "@/src/lib/geocode/place-input";
+import { DEFAULT_PLACE, formatPlaceLabel, type Place } from "@/src/lib/geocode/place";
+
+const PlaceSearch = dynamic(() => import("@/src/components/place/PlaceSearch"), {
+  loading: () => <div className="h-[68px] animate-pulse rounded-lg border border-border bg-muted/40" aria-label="Loading place search" />,
+});
 
 type BirthForm = {
   name: string;
   date: string;
   time: string;
-  city: string;
-  custom: boolean;
-  latitude: string;
-  longitude: string;
-  timezone: string;
+  place: Place;
+  placeInvalid: boolean;
 };
 
 type MatchResult = {
@@ -35,24 +40,21 @@ type MatchResult = {
   girlChart?: { sidereal: Record<string, number> };
 };
 
-type EngineCity = { name: string; lat: number; lon: number; tz: number };
-
-const fallbackCities: EngineCity[] = [
-  { name: "Mumbai", lat: 19.076, lon: 72.8777, tz: 5.5 },
-  { name: "Delhi", lat: 28.6139, lon: 77.209, tz: 5.5 },
-  { name: "Kolkata", lat: 22.5726, lon: 88.3639, tz: 5.5 },
-  { name: "Chennai", lat: 13.0827, lon: 80.2707, tz: 5.5 },
-  { name: "Bengaluru", lat: 12.9716, lon: 77.5946, tz: 5.5 },
-  { name: "Kathmandu", lat: 27.7172, lon: 85.324, tz: 5.75 },
-];
-
 const initialBoy: BirthForm = {
-  name: "Rahul", date: "1990-05-15", time: "08:30:00", city: "Mumbai",
-  custom: false, latitude: "", longitude: "", timezone: "",
+  name: "Rahul", date: "1990-05-15", time: "08:30:00", place: DEFAULT_PLACE, placeInvalid: false,
 };
 const initialGirl: BirthForm = {
-  name: "Priya", date: "1993-11-02", time: "19:45:00", city: "Delhi",
-  custom: false, latitude: "", longitude: "", timezone: "",
+  name: "Priya",
+  date: "1993-11-02",
+  time: "19:45:00",
+  placeInvalid: false,
+  place: {
+    ...DEFAULT_PLACE,
+    name: "Delhi",
+    admin: "Delhi",
+    latitude: 28.6139,
+    longitude: 77.209,
+  },
 };
 
 function formatUtcOffset(hours: number) {
@@ -86,22 +88,16 @@ function LazyPanel({ children, height = 220 }: { children: React.ReactNode; heig
 function PersonCard({
   role,
   person,
-  cities,
   onChange,
   onPrefetch,
 }: {
   role: "boy" | "girl";
   person: BirthForm;
-  cities: EngineCity[];
   onChange: (next: BirthForm) => void;
   onPrefetch: () => void;
 }) {
   const boy = role === "boy";
-  const selected = cities.find((city) => city.name === person.city);
-  const tz = person.custom ? Number(person.timezone) : selected?.tz;
-  const lat = person.custom ? Number(person.latitude) : selected?.lat;
-  const lon = person.custom ? Number(person.longitude) : selected?.lon;
-  const placeLabel = person.custom ? "Custom location" : person.city;
+  const tz = person.date && person.time ? getTimezoneOffsetHours(person.date, person.time, person.place.timezone) : null;
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -151,40 +147,15 @@ function PersonCard({
             />
           </label>
         </div>
-        <label className="grid gap-1.5 text-xs font-medium text-foreground">
-          Place of birth
-          <span className="relative">
-            <MapPin className="pointer-events-none absolute left-3 top-3.5 size-4 text-muted-foreground" />
-            <select
-              value={person.custom ? "__custom__" : person.city}
-              onChange={(event) => onChange({
-                ...person,
-                custom: event.target.value === "__custom__",
-                city: event.target.value === "__custom__" ? person.city : event.target.value,
-              })}
-              className="h-11 w-full appearance-none rounded-lg border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-            >
-              {cities.map((city) => <option key={city.name} value={city.name}>{city.name}</option>)}
-              <option value="__custom__">Custom lat/lon/tz</option>
-            </select>
-          </span>
-        </label>
-        {person.custom && (
-          <div className="grid grid-cols-3 gap-2">
-            <label className="grid gap-1 text-[11px] font-medium">Latitude
-              <input type="number" value={person.latitude} onChange={(event) => onChange({ ...person, latitude: event.target.value })} className="h-10 min-w-0 rounded-lg border border-border bg-card px-2 text-sm" />
-            </label>
-            <label className="grid gap-1 text-[11px] font-medium">Longitude
-              <input type="number" value={person.longitude} onChange={(event) => onChange({ ...person, longitude: event.target.value })} className="h-10 min-w-0 rounded-lg border border-border bg-card px-2 text-sm" />
-            </label>
-            <label className="grid gap-1 text-[11px] font-medium">UTC offset
-              <input type="number" step="0.25" value={person.timezone} onChange={(event) => onChange({ ...person, timezone: event.target.value })} className="h-10 min-w-0 rounded-lg border border-border bg-card px-2 text-sm" />
-            </label>
-          </div>
-        )}
+        <PlaceSearch
+          label="Place of birth"
+          value={person.place}
+          onChange={(place) => onChange({ ...person, place, placeInvalid: false })}
+          onInvalidDraftChange={(placeInvalid) => onChange({ ...person, placeInvalid })}
+        />
         <p className="text-[11px] leading-5 text-muted-foreground">
-          Calculated with Lahiri ayanamsa · {placeLabel}
-          {Number.isFinite(tz) && lat !== undefined && lon !== undefined ? ` · ${formatUtcOffset(tz ?? 0)}` : ""}
+          Calculated with Lahiri ayanamsa · {formatPlaceLabel(person.place)}
+          {tz !== null ? ` · ${formatUtcOffset(tz)}` : ""}
         </p>
       </div>
     </section>
@@ -200,11 +171,11 @@ function verdictTone(verdict: string) {
 export default function MatchTab() {
   const [boy, setBoy] = useState(initialBoy);
   const [girl, setGirl] = useState(initialGirl);
-  const [cities, setCities] = useState<EngineCity[]>(fallbackCities);
   const [result, setResult] = useState<MatchResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const enginePromise = useRef<Promise<typeof import("@/lib/matchmaking")> | null>(null);
+  const [placeSearchError, setPlaceSearchError] = useState("");
 
   const prefetchEngine = () => {
     if (!enginePromise.current) enginePromise.current = import("@/lib/matchmaking");
@@ -212,26 +183,16 @@ export default function MatchTab() {
 
   useEffect(() => {
     prefetchEngine();
-    enginePromise.current?.then((engine) => setCities(engine.CITIES));
+    void import("@/src/components/place/PlaceSearch").catch((caught: unknown) => {
+      console.error("[match] Unable to prefetch the place search module.", caught);
+      setPlaceSearchError("Place search could not be loaded. Refresh this page or try again later.");
+    });
   }, []);
 
   useEffect(() => {
     if (result) setResult(null);
     // Inputs intentionally invalidate the previous result until Match Kundli is pressed.
   }, [boy, girl]);
-
-  const resolveBirth = (person: BirthForm) => {
-    const city = cities.find((item) => item.name === person.city);
-    if (person.custom) {
-      const latitude = Number(person.latitude);
-      const longitude = Number(person.longitude);
-      const tzHours = Number(person.timezone);
-      if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || !Number.isFinite(tzHours)) throw new Error(`Enter latitude, longitude and UTC offset for ${person.name || "the person"}.`);
-      return { latitude, longitude, tzHours };
-    }
-    if (!city) throw new Error(`Choose a place of birth for ${person.name || "the person"}.`);
-    return { latitude: city.lat, longitude: city.lon, tzHours: city.tz };
-  };
 
   const calculate = async () => {
     setError("");
@@ -241,6 +202,10 @@ export default function MatchTab() {
     }
     if (!boy.date || !girl.date || !boy.time || !girl.time) {
       setError("Enter both complete dates and times of birth.");
+      return;
+    }
+    if (boy.placeInvalid || girl.placeInvalid) {
+      setError("Choose each birth place from the suggestions or apply its coordinates.");
       return;
     }
     const today = new Date();
@@ -253,12 +218,11 @@ export default function MatchTab() {
     try {
       prefetchEngine();
       const engine = await enginePromise.current!;
-      setCities(engine.CITIES);
-      const b = resolveBirth(boy);
-      const g = resolveBirth(girl);
+      const b = matchBirthInput(boy);
+      const g = matchBirthInput(girl);
       const computed = engine.matchFromBirth(
-        { name: boy.name, date: boy.date, time: boy.time, ...b },
-        { name: girl.name, date: girl.date, time: girl.time, ...g },
+        b,
+        g,
         { vashyaByDegree: true },
       ) as MatchResult;
       setResult(computed);
@@ -302,10 +266,11 @@ export default function MatchTab() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <PersonCard role="boy" person={boy} cities={cities} onChange={setBoy} onPrefetch={prefetchEngine} />
-        <PersonCard role="girl" person={girl} cities={cities} onChange={setGirl} onPrefetch={prefetchEngine} />
+        <PersonCard role="boy" person={boy} onChange={setBoy} onPrefetch={prefetchEngine} />
+        <PersonCard role="girl" person={girl} onChange={setGirl} onPrefetch={prefetchEngine} />
       </div>
 
+      {placeSearchError && <p role="alert" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-100">{placeSearchError}</p>}
       {error && <p className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/70 dark:bg-red-950/30 dark:text-red-200" role="alert">{error}</p>}
 
       <button
