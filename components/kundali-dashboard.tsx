@@ -30,6 +30,7 @@ import { splitHouseBodies } from "@/lib/astrology/chart-layout";
 import { dagdhaRashis } from "@/lib/astrology/dagdha-rashi";
 import { getBirthDateTimeError } from "@/lib/astrology/ephemeris-input";
 import { readSavedAstrologyConfig } from "@/lib/astrology/config-storage";
+import { fetchEphemeris } from "@/lib/astrology/ephemeris-client";
 import { calculateCarterCusps, getCarterPlacementCusps, placeInCarterHouses } from "@/lib/astrology/carter-chart";
 import { CUSP_SIGNS, cuspLabels, northCuspAnchor } from "@/lib/astrology/cusp-labels";
 import { calculateArudhaPadas, type ArudhaPada } from "@/lib/astrology/arudha-padas";
@@ -90,7 +91,7 @@ const MidpointsTab = dynamic(() => import("@/components/dashboard-tabs/midpoints
   loading: () => <CelestiaLoader label="Computing Midpoints…" sublabel="Mapping midpoint activations…" tone="dashboard" />,
 });
 const ShodashvargaTab = dynamic(() => import("@/components/dashboard-tabs/shodashvarga-tab"), {
-  loading: () => <CelestiaLoader label="Preparing 16 Divisional Charts…" sublabel="Loading the Shodashvarga views…" tone="dashboard" />,
+  loading: () => <CelestiaLoader label="Preparing Vargas…" sublabel="Loading the divisional chart views…" tone="dashboard" />,
 });
 const CarterCuspsPanel = dynamic(() => import("@/components/dashboard-tabs/carter-cusps-panel"), {
   loading: () => <CelestiaLoader label="Preparing Carter Cusps…" sublabel="Loading house cusp analysis…" compact tone="dashboard" />,
@@ -1122,13 +1123,13 @@ type AuxiliaryType = "divisional" | "transit" | "solar" | "tajika" | "progressio
 type DashaSystem = "vimshottari" | "chara" | "ashtottari" | "yogini" | "kalachakra";
 type DashaSeed = "moon" | "ascendant" | "sun" | "ascendant-lord";
 type DashaLagnaMode = "natural" | "maha-lord" | "antar-lord";
-type DashboardTab = "core" | "kp" | "jaimini" | "dasha" | "aspects" | "midpoints" | "ashtakavarga" | "medical" | "transit-calendar" | "jamakkol" | "shodashvarga";
+type DashboardTab = "core" | "kp" | "jaimini" | "dasha" | "aspects" | "midpoints" | "ashtakavarga" | "medical" | "transit-calendar" | "jamakkol" | "vargas";
 type DashboardNavigationRequest = { tab: "core" | "jamakkol"; id: number };
 
 // All existing astrology views remain available; strength modules are now grouped with Ashtakavarga.
 const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
   { id: "core", label: "Core Dashboard" },
-  { id: "shodashvarga", label: "16 Kundalis" },
+  { id: "vargas", label: "Vargas" },
   { id: "kp", label: "KP Astrology" },
   { id: "jaimini", label: "Jaimini" },
   { id: "dasha", label: "Dasha Systems" },
@@ -1141,7 +1142,13 @@ const DASHBOARD_TABS: Array<{ id: DashboardTab; label: string }> = [
 const midpointReportCache = new Map<string, ReturnType<typeof createMidpointReport>>();
 
 function dashboardTabFromLocation(): DashboardTab {
-  const value = new URLSearchParams(window.location.search).get("tab");
+  const params = new URLSearchParams(window.location.search);
+  const rawValue = params.get("tab");
+  if (rawValue === "16-kundlis" || rawValue === "shodashvarga") {
+    params.set("tab", "vargas");
+    window.history.replaceState(window.history.state, "", `${window.location.pathname}?${params.toString()}${window.location.hash}`);
+  }
+  const value = params.get("tab");
   return value === "jamakkol" || DASHBOARD_TABS.some(({ id }) => id === value) ? value as DashboardTab : "core";
 }
 
@@ -1605,36 +1612,42 @@ export function KundaliDashboard({
     setError(null);
     const timeout = window.setTimeout(async () => {
       try {
-        const response = await fetch("/api/ephemeris", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            date: submittedProfile.date,
-            time: submittedProfile.time,
-            lat: submittedProfile.lat,
-            lng: submittedProfile.lng,
-            timezone: submittedProfile.timezone,
-            ayanamsa,
-            zodiacMode,
-            customAyanamsaDegrees,
-            nodeType,
-            dashaSeed: "moon",
-            avasthaConfig: readSavedAstrologyConfig()?.avastha,
-            nameFirstLetter: submittedProfile.name,
-            gender: submittedProfile.sex,
-            ...(auxiliaryType === "solar" || auxiliaryType === "tajika" ? { targetAge, ageMode } : {}),
-          }),
-        });
-        const responseText = await response.text();
-        if (!isMounted) return;
-        let result: EphemerisResponse | { error: string };
-        try {
-          result = JSON.parse(responseText) as EphemerisResponse | { error: string };
-        } catch {
-          throw new Error(`Ephemeris request failed (${response.status}): ${responseText.trim() || "The server returned an empty response."}`);
+        const input = {
+          date: submittedProfile.date,
+          time: submittedProfile.time,
+          lat: submittedProfile.lat,
+          lng: submittedProfile.lng,
+          timezone: submittedProfile.timezone,
+          ayanamsa,
+          zodiacMode,
+          customAyanamsaDegrees,
+          nodeType,
+          houseSystem,
+          dashaSeed: "moon" as const,
+          avasthaConfig: readSavedAstrologyConfig()?.avastha,
+          ...(auxiliaryType === "solar" || auxiliaryType === "tajika" ? { targetAge, ageMode } : {}),
+        };
+        if (submittedProfile.name.trim() && submittedProfile.name !== "Current transit") {
+          const response = await fetch("/api/ephemeris", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...input, nameFirstLetter: submittedProfile.name, gender: submittedProfile.sex }),
+          });
+          const responseText = await response.text();
+          if (!isMounted) return;
+          let result: EphemerisResponse | { error: string };
+          try {
+            result = JSON.parse(responseText) as EphemerisResponse | { error: string };
+          } catch {
+            throw new Error(`Ephemeris request failed (${response.status}): ${responseText.trim() || "The server returned an empty response."}`);
+          }
+          if (!response.ok || "error" in result) throw new Error("error" in result ? result.error : `Ephemeris request failed (${response.status}).`);
+          setData(result);
+        } else {
+          const result = await fetchEphemeris(input);
+          if (!isMounted) return;
+          setData(result);
         }
-        if (!response.ok || "error" in result) throw new Error("error" in result ? result.error : `Ephemeris request failed (${response.status}).`);
-        setData(result);
       } catch (requestError) {
         if (!isMounted) return;
         setError(requestError instanceof Error ? requestError.message : "Unable to calculate this chart.");
@@ -1655,34 +1668,25 @@ export function KundaliDashboard({
       setTransitError(null);
       const selectedTransit = transitMode === "specific"
         ? { date: transitDate, time: transitTime }
+        : submittedProfile?.name === "Current transit"
+          ? { date: submittedProfile.date, time: submittedProfile.time }
         : getCurrentBirthDateTime();
       try {
-        const response = await fetch("/api/ephemeris", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            date: selectedTransit.date,
-            time: selectedTransit.time,
-            lat: profile.lat,
-            lng: profile.lng,
-            timezone: profile.timezone,
-            ayanamsa,
-            zodiacMode,
-            customAyanamsaDegrees,
-            nodeType,
-            dashaSeed: "moon",
-            avasthaConfig: readSavedAstrologyConfig()?.avastha,
-          }),
+        const result = await fetchEphemeris({
+          date: selectedTransit.date,
+          time: selectedTransit.time,
+          lat: profile.lat,
+          lng: profile.lng,
+          timezone: profile.timezone,
+          ayanamsa,
+          zodiacMode,
+          customAyanamsaDegrees,
+          nodeType,
+          houseSystem,
+          dashaSeed: "moon",
+          avasthaConfig: readSavedAstrologyConfig()?.avastha,
         });
-        const responseText = await response.text();
         if (!isMounted) return;
-        let result: EphemerisResponse | { error: string };
-        try {
-          result = JSON.parse(responseText) as EphemerisResponse | { error: string };
-        } catch {
-          throw new Error(`Transit request failed (${response.status}): ${responseText.trim() || "The server returned an empty response."}`);
-        }
-        if (!response.ok || "error" in result) throw new Error("error" in result ? result.error : `Transit request failed (${response.status}).`);
         setTransitData(result);
       } catch (requestError) {
         if (!isMounted) return;
@@ -1695,7 +1699,7 @@ export function KundaliDashboard({
       isMounted = false;
       window.clearTimeout(timeout);
     };
-  }, [profile.lat, profile.lng, profile.timezone, transitDate, transitTime, transitMode, ayanamsa, zodiacMode, customAyanamsaDegrees, nodeType, transitRefreshKey]);
+  }, [profile.lat, profile.lng, profile.timezone, submittedProfile?.name, submittedProfile?.date, submittedProfile?.time, transitDate, transitTime, transitMode, ayanamsa, zodiacMode, customAyanamsaDegrees, nodeType, transitRefreshKey]);
 
   const handleTransitOverlayChange = useCallback((checked: boolean) => {
     setOverlayTransits(checked);
@@ -1855,7 +1859,7 @@ export function KundaliDashboard({
 
   const sourceDisplayData = chartMode === "transit" ? transitData : data;
   const carterCalculation = useMemo(() => {
-    if (!sourceDisplayData || houseSystem !== "carter") return null;
+    if (!sourceDisplayData || (houseSystem !== "carter" && houseSystem !== "equal")) return null;
     try {
       return { result: calculateCarterCusps(sourceDisplayData), error: null };
     } catch (calculationError) {
@@ -1868,15 +1872,19 @@ export function KundaliDashboard({
   const carterResult = carterCalculation?.result ?? null;
   const carterError = carterCalculation?.error ?? null;
   const displayData = useMemo(() => {
-    if (!sourceDisplayData || houseSystem !== "carter" || !carterResult) return sourceDisplayData;
-    const cuspPositions = getCarterPlacementCusps(carterResult, carterZodiac);
+    if (!sourceDisplayData || (houseSystem !== "carter" && houseSystem !== "equal") || !carterResult) return sourceDisplayData;
+    const cuspPositions = getCarterPlacementCusps(carterResult, carterZodiac, houseSystem);
     const cuspLongitudes = cuspPositions.map(({ longitude }) => longitude);
-    const houseCusps = cuspPositions.map((position, index) => ({
-      house: index + 1,
-      longitude: position.longitude,
-      sign: position.signIndex,
-      signName: position.sign,
-    }));
+    const houseCusps = cuspPositions.map((position, index) => {
+      const normalized = ((position.longitude % 360) + 360) % 360;
+      const sign = Math.floor(normalized / 30);
+      return {
+        house: index + 1,
+        longitude: normalized,
+        sign,
+        signName: CUSP_SIGNS[sign],
+      };
+    });
     const planets = placeInCarterHouses(sourceDisplayData.planets, cuspLongitudes);
     const points = placeInCarterHouses(sourceDisplayData.points, cuspLongitudes);
     return {
@@ -1886,7 +1894,7 @@ export function KundaliDashboard({
       points,
       bhavChalitPlanets: planets,
       bhavChalitPoints: points,
-      houseCuspSystem: "Carter (Poli-Equatorial)",
+      houseCuspSystem: houseSystem === "carter" ? "Carter (Poli-Equatorial)" : "Equal (Asc + 30°)",
     };
   }, [sourceDisplayData, houseSystem, carterResult, carterZodiac]);
   const kpCuspRequestKey = sourceDisplayData
@@ -1899,22 +1907,13 @@ export function KundaliDashboard({
     setKpCuspResult({ key, loading: true });
     void (async () => {
       try {
-        const response = await fetch("/api/ephemeris", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: controller.signal,
-          body: JSON.stringify({
-            ...sourceDisplayData.input,
-            zodiacMode: "sidereal",
-            ayanamsa: "krishnamurti",
-            calculationMode: "kp",
-            kp: true,
-          }),
+        const payload = await fetchEphemeris({
+          ...sourceDisplayData.input,
+          zodiacMode: "sidereal",
+          ayanamsa: "krishnamurti",
+          calculationMode: "kp",
+          kp: true,
         });
-        const payload = await response.json() as EphemerisResponse | { error?: string };
-        if (!response.ok || !("ascendant" in payload)) {
-          throw new Error("error" in payload ? payload.error ?? "KP cusps could not be calculated." : "KP cusps could not be calculated.");
-        }
         if (!controller.signal.aborted) setKpCuspResult({ key, data: payload, loading: false });
       } catch (caught) {
         if (controller.signal.aborted) return;
@@ -2347,8 +2346,8 @@ export function KundaliDashboard({
             />
           )}
         </RetainedTab>
-        <RetainedTab active={dashboardTab === "shodashvarga"}>
-          {visitedTabs.has("shodashvarga") && (
+        <RetainedTab active={dashboardTab === "vargas"}>
+          {visitedTabs.has("vargas") && (
             <ShodashvargaTab
               data={displayData}
               charts={SHODASHVARGA_CHARTS}
@@ -2669,11 +2668,13 @@ export function KundaliDashboard({
                 )}
               </details>
             )}
-            {houseSystem === "carter" && (
+            {(houseSystem === "carter" || houseSystem === "equal") && (
               <Suspense fallback={<SecondaryTabSkeleton />}>
                 <CarterCuspsPanel
                   result={carterResult}
                   error={carterError}
+                  houseSystem={houseSystem}
+                  onHouseSystemChange={setHouseSystem}
                   zodiacMode={carterZodiac}
                   onZodiacModeChange={setCarterZodiac}
                   decimal={decimalDegrees}

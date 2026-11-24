@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["swisseph"],
   outputFileTracingIncludes: {
     "/api/ephemeris": ["./node_modules/swisseph/build/Release/swisseph.node"],
+    "/api/points": ["./node_modules/swisseph/build/Release/swisseph.node", "./ephe/**"],
     "/api/panchang": ["./node_modules/swisseph/build/Release/swisseph.node"],
     "/api/astrology/nadi/timeline": ["./node_modules/swisseph/build/Release/swisseph.node"],
   },

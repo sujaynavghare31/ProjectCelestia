@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, RefreshCw, Sparkles } from "lucide-react";
 import EphemerisLoader from "@/components/dashboard-tabs/ephemeris-loader";
+import { fetchEphemeris as requestEphemeris } from "@/lib/astrology/ephemeris-client";
 import type { BirthProfile } from "@/lib/kundali-store";
 import type { CelestialLanguage, EphemerisResponse, PlanetPosition, ViewPreferences } from "@/lib/kundali-types";
 import type { ChartStyle } from "@/lib/kundali-types";
@@ -192,18 +193,10 @@ function localNow(timezone: string) {
 }
 
 async function fetchEphemeris(profile: BirthProfile, date: string, time: string) {
-  const response = await fetch("/api/ephemeris", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      date, time: secondsTime(time), lat: profile.lat, lng: profile.lng, timezone: profile.timezone,
-      ayanamsa: "lahiri", zodiacMode: "tropical", calculationMode: "standard",
-      nodeType: "true", nameFirstLetter: profile.name, gender: profile.sex,
-    }),
+  return requestEphemeris({
+    date, time: secondsTime(time), lat: profile.lat, lng: profile.lng, timezone: profile.timezone,
+    ayanamsa: "lahiri", zodiacMode: "tropical", calculationMode: "standard", nodeType: "true",
   });
-  const payload = await response.json() as EphemerisResponse | { error?: string };
-  if (!response.ok) throw new Error("error" in payload ? payload.error ?? "KP calculation failed." : "KP calculation failed.");
-  return payload as EphemerisResponse;
 }
 
 function sayanaPlanetsFromData(data: EphemerisResponse): SayanaPlanets {
@@ -545,6 +538,18 @@ export default function KpTab({ profile, language, viewPreferences, ChartRendere
     }
   }, [profile]);
 
+  const refreshCurrent = useCallback(async () => {
+    try {
+      const now = localNow(profile.timezone);
+      const currentResult = await fetchEphemeris(profile, now.date, now.time);
+      setCurrentData(currentResult);
+      setMomentDate(now.date);
+      setMomentTime(now.time);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Unable to calculate current KP transits.");
+    }
+  }, [profile]);
+
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
@@ -789,12 +794,12 @@ export default function KpTab({ profile, language, viewPreferences, ChartRendere
   }, [mode, horaryChart, horaryModel, questionKey, momentDate, momentTime, profile]);
 
   useEffect(() => {
-    if (mode !== "natal") return;
+    if (mode !== "natal" || !data) return;
     const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible") void load();
+      if (document.visibilityState === "visible") void refreshCurrent();
     }, 60_000);
     return () => window.clearInterval(timer);
-  }, [mode, load]);
+  }, [mode, data, refreshCurrent]);
 
   const activeChart = mode === "horary" ? horaryChart : chart;
   const activeModel = mode === "horary" ? horaryModel : chartModel;

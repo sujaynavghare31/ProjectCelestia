@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useKundaliStore, type BirthProfile } from "@/lib/kundali-store";
 import type { EphemerisResponse } from "@/lib/kundali-types";
+import { fetchEphemeris } from "@/lib/astrology/ephemeris-client";
 import {
   COLORS,
   colorForPoint,
@@ -235,6 +236,9 @@ function JamakkolLanguageSelector({
 
 export default function JamakkolTab({ profile, data, chartMode, transitDate, transitTime, transitMode }: Props) {
   const [language, setLanguage] = useState<JamakkolLanguage>("en");
+  const [upagrahaSelection, setUpagrahaSelection] = useState<string[]>(["yk"]);
+  const [computedUpagrahas, setComputedUpagrahas] = useState<Array<{ key: string; name: string; abbr: string; longitude: number; partNo: number; lord: string; startTime: string }>>([]);
+  const [upagrahasOpen, setUpagrahasOpen] = useState(false);
   const copy = JAMAKKOL_COPY[language];
   const [jamaData, setJamaData] = useState<EphemerisResponse | null>(null);
   const [jamaError, setJamaError] = useState<string | null>(null);
@@ -251,28 +255,60 @@ export default function JamakkolTab({ profile, data, chartMode, transitDate, tra
         : { date: profile.date, time: profile.time };
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlKeys = params.get("up");
+    const saved = window.localStorage.getItem("celestia-jamakkol-upagrahas");
+    const valid = new Set(["yk", "kl", "mr", "ap", "gu", "md"]);
+    const keys = (urlKeys ? urlKeys.split(",") : saved ? saved.split(",") : ["yk"]).filter((key) => valid.has(key));
+    setUpagrahaSelection(keys.length ? keys : ["yk"]);
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("celestia-jamakkol-upagrahas", upagrahaSelection.join(","));
+    const params = new URLSearchParams(window.location.search);
+    if (upagrahaSelection.join(",") === "yk") params.delete("up");
+    else params.set("up", upagrahaSelection.join(","));
+    window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+  }, [upagrahaSelection]);
+
+  useEffect(() => {
+    let active = true;
+    import("@/src/lib/jaimini/timePoints")
+      .then(async ({ fetchTimeUpagrahas }) => {
+        const values = await fetchTimeUpagrahas({
+          date: jamaDateTime.date,
+          time: jamaDateTime.time,
+          lat: profile.lat,
+          lng: profile.lng,
+          timezone: profile.timezone,
+          ayanamsa,
+          customAyanamsaDegrees,
+        });
+        if (active) setComputedUpagrahas(values);
+      })
+      .catch(() => {
+        if (active) setComputedUpagrahas([]);
+      });
+    return () => { active = false; };
+  }, [jamaDateTime.date, jamaDateTime.time, profile.lat, profile.lng, profile.timezone, ayanamsa, customAyanamsaDegrees]);
+
+  useEffect(() => {
     let isMounted = true;
     const timeout = window.setTimeout(async () => {
       setJamaError(null);
       try {
-        const response = await fetch("/api/ephemeris", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            date: jamaDateTime.date,
-            time: jamaDateTime.time,
-            lat: profile.lat,
-            lng: profile.lng,
-            timezone: profile.timezone,
-            ayanamsa,
-            zodiacMode,
-            customAyanamsaDegrees,
-            nodeType,
-          }),
+        const result = await fetchEphemeris({
+          date: jamaDateTime.date,
+          time: jamaDateTime.time,
+          lat: profile.lat,
+          lng: profile.lng,
+          timezone: profile.timezone,
+          ayanamsa,
+          zodiacMode,
+          customAyanamsaDegrees,
+          nodeType,
         });
-        const result = await response.json() as EphemerisResponse | { error: string };
         if (!isMounted) return;
-        if (!response.ok || "error" in result) throw new Error("error" in result ? result.error : "Unable to calculate Jamakkol positions.");
         setJamaData(result);
       } catch (error) {
         if (isMounted) setJamaError(error instanceof Error ? error.message : "Unable to calculate Jamakkol positions.");
@@ -308,9 +344,11 @@ export default function JamakkolTab({ profile, data, chartMode, transitDate, tra
       ayanamsa: jamaEphemeris.ayanamsa.degrees,
       planets: planets as { Mars: number; Mercury: number; Jupiter: number; Venus: number; Saturn: number; Sun?: number; Moon?: number; Rahu?: number },
       retrograde: Object.fromEntries(jamaEphemeris.planets.filter((planet) => ["Mars", "Mercury", "Jupiter", "Venus", "Saturn"].includes(planet.name)).map((planet) => [planet.name, planet.motion === "R"])),
-      mandiLongitude: jamaEphemeris.points.find((point) => point.name === "Mandi")?.longitude,
+      upagrahas: computedUpagrahas
+        .filter((upagraha) => upagrahaSelection.includes(upagraha.key))
+        .map((upagraha) => ({ name: upagraha.name, short: upagraha.abbr, longitude: upagraha.longitude })),
     });
-  }, [data, jamaData, jamaDateTime.date, jamaDateTime.time, profile]);
+  }, [data, jamaData, jamaDateTime.date, jamaDateTime.time, profile, computedUpagrahas, upagrahaSelection]);
 
   if (!active) {
     return (
@@ -344,7 +382,46 @@ export default function JamakkolTab({ profile, data, chartMode, transitDate, tra
         <JamakkolLanguageSelector language={language} onChange={setLanguage} />
       </section>
       <p className="text-xs font-medium text-muted-foreground">{calculatedFor}</p>
+      <section className="rounded-xl border border-border bg-card p-3 shadow-sm" aria-label="Upagrahas on chart">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
+          <strong>Upagrahas on chart:</strong>
+          {[
+            ["yk", "Yamaghantaka", "Yk"],
+            ["kl", "Kala", "Kl"],
+            ["mr", "Mrityu", "Mr"],
+            ["ap", "Ardhaprahara", "Ap"],
+            ["gu", "Gulika", "Gu"],
+            ["md", "Mandi", "Md"],
+          ].map(([key, name, abbr]) => {
+            const value = computedUpagrahas.find((item) => item.key === key);
+            return (
+              <label key={key} className="inline-flex cursor-pointer items-center gap-1.5" title={value ? `${name} · ${value.lord}'s part #${value.partNo} · starts ${value.startTime}` : name}>
+                <input type="checkbox" checked={upagrahaSelection.includes(key)} onChange={(event) => setUpagrahaSelection((current) => event.target.checked ? [...current, key] : current.filter((item) => item !== key))} />
+                {name} ({abbr})
+              </label>
+            );
+          })}
+          <button type="button" onClick={() => setUpagrahaSelection(["yk", "kl", "mr", "ap", "gu", "md"])} className="rounded-md border border-border px-2 py-1">Show all</button>
+          <button type="button" onClick={() => setUpagrahaSelection(["yk"])} className="rounded-md border border-border px-2 py-1">Reset</button>
+        </div>
+      </section>
       <section className="rounded-xl border border-border bg-card p-3 shadow-sm sm:p-5"><JamakkolChart result={active} language={language} /></section>
+      <details open={upagrahasOpen} onToggle={(event) => setUpagrahasOpen(event.currentTarget.open)} className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <summary className="cursor-pointer text-sm font-semibold">Upagraha details</summary>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full min-w-[760px] text-left text-xs">
+            <thead><tr className="border-b border-border text-muted-foreground"><th className="px-2 py-2">Upagraha</th><th>Part</th><th>Lord</th><th>Starts</th><th>Longitude</th><th>Nakshatra-pada</th><th>On chart</th></tr></thead>
+            <tbody>{computedUpagrahas.map((upagraha) => (
+              <tr key={upagraha.key} className="border-b border-border">
+                <td className="px-2 py-2 font-medium">{upagraha.name} ({upagraha.abbr})</td>
+                <td>{upagraha.partNo}</td><td>{upagraha.lord}</td><td>{upagraha.startTime}</td>
+                <td className="font-mono">{upagraha.longitude.toFixed(5)}°</td><td>—</td>
+                <td><input aria-label={`Show ${upagraha.name} on chart`} type="checkbox" checked={upagrahaSelection.includes(upagraha.key)} onChange={(event) => setUpagrahaSelection((current) => event.target.checked ? [...current, upagraha.key] : current.filter((key) => key !== upagraha.key))} /></td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      </details>
       <JamaGrahaTable date={jamaDateTime.date} time={jamaDateTime.time} language={language} />
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:gap-6">
         <section className="rounded-xl border border-border bg-card p-4 shadow-sm" aria-labelledby="jamakkol-positions-title"><h3 id="jamakkol-positions-title" className="mb-3 text-sm font-semibold">{copy.positions}</h3><PositionsTable result={active} language={language} /></section>

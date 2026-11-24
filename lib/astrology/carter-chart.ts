@@ -1,8 +1,9 @@
-import { carterCusps, type CuspMethod } from "./engines/carter";
+import { carterCusps, houseOf, placementCusps, type CuspZodiac, type HouseSystem } from "./engines/carter";
 import type { CarterZodiac } from "@/lib/kundali-types";
-import { houseOf } from "./engines/carter";
 import { getTimezoneOffsetHours } from "./timezone";
 export { getTimezoneOffsetHours } from "./timezone";
+
+export const DEFAULT_HOUSE_SYSTEM: HouseSystem = "equal";
 
 export interface CarterChartSource {
   input: {
@@ -13,8 +14,6 @@ export interface CarterChartSource {
     timezone: string;
   };
   ayanamsa: { degrees: number };
-  /** Defaults to "ascPlus30"; "raSteps" preserves the previous RA-per-house calculation. */
-  cuspMethod?: CuspMethod;
 }
 
 export function calculateCarterCusps(data: CarterChartSource) {
@@ -25,15 +24,18 @@ export function calculateCarterCusps(data: CarterChartSource) {
     longitude: data.input.lng,
     latitude: data.input.lat,
     ayanamsaOverride: data.ayanamsa.degrees,
-    cuspMethod: data.cuspMethod ?? "ascPlus30",
   });
 }
 
 export function getCarterPlacementCusps(
   result: ReturnType<typeof carterCusps>,
   zodiacMode: CarterZodiac,
+  system: HouseSystem = DEFAULT_HOUSE_SYSTEM,
 ) {
-  return result.cusps.map((cusp) => zodiacMode === "nirayanaB" ? cusp.nirayanaB : cusp.nirayanaA);
+  return placementCusps(result, system, zodiacMode as CuspZodiac).map((longitude, index) => ({
+    house: index + 1,
+    longitude,
+  }));
 }
 
 export function placeInCarterHouses<T extends { longitude: number }>(positions: T[], cuspLongitudes: number[]) {

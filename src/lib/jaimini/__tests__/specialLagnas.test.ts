@@ -71,6 +71,25 @@ describe("Jaimini special lagnas", () => {
     expect(schedule.every(({ momentMs }) => momentMs >= sunsetMs && momentMs < nextSunriseMs)).toBe(true);
   });
 
+  it("keeps Mandi at Saturn part midpoint while the five time upagrahas use part starts", () => {
+    const sunriseMs = Date.UTC(2026, 10, 20, 1, 25);
+    const sunsetMs = Date.UTC(2026, 10, 20, 12, 55);
+    const nextSunriseMs = Date.UTC(2026, 10, 21, 1, 24);
+    const schedule = timeUpagrahaMoments({
+      birthMs: Date.UTC(2026, 10, 20, 8),
+      sunriseMs,
+      sunsetMs,
+      nextSunriseMs,
+      weekday: 5,
+      upagrahaPoint: "middle",
+    });
+    const partLength = (sunsetMs - sunriseMs) / 8;
+    const gulika = schedule.find(({ name }) => name === "Gulika");
+    const mandi = schedule.find(({ name }) => name === "Mandi");
+    expect(gulika?.momentMs).not.toBe(mandi?.momentMs);
+    expect(mandi && gulika ? mandi.momentMs - gulika.momentMs : 0).toBeCloseTo(partLength / 2, 6);
+  });
+
   it("rejects a birth timestamp outside the supplied sunrise interval", () => {
     expect(() => timeUpagrahaMoments({
       birthMs: Date.UTC(2026, 10, 20, 1, 0),

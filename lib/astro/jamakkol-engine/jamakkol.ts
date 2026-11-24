@@ -177,6 +177,7 @@ export interface JamakkolInput {
   planets: { Sun?: number; Moon?: number; Mars: number; Mercury: number; Jupiter: number; Venus: number; Saturn: number; Rahu?: number };
   retrograde?: Partial<Record<"Mars" | "Mercury" | "Jupiter" | "Venus" | "Saturn", boolean>>;
   mandiLongitude?: number | null;
+  upagrahas?: Array<{ name: string; short: string; longitude: number; manual?: boolean }>;
 }
 export type Category = "points" | "jama" | "gochara" | "upagraha";
 export interface Point { name: string; short: string; category: Category; longitude: number; signIndex: number; sign: string; degree: string; nakshatraPada: string; label: string; exalted?: boolean; retrograde?: boolean; displaySignIndex?: number; outerLabel?: string }
@@ -283,6 +284,11 @@ export function jamakkol(input: JamakkolInput) {
   };
   const points: Point[] = [mk("Udayam", "Udayam", "points", udayam), mk("Aarudam", "Aarudam", "points", aarudam), mk("Kavippu", "Kavippu", "points", kavippu)];
   if (inp.mandiLongitude != null) points.push(mk("Mandi", "Mandi", "upagraha", mod(inp.mandiLongitude, 360)));
+  (inp.upagrahas ?? []).forEach((upagraha) => {
+    points.push(mk(upagraha.name, upagraha.short, "upagraha", mod(upagraha.longitude, 360), {
+      ...(upagraha.manual ? { label: `${upagraha.short} ${dms(mod(upagraha.longitude, 360))} (manual)` } : {}),
+    }));
+  });
   const jamaDisplaySignIndexes = outerRingSignIndexes(jama.grahas.map((graha) => graha.longitude));
   jama.grahas.forEach((graha, index) => {
     const name = graha.name === "Snake" ? "Pambu (Rahu)" : graha.name;

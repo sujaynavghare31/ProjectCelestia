@@ -65,9 +65,8 @@ export function timeUpagrahaMoments(input: TimeUpagrahaInput): Omit<TimeUpagraha
     const partIndex = mod(planet - firstLord, 7);
     return startMs + partIndex * partLengthMs;
   };
-  const pointOffset = input.upagrahaPoint === "middle" ? partLengthMs / 2 : 0;
   const positions: Omit<TimeUpagraha, "longitude">[] = TIME_UPAGRAHAS.map((upagraha) => {
-    const momentMs = partStart(upagraha.planet) + pointOffset;
+    const momentMs = partStart(upagraha.planet);
     return {
       ...upagraha,
       momentMs,

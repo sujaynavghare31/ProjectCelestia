@@ -3,7 +3,7 @@ export type ChartStyle = "diamond" | "south" | "east" | "placidus" | "bhava";
 export type CuspSystem = "placidus" | "kp" | "sripati" | "equal" | "carter";
 export type CelestialLanguage = "en" | "hi" | "mr" | "initials";
 export type ZodiacMode = "sidereal" | "tropical";
-export type HouseSystem = "placidus" | "carter";
+export type HouseSystem = "placidus" | "carter" | "equal";
 export type CarterZodiac = "sayana" | "nirayanaA" | "nirayanaB";
 export type CuspLabelSignStyle = "short" | "full" | "number" | "hindi" | "glyph";
 export type CuspLabelDegreeFormat = "dms" | "dm" | "decimal" | "compact";
@@ -71,6 +71,7 @@ export interface EphemerisRequest {
   avasthaConfig?: Partial<import("@/lib/astrology/avastha/config").AvasthaConfig>;
   nameFirstLetter?: string;
   gender?: "male" | "female" | "not-applicable";
+  houseSystem?: HouseSystem;
 }
 
 export interface PlanetPosition {
@@ -92,14 +93,6 @@ export interface PlanetPosition {
   dignity: string;
   kp?: import("@/lib/astrology/kp-calculations").KpDetails;
   jaimini?: string;
-}
-
-export interface DashaPeriod {
-  lord: string;
-  start: string;
-  end: string;
-  active: boolean;
-  periods?: DashaPeriod[];
 }
 
 export interface GrahaAvasthaReport {
@@ -135,7 +128,6 @@ export interface EphemerisResponse {
   houseCuspSystem: string;
   ashtakavarga?: Array<{ planet: string; bindus: number[]; total: number }>;
   sarvashtakavarga?: number[];
-  dashas: DashaPeriod[];
   grahaAvasthas: GrahaAvasthaReport[];
   avasthaReport?: import("@/lib/astrology/avastha/types").AvasthaReport;
   solarReturn?: {

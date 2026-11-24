@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "fetch-ephe": "tsx scripts/fetch-ephe.ts",
     "vercel-build": "npm rebuild swisseph && next build",
     "start": "next start",
     "postinstall": "prisma generate",

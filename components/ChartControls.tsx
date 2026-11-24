@@ -295,8 +295,9 @@ export function CoreCalculationControls({ ayanamsaDegrees }: { ayanamsaDegrees?:
       <label className="flex h-8 items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-2 text-[11px] text-muted-foreground">
         <span>House cusp</span>
         <span className="relative inline-flex items-center">
-          <select aria-label="House cusp system" value={houseSystem} onChange={(event) => setHouseSystem(event.target.value as "placidus" | "carter")} className="appearance-none bg-transparent pr-5 text-[11px] font-semibold text-foreground outline-none">
+          <select aria-label="House cusp system" value={houseSystem} onChange={(event) => setHouseSystem(event.target.value as "placidus" | "carter" | "equal")} className="appearance-none bg-transparent pr-5 text-[11px] font-semibold text-foreground outline-none">
             <option value="placidus">Placidus</option>
+            <option value="equal">Equal</option>
             <option value="carter">Carter</option>
           </select>
           <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-0 size-4 text-slate-400" />

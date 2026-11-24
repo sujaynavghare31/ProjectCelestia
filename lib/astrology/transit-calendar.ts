@@ -1,4 +1,5 @@
 import type { EphemerisRequest, EphemerisResponse, PlanetPosition } from "@/lib/kundali-types";
+import { fetchEphemeris } from "@/lib/astrology/ephemeris-client";
 
 export const CALENDAR_BODIES = [
   "Sun", "Moon", "Mars", "Mercury", "Jupiter", "Venus", "Saturn", "Rahu", "Ketu", "Uranus", "Neptune", "Pluto",
@@ -104,26 +105,18 @@ export async function fetchTransitSamples(
   if (existingRequest) return existingRequest;
 
   const request = Promise.all(getCalendarSampleDates(year).map(async (date): Promise<TransitSample> => {
-    const response = await fetch("/api/ephemeris", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        date,
-        time: "12:00:00",
-        lat: profile.lat,
-        lng: profile.lng,
-        timezone: profile.timezone,
-        ayanamsa: settings.ayanamsa,
-        zodiacMode: settings.zodiacMode,
-        customAyanamsaDegrees: settings.customAyanamsaDegrees,
-        nodeType: settings.nodeType,
-        dashaSeed: "moon",
-      }),
+    const result = await fetchEphemeris({
+      date,
+      time: "12:00:00",
+      lat: profile.lat,
+      lng: profile.lng,
+      timezone: profile.timezone,
+      ayanamsa: settings.ayanamsa,
+      zodiacMode: settings.zodiacMode,
+      customAyanamsaDegrees: settings.customAyanamsaDegrees,
+      nodeType: settings.nodeType,
+      dashaSeed: "moon",
     });
-    const result = await response.json() as EphemerisResponse | { error?: string };
-    if (!response.ok || !isEphemerisResponse(result)) {
-      throw new Error("error" in result && result.error ? result.error : `Transit sample failed (${response.status}).`);
-    }
     return { date, planets: result.planets };
   })).then((samples) => {
     memoryCache.set(key, samples);
@@ -139,10 +132,6 @@ export async function fetchTransitSamples(
 
 function isCalendarBody(name: string): name is CalendarBody {
   return (CALENDAR_BODIES as readonly string[]).includes(name);
-}
-
-function isEphemerisResponse(value: EphemerisResponse | { error?: string }): value is EphemerisResponse {
-  return "planets" in value;
 }
 
 function isCombust(planet: PlanetPosition, sun: PlanetPosition | undefined) {

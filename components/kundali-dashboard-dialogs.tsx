@@ -211,6 +211,7 @@ export function ChartSettingsDrawer({
                     </SelectTrigger>
                     <SelectContent className="z-[110] !bg-card !text-foreground shadow-md">
                       <SelectItem value="placidus">Placidus</SelectItem>
+                      <SelectItem value="equal">Equal (Asc + 30°)</SelectItem>
                       <SelectItem value="carter">Carter (Poli-Equatorial)</SelectItem>
                     </SelectContent>
                   </Select>

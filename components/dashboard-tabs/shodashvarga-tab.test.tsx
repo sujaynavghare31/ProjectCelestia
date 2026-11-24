@@ -65,7 +65,7 @@ describe("Shodashvarga tab", () => {
     expect(markup).toContain("animate-[spin_5s_linear_infinite]");
   });
 
-  it("renders all sixteen standard varga charts in the selected view", () => {
+  it("renders the default Shadvarga charts in scheme order", () => {
     const data: ShodashvargaData = {
       input: { date: "2026-11-18", time: "12:00" },
       ascendant,
@@ -91,7 +91,7 @@ describe("Shodashvarga tab", () => {
       ChartRenderer: ChartPreview,
     }));
 
-    expect(markup.match(/aria-label="D\d+ chart"/g)).toHaveLength(16);
-    for (const varga of VARGAS) expect(markup).toContain(`aria-label="D${varga} chart"`);
+    expect(markup.match(/aria-label="D\d+ chart"/g)).toHaveLength(6);
+    for (const varga of [1, 2, 3, 9, 12, 30]) expect(markup).toContain(`aria-label="D${varga} chart"`);
   });
 });

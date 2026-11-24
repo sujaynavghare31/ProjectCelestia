@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
+import { metric } from "@vercel/functions";
 import swe from "swisseph";
-import type { EphemerisRequest, DashaPeriod, PlanetPosition } from "@/lib/kundali-types";
+import type { EphemerisRequest, HouseSystem, PlanetPosition } from "@/lib/kundali-types";
 import { calculateBirthGhati } from "@/lib/astrology/ghati-calculator";
 import { calculateGrahaAvasthas } from "@/lib/astrology/graha-avastha-service";
 import { calculateAvasthaReport } from "@/lib/astrology/avastha/engine";
@@ -22,6 +23,7 @@ export const preferredRegion = ["bom1"];
 
 const EPHEMERIS_CACHE_LIMIT = 256;
 const EPHEMERIS_CACHE_TTL_MS = 30 * 60_000;
+const EDGE_CACHE_CONTROL = "public, max-age=300, s-maxage=86400, stale-while-revalidate=604800";
 const ephemerisCache = new Map<string, { expiresAt: number; json: string }>();
 const SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
 const NAKSHATRAS = [
@@ -31,8 +33,6 @@ const NAKSHATRAS = [
   "Purva Bhadrapada", "Uttara Bhadrapada", "Revati",
 ];
 const NAK_LORDS = ["Ketu", "Venus", "Sun", "Moon", "Mars", "Rahu", "Jupiter", "Saturn", "Mercury"];
-const DASHA_ORDER = ["Ketu", "Venus", "Sun", "Moon", "Mars", "Rahu", "Jupiter", "Saturn", "Mercury"];
-const DASHA_YEARS: Record<string, number> = { Ketu: 7, Venus: 20, Sun: 6, Moon: 10, Mars: 7, Rahu: 18, Jupiter: 16, Saturn: 19, Mercury: 17 };
 const AYANAMSA_MODES: Record<string, number> = {
   "tropical": -1,
   "fagan-bradley": swe.SE_SIDM_FAGAN_BRADLEY,
@@ -136,20 +136,46 @@ function cacheEphemeris(key: string, json: string) {
   }
 }
 
-function ephemerisResponse(json: string, status: "HIT" | "MISS", startedAt: number) {
+function recordEphemerisMetrics(method: "GET" | "POST", outcome: string, startedAt: number, responseBytes?: number) {
+  metric("ephemeris.requests", 1, { method, outcome });
+  metric("ephemeris.duration_ms", Math.max(0, performance.now() - startedAt), { method, outcome });
+  if (responseBytes !== undefined) metric("ephemeris.response_bytes", responseBytes, { method, outcome });
+}
+
+function ephemerisResponse(
+  json: string,
+  status: "HIT" | "MISS",
+  startedAt: number,
+  method: "GET" | "POST",
+  cacheControl?: string,
+) {
   const duration = Math.max(0, performance.now() - startedAt).toFixed(2);
+  const outcome = status === "HIT" ? "cache_hit" : "computed";
+  recordEphemerisMetrics(method, outcome, startedAt, Buffer.byteLength(json));
   return new NextResponse(json, {
     headers: {
       "Content-Type": "application/json",
       "X-Celestia-Cache": status,
       "Server-Timing": `total;dur=${duration}, cache;desc="${status}"`,
+      ...(cacheControl ? { "Cache-Control": cacheControl } : {}),
     },
   });
 }
 
+function ephemerisErrorResponse(
+  body: { error: string },
+  status: number,
+  method: "GET" | "POST",
+  startedAt: number,
+  headers?: Record<string, string>,
+) {
+  recordEphemerisMetrics(method, status === 429 ? "rate_limited" : "error", startedAt);
+  return NextResponse.json(body, { status, headers });
+}
+
 function validateRequest(value: unknown): EphemerisRequest {
   if (!isRecord(value)) throw new Error("Request body must be a JSON object.");
-  const { date, time, lat, lng, timezone, ayanamsa, nodeType, targetAge, ageMode, dashaSeed, zodiacMode, calculationMode, kp, customAyanamsaDegrees, avasthaConfig, nameFirstLetter, gender } = value;
+  const { date, time, lat, lng, timezone, ayanamsa, nodeType, targetAge, ageMode, dashaSeed, zodiacMode, calculationMode, kp, customAyanamsaDegrees, avasthaConfig, nameFirstLetter, gender, houseSystem } = value;
   const dateTimeError = getBirthDateTimeError(date, time);
   if (dateTimeError) throw new Error(dateTimeError);
   if (typeof date !== "string" || typeof time !== "string") {
@@ -177,6 +203,9 @@ function validateRequest(value: unknown): EphemerisRequest {
   if (dashaSeed !== undefined && dashaSeed !== "moon" && dashaSeed !== "ascendant" && dashaSeed !== "sun") throw new Error("dashaSeed must be 'moon', 'ascendant', or 'sun'.");
   if (nameFirstLetter !== undefined && (typeof nameFirstLetter !== "string" || nameFirstLetter.length > 100)) throw new Error("nameFirstLetter must be a string of at most 100 characters.");
   if (gender !== undefined && gender !== "male" && gender !== "female" && gender !== "not-applicable") throw new Error("gender must be 'male', 'female', or 'not-applicable'.");
+  if (houseSystem !== undefined && houseSystem !== "placidus" && houseSystem !== "carter" && houseSystem !== "equal") {
+    throw new Error("houseSystem must be 'placidus', 'carter', or 'equal'.");
+  }
   let validatedAvasthaConfig: EphemerisRequest["avasthaConfig"];
   if (avasthaConfig !== undefined) {
     const parsedConfig = avasthaConfigSchema.safeParse(avasthaConfig);
@@ -195,7 +224,79 @@ function validateRequest(value: unknown): EphemerisRequest {
     ...(validatedAvasthaConfig ? { avasthaConfig: validatedAvasthaConfig } : {}),
     ...(typeof nameFirstLetter === "string" ? { nameFirstLetter } : {}),
     ...(gender !== undefined ? { gender } : {}),
+    ...(houseSystem !== undefined ? { houseSystem: houseSystem as HouseSystem } : {}),
   };
+}
+
+function getQueryInput(request: Request): unknown {
+  const params = new URL(request.url).searchParams;
+  const rawTime = params.get("time");
+  const time = rawTime && /^\d{2}:\d{2}$/.test(rawTime) ? `${rawTime}:00` : rawTime;
+  const queryNumber = (key: string) => {
+    const value = params.get(key);
+    return value === null || !value.trim() ? undefined : Number(value);
+  };
+  const input: Record<string, unknown> = {
+    date: params.get("date"),
+    time,
+    lat: queryNumber("lat"),
+    lng: queryNumber("lon"),
+    timezone: params.get("tz"),
+    ayanamsa: params.get("ayanamsa"),
+    nodeType: params.get("nodeType"),
+  };
+  const stringParams = ["zodiacMode", "calculationMode", "ageMode", "dashaSeed", "houseSystem"] as const;
+  for (const key of stringParams) {
+    const value = params.get(key);
+    if (value !== null) input[key] = value;
+  }
+  for (const key of ["customAyanamsaDegrees", "targetAge"] as const) {
+    if (params.has(key)) input[key] = queryNumber(key);
+  }
+  const kp = params.get("kp");
+  if (kp !== null) input.kp = kp === "true" ? true : kp === "false" ? false : kp;
+  const avasthaConfig = params.get("avasthaConfig");
+  if (avasthaConfig !== null) {
+    try {
+      input.avasthaConfig = JSON.parse(avasthaConfig);
+    } catch {
+      throw new Error("avasthaConfig must be valid JSON.");
+    }
+  }
+  return input;
+}
+
+async function handleEphemeris(input: EphemerisRequest, method: "GET" | "POST", startedAt: number, cacheControl?: string) {
+  const cacheKey = canonicalJson(input);
+  const cached = getCachedEphemeris(cacheKey);
+  if (cached) return ephemerisResponse(cached, "HIT", startedAt, method, cacheControl);
+
+  try {
+    const chart = calculateEphemeris(input);
+    const returnEpoch = findSolarReturn(input);
+    let payload: Record<string, unknown> = { input, ...chart };
+    if (returnEpoch) {
+      const returnChart = calculateEphemeris(input, returnEpoch.epoch);
+      payload = {
+        ...payload,
+        solarReturn: {
+          targetAge: returnEpoch.targetAge,
+          ageMode: returnEpoch.ageMode,
+          utc: returnEpoch.epoch.toISOString(),
+          ascendant: returnChart.ascendant,
+          planets: returnChart.planets,
+        },
+      };
+    }
+    const json = JSON.stringify(payload);
+    cacheEphemeris(cacheKey, json);
+    return ephemerisResponse(json, "MISS", startedAt, method, cacheControl);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Ephemeris calculation failed.";
+    const isInputError = /must |outside |valid |unsupported |choose one|is required/i.test(message);
+    console.error("[ephemeris] Calculation failed", error);
+    return ephemerisErrorResponse({ error: message }, isInputError ? 400 : 500, method, startedAt);
+  }
 }
 
 function makePosition({
@@ -232,53 +333,6 @@ function makePosition({
     nakshatraLord: NAK_LORDS[nakshatraIndex % NAK_LORDS.length], house,
     dignity: getPlanetaryDignity(name, sign, degree), ...(jaimini ? { jaimini } : {}),
   };
-}
-
-function buildDashaTimeline(moonLongitude: number, birthDate: Date, now: Date, nestedLevels = 3): DashaPeriod[] {
-  const nakshatraIndex = Math.floor(normalizeDegrees(moonLongitude) / (360 / 27));
-  const nakshatraStart = nakshatraIndex * (360 / 27);
-  const progress = (normalizeDegrees(moonLongitude) - nakshatraStart) / (360 / 27);
-  const firstLord = NAK_LORDS[nakshatraIndex % NAK_LORDS.length];
-  const firstOrderIndex = DASHA_ORDER.indexOf(firstLord);
-  const yearsPerDay = 365.2425 * 86_400_000;
-
-  const createSubPeriods = (start: number, end: number, parentLord: string, level: number): DashaPeriod[] => {
-    const parentYears = (end - start) / yearsPerDay;
-    const parentIndex = DASHA_ORDER.indexOf(parentLord);
-    let cursor = start;
-    return DASHA_ORDER.map((_, offset) => {
-      const lord = DASHA_ORDER[(parentIndex + offset) % DASHA_ORDER.length];
-      const duration = parentYears * DASHA_YEARS[lord] / 120 * yearsPerDay;
-      const subEnd = offset === DASHA_ORDER.length - 1 ? end : cursor + duration;
-      const period: DashaPeriod = {
-        lord,
-        start: new Date(cursor).toISOString(),
-        end: new Date(subEnd).toISOString(),
-        active: now.getTime() >= cursor && now.getTime() < subEnd,
-      };
-      if (level > 1) period.periods = createSubPeriods(cursor, subEnd, lord, level - 1);
-      cursor = subEnd;
-      return period;
-    });
-  };
-
-  const periods: DashaPeriod[] = [];
-  let cursor = birthDate.getTime() - DASHA_YEARS[firstLord] * progress * yearsPerDay;
-  for (let index = 0; index < DASHA_ORDER.length * 3; index += 1) {
-    const lord = DASHA_ORDER[(firstOrderIndex + index) % DASHA_ORDER.length];
-    const fullYears = DASHA_YEARS[lord];
-    const end = cursor + fullYears * yearsPerDay;
-    periods.push({
-      lord,
-      start: new Date(cursor).toISOString(),
-      end: new Date(end).toISOString(),
-      active: now.getTime() >= cursor && now.getTime() < end,
-      periods: createSubPeriods(cursor, end, lord, nestedLevels),
-    });
-    cursor = end;
-    if (cursor > now.getTime() + 120 * yearsPerDay) break;
-  }
-  return periods;
 }
 
 function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
@@ -488,14 +542,6 @@ function calculateEphemeris(input: EphemerisRequest, epoch?: Date) {
     houseCuspSystem: bhavaSystem,
     grahaAvasthas,
     avasthaReport,
-    dashas: buildDashaTimeline(
-      input.dashaSeed === "ascendant" ? ascendantLongitude
-        : input.dashaSeed === "sun" ? planets.find(({ name }) => name === "Sun")?.longitude ?? 0
-          : moon.longitude,
-      utcDate,
-      new Date(),
-      4,
-    ),
     calculatedAt: new Date().toISOString(),
     engine: `Swiss Ephemeris ${swe.swe_version()} · Moshier`,
   };
@@ -568,9 +614,12 @@ export async function POST(request: Request) {
   const startedAt = performance.now();
   const limit = consumeRateLimit(request, "ephemeris");
   if (!limit.allowed) {
-    return NextResponse.json(
+    return ephemerisErrorResponse(
       { error: "Too many calculation requests. Please try again shortly." },
-      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+      429,
+      "POST",
+      startedAt,
+      { "Retry-After": String(limit.retryAfterSeconds) },
     );
   }
 
@@ -578,38 +627,39 @@ export async function POST(request: Request) {
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Request body must be valid JSON." }, { status: 400 });
+    return ephemerisErrorResponse({ error: "Request body must be valid JSON." }, 400, "POST", startedAt);
   }
 
   try {
     const input = validateRequest(body);
-    const cacheKey = canonicalJson(input);
-    const cached = getCachedEphemeris(cacheKey);
-    if (cached) return ephemerisResponse(cached, "HIT", startedAt);
-
-    const chart = calculateEphemeris(input);
-    const returnEpoch = findSolarReturn(input);
-    let payload: Record<string, unknown> = { input, ...chart };
-    if (returnEpoch) {
-      const returnChart = calculateEphemeris(input, returnEpoch.epoch);
-      payload = {
-        ...payload,
-        solarReturn: {
-          targetAge: returnEpoch.targetAge,
-          ageMode: returnEpoch.ageMode,
-          utc: returnEpoch.epoch.toISOString(),
-          ascendant: returnChart.ascendant,
-          planets: returnChart.planets,
-        },
-      };
-    }
-    const json = JSON.stringify(payload);
-    cacheEphemeris(cacheKey, json);
-    return ephemerisResponse(json, "MISS", startedAt);
+    return await handleEphemeris(input, "POST", startedAt);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Ephemeris calculation failed.";
     const isInputError = /must |outside |valid |unsupported |choose one|is required/i.test(message);
     console.error("[ephemeris] Calculation failed", error);
-    return NextResponse.json({ error: message }, { status: isInputError ? 400 : 500 });
+    return ephemerisErrorResponse({ error: message }, isInputError ? 400 : 500, "POST", startedAt);
+  }
+}
+
+export async function GET(request: Request) {
+  const startedAt = performance.now();
+  const limit = consumeRateLimit(request, "ephemeris");
+  if (!limit.allowed) {
+    return ephemerisErrorResponse(
+      { error: "Too many calculation requests. Please try again shortly." },
+      429,
+      "GET",
+      startedAt,
+      { "Retry-After": String(limit.retryAfterSeconds) },
+    );
+  }
+
+  try {
+    const input = validateRequest(getQueryInput(request));
+    return await handleEphemeris(input, "GET", startedAt, EDGE_CACHE_CONTROL);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Ephemeris calculation failed.";
+    const isInputError = /must |outside |valid |unsupported |choose one|is required/i.test(message);
+    return ephemerisErrorResponse({ error: message }, isInputError ? 400 : 500, "GET", startedAt);
   }
 }

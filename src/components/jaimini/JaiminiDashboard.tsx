@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check } from "lucide-react";
+import { fetchEphemeris } from "@/lib/astrology/ephemeris-client";
 import type { CelestialLanguage, ChartStyle, EphemerisResponse, PlanetPosition, ViewPreferences } from "@/lib/kundali-types";
 import type { BirthProfile } from "@/lib/kundali-store";
 import { SIGN_NAMES, SIGN_SHORT, PLANET_NAMES, PLANET_SHORT } from "@/src/lib/jaimini/constants";
@@ -134,23 +135,14 @@ async function fetchEphemerisAt(
   momentMs: number,
 ): Promise<EphemerisResponse> {
   const local = localDateTime(momentMs, profile.timezone);
-  const response = await fetch("/api/ephemeris", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      ...template,
-      date: local.date,
-      time: local.time,
-      lat: profile.lat,
-      lng: profile.lng,
-      timezone: profile.timezone,
-    }),
+  return fetchEphemeris({
+    ...template,
+    date: local.date,
+    time: local.time,
+    lat: profile.lat,
+    lng: profile.lng,
+    timezone: profile.timezone,
   });
-  const payload = await response.json() as EphemerisResponse | { error?: string };
-  if (!response.ok || !("ascendant" in payload)) {
-    throw new Error("error" in payload ? payload.error ?? "Could not calculate the sunrise-based Jaimini positions." : "Could not calculate the sunrise-based Jaimini positions.");
-  }
-  return payload;
 }
 
 const SIGN_ELEMENT_COLORS = [

@@ -20,12 +20,16 @@ function formatPosition(position: { text: string; sign: string; degreeInSign: nu
 export default function CarterCuspsPanel({
   result,
   error,
+  houseSystem,
+  onHouseSystemChange,
   zodiacMode,
   onZodiacModeChange,
   decimal,
 }: {
   result: CarterResult | null;
   error: string | null;
+  houseSystem: "carter" | "equal";
+  onHouseSystemChange: (value: "carter" | "equal") => void;
   zodiacMode: CarterZodiac;
   onZodiacModeChange: (value: CarterZodiac) => void;
   decimal: boolean;
@@ -58,12 +62,26 @@ export default function CarterCuspsPanel({
           <h3 id="carter-cusps-heading" className="text-sm font-semibold">Carter (Poli-Equatorial) house cusps</h3>
           <p className="mt-1 text-xs text-muted-foreground">Ayanamsa {result.step2.ayanamsa.text} · {result.step2.ayanamsa.source}</p>
         </div>
+        <div role="group" aria-label="House system" className="flex flex-wrap rounded-lg border border-border bg-background p-1">
+          {(["carter", "equal"] as const).map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={houseSystem === value}
+              onClick={() => onHouseSystemChange(value)}
+              className={`min-h-8 rounded-md px-2.5 text-xs font-medium transition ${houseSystem === value ? "border border-blue-200 bg-blue-100 text-blue-900" : "text-muted-foreground hover:bg-blue-50"}`}
+            >
+              {value === "carter" ? "Carter" : "Equal"}
+            </button>
+          ))}
+        </div>
         <div role="group" aria-label="Carter zodiac method" className="flex flex-wrap rounded-lg border border-border bg-background p-1">
           {ZODIAC_OPTIONS.map(({ value, label }) => (
             <button
               key={value}
               type="button"
               aria-pressed={zodiacMode === value}
+              disabled={houseSystem === "equal" && value === "nirayanaB"}
               onClick={() => onZodiacModeChange(value)}
               className={`min-h-8 rounded-md px-2.5 text-xs font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${zodiacMode === value ? "border border-blue-200 bg-blue-100 text-blue-900" : "text-muted-foreground hover:bg-blue-50 hover:text-blue-900"}`}
             >
@@ -94,6 +112,7 @@ export default function CarterCuspsPanel({
               <th scope="col" className="px-3 py-2">House</th>
               <th scope="col" className="px-3 py-2">{ZODIAC_OPTIONS.find(({ value }) => value === zodiacMode)?.label} cusp</th>
               <th scope="col" className="px-3 py-2">Right ascension</th>
+              <th scope="col" className="px-3 py-2">House width</th>
               {zodiacMode !== "sayana" && <><th scope="col" className="px-3 py-2">Nakshatra · pada</th><th scope="col" className="px-3 py-2">Sign lord</th><th scope="col" className="px-3 py-2">Star lord</th><th scope="col" className="px-3 py-2">Sub lord</th></>}
             </tr>
           </thead>
@@ -107,6 +126,7 @@ export default function CarterCuspsPanel({
                   <th scope="row" className="px-3 py-2 font-semibold">{cusp.house}</th>
                   <td className="whitespace-nowrap px-3 py-2 tabular-nums">{formatPosition(position, decimal)}</td>
                   <td className="whitespace-nowrap px-3 py-2 tabular-nums">{ra.toFixed(4)}°</td>
+                  <td className={`whitespace-nowrap px-3 py-2 tabular-nums ${cusp.width < 29 || cusp.width > 31 ? "font-semibold text-amber-700" : ""}`}>{cusp.width.toFixed(4)}°</td>
                   {zodiacMode !== "sayana" && kp && <>
                     <td className="whitespace-nowrap px-3 py-2">{kp.nakshatra} · {kp.pada}</td>
                     <td className="whitespace-nowrap px-3 py-2">{kp.signLord}</td>
@@ -118,6 +138,38 @@ export default function CarterCuspsPanel({
             })}
           </tbody>
         </table>
+      </div>
+      <div className="mt-4">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h4 className="text-xs font-semibold">Step 4 — Equal house</h4>
+          <span className="text-[11px] text-muted-foreground">
+            {result.equal.filter((row) => !row.sameSignAsCarter).length} cusps change sign vs Carter
+          </span>
+        </div>
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full min-w-[620px] text-left text-xs">
+            <thead className="bg-muted/40 text-[10px] uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th scope="col" className="px-3 py-2">House</th>
+                <th scope="col" className="px-3 py-2">Sayana</th>
+                <th scope="col" className="px-3 py-2">Nirayana</th>
+                <th scope="col" className="px-3 py-2">Same sign as Carter?</th>
+                <th scope="col" className="px-3 py-2">Carter − Equal (°)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {result.equal.map((row) => (
+                <tr key={row.house} className={!row.sameSignAsCarter ? "bg-amber-50/80 dark:bg-amber-950/20" : "bg-card"}>
+                  <th scope="row" className="px-3 py-2">{row.house}</th>
+                  <td className="px-3 py-2 tabular-nums">{row.sayana.text}</td>
+                  <td className="px-3 py-2 tabular-nums">{row.nirayana.text}</td>
+                  <td className="px-3 py-2">{row.sameSignAsCarter ? "Yes" : "No – differs"}</td>
+                  <td className="px-3 py-2 tabular-nums">{row.carterMinusEqual.toFixed(4)}°</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
       <details className="mt-3 rounded-lg border border-border bg-muted/20 px-3 py-2">
         <summary className="cursor-pointer text-xs font-medium">Show working</summary>

@@ -1,9 +1,21 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Check, Info, X } from "lucide-react";
 import type { EphemerisResponse, PlanetPosition } from "@/lib/kundali-types";
+import {
+  PLANETS,
+  SCHEMES,
+  VARGA_NAMES,
+  vaiseshikamsa,
+  vimshopakaBala,
+  grade,
+  type Dignity,
+  type Planet,
+  type Scheme,
+  type Varga,
+} from "@/lib/strength/vimshopaka";
 
 const SIGNS = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
 const HOUSE_LABELS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
@@ -310,12 +322,202 @@ function AdvancedAstrologyModule({ data }: { data: EphemerisResponse }) {
   );
 }
 
+const VIMSHOPAKA_SCHEMES: Scheme[] = ["Shadvarga", "Saptavarga", "Dashavarga", "Shodashavarga"];
+
+function dignityClass(dignity: Dignity) {
+  if (dignity === "own" || dignity === "exalted") return "bg-emerald-700/15 text-emerald-800 dark:text-emerald-300";
+  if (dignity === "greatFriend" || dignity === "friend") return dignity === "greatFriend"
+    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+    : "bg-emerald-300/20 text-emerald-700 dark:text-emerald-300";
+  if (dignity === "neutral") return "bg-slate-400/15 text-slate-700 dark:text-slate-300";
+  if (dignity === "enemy") return "bg-rose-300/20 text-rose-700 dark:text-rose-300";
+  return "bg-rose-700/20 text-rose-800 dark:text-rose-300";
+}
+
+function dignityLabel(dignity: Dignity) {
+  return ({ own: "Own", exalted: "Exalted", greatFriend: "G.Friend", friend: "Friend", neutral: "Neutral", enemy: "Enemy", greatEnemy: "G.Enemy" })[dignity];
+}
+
+function VimshopakaModule({ data }: { data: EphemerisResponse }) {
+  const [scheme, setScheme] = useState<Scheme>(() => {
+    if (typeof window === "undefined") return "Shodashavarga";
+    const value = new URLSearchParams(window.location.search).get("vim");
+    const urlScheme = VIMSHOPAKA_SCHEMES.find((item) => item.toLowerCase() === value);
+    if (urlScheme) return urlScheme;
+    const saved = window.localStorage.getItem("celestia-vimshopaka-scheme");
+    return VIMSHOPAKA_SCHEMES.find((item) => item === saved) ?? "Shodashavarga";
+  });
+  const [view, setView] = useState<"Contribution" | "Points" | "Dignity">("Contribution");
+  const [exaltationAsOwn, setExaltationAsOwn] = useState(true);
+  const [includeNodes, setIncludeNodes] = useState(false);
+  const [kendraAL, setKendraAL] = useState(false);
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set("vim", scheme.toLowerCase());
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    window.localStorage.setItem("celestia-vimshopaka-scheme", scheme);
+  }, [scheme]);
+
+  const longitudes = useMemo(() => {
+    const result = {} as Record<Planet, number>;
+    PLANETS.forEach((planet) => {
+      result[planet] = data.planets.find((position) => position.name === planet)?.longitude ?? 0;
+    });
+    return result;
+  }, [data]);
+
+  const report = useMemo(
+    () => vimshopakaBala(longitudes, { exaltationAsOwn }),
+    [longitudes, exaltationAsOwn],
+  );
+  const vargas = useMemo(() => Object.keys(SCHEMES[scheme]) as Varga[], [scheme]);
+  const vaiseshikamsaReport = useMemo(
+    () => vaiseshikamsa(longitudes, scheme, {
+      kendraLordFromAL: kendraAL,
+      arudhaLagnaSign: kendraAL ? data.ascendant.sign : undefined,
+    }),
+    [longitudes, scheme, kendraAL, data.ascendant.sign],
+  );
+  const planetRows = [...PLANETS];
+
+  return (
+    <section id="strength-vimshopaka" className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+      <header className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h2 className="text-lg font-medium">Vimshopaka Bala</h2>
+          <p className="text-xs text-muted-foreground">Planetary dignity weighted across divisional charts</p>
+        </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-xs text-muted-foreground">Scheme
+            <select aria-label="Vimshopaka scheme" value={scheme} onChange={(event) => setScheme(event.target.value as Scheme)} className="mt-1 block h-9 rounded-lg border border-input bg-card px-2 text-sm text-foreground">
+              {VIMSHOPAKA_SCHEMES.map((item) => <option key={item} value={item}>{item}{item === "Shodashavarga" ? " (all 16 vargas)" : ""}</option>)}
+            </select>
+          </label>
+          <label className="text-xs text-muted-foreground">View
+            <select aria-label="Vimshopaka view" value={view} onChange={(event) => setView(event.target.value as typeof view)} className="mt-1 block h-9 rounded-lg border border-input bg-card px-2 text-sm text-foreground">
+              <option>Contribution</option><option>Points</option><option>Dignity</option>
+            </select>
+          </label>
+          <label className="flex h-9 items-center gap-2 text-xs"><input type="checkbox" checked={exaltationAsOwn} onChange={(event) => setExaltationAsOwn(event.target.checked)} />Exalted counts as own</label>
+          <label className="flex h-9 items-center gap-2 text-xs"><input type="checkbox" checked={includeNodes} onChange={(event) => setIncludeNodes(event.target.checked)} />Include Rahu/Ketu</label>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+        {report.map((row) => {
+          const total = row.scores[scheme];
+          const vais = vaiseshikamsaReport.find((item) => item.planet === row.planet);
+          return (
+            <div key={row.planet} className="rounded-lg border border-border p-3">
+              <p className="text-xs font-medium">{row.planet}</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums">{total.toFixed(2)} <span className="text-xs text-muted-foreground">/ 20</span></p>
+              <p className="text-xs text-muted-foreground">{grade(total)} · {vais?.name || "—"}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="hidden overflow-x-auto rounded-lg border border-border sm:block">
+        <table className="min-w-max border-collapse text-xs">
+          <thead className="bg-muted/50">
+            <tr>
+              <th className="sticky left-0 z-10 bg-muted/50 px-3 py-2 text-left">Planet</th>
+              {vargas.map((varga) => (
+                <th key={varga} className="min-w-16 px-2 py-2 text-center">
+                  <button type="button" onClick={() => window.history.pushState(null, "", `${window.location.pathname}?tab=vargas&vargas=${scheme.toLowerCase()}#${varga}`)} title={`Open ${varga} in Vargas`}>
+                    {varga}<br /><span className="text-[10px] text-muted-foreground">{VARGA_NAMES[varga]} · w {SCHEMES[scheme][varga]}</span>
+                  </button>
+                </th>
+              ))}
+              <th className="px-3 py-2 text-right">Total / 20</th><th className="px-3 py-2">Grade</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {planetRows.map((planetName) => {
+              const row = report.find((item) => item.planet === planetName)!;
+              const vais = vaiseshikamsaReport.find((item) => item.planet === planetName);
+              return (
+                <tr key={planetName} className="divide-x divide-border">
+                  <th className="sticky left-0 z-10 bg-card px-3 py-2 text-left">{planetName}</th>
+                  {vargas.map((varga) => {
+                    const cell = row.vargas.find((item) => item.varga === varga)!;
+                    const weight = SCHEMES[scheme][varga] ?? 0;
+                    const contribution = weight * cell.points / 20;
+                    const hit = vais?.hits.find((item) => item.varga === varga);
+                    return (
+                      <td key={varga} title={`${planetName} in ${varga} ${VARGA_NAMES[varga]}: ${cell.signName} · ${dignityLabel(cell.dignity)} ${cell.points}/20 · weight ${weight} → contribution ${contribution.toFixed(2)}`} className={`min-w-16 px-2 py-2 text-center ${dignityClass(cell.dignity)}`}>
+                        {view === "Contribution" && <><span className="font-medium">{contribution.toFixed(2)}</span><span className="block text-[10px] opacity-80">{cell.signName}</span></>}
+                        {view === "Points" && <><span className="font-medium">{cell.points}</span><span className="block text-[10px] opacity-80">{dignityLabel(cell.dignity)}</span></>}
+                        {view === "Dignity" && <><span className="font-medium">{dignityLabel(cell.dignity)}</span><span className="block text-[10px] opacity-80">{cell.signName}</span></>}
+                        {hit?.reason && <span title={`Vaiseshikamsa: ${hit.reason}`} className="ml-1 text-amber-500">★</span>}
+                        {row.vargas.find((item) => item.varga === "D1")?.sign === cell.sign && varga !== "D1" && <span title="Vargottama" className="ml-1">◎</span>}
+                      </td>
+                    );
+                  })}
+                  <td className="px-3 py-2 text-right font-semibold tabular-nums">{row.scores[scheme].toFixed(2)}</td>
+                  <td className="px-3 py-2"><span className="rounded px-2 py-1">{grade(row.scores[scheme])}</span></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:hidden" aria-label="Planet Vimshopaka cards">
+        {report.map((row) => (
+          <article key={row.planet} className="rounded-lg border border-border p-3">
+            <div className="flex items-baseline justify-between">
+              <h3 className="text-sm font-semibold">{row.planet}</h3>
+              <span className="text-sm font-semibold tabular-nums">{row.scores[scheme].toFixed(2)} / 20</span>
+            </div>
+            <div className="mt-2 divide-y divide-border">
+              {vargas.map((varga) => {
+                const cell = row.vargas.find((item) => item.varga === varga)!;
+                const weight = SCHEMES[scheme][varga] ?? 0;
+                const contribution = weight * cell.points / 20;
+                return (
+                  <div key={varga} className="flex items-center justify-between py-1.5 text-xs">
+                    <span>{varga} · {cell.signName}</span>
+                    <span className={dignityClass(cell.dignity)}>{view === "Points" ? cell.points : view === "Dignity" ? dignityLabel(cell.dignity) : contribution.toFixed(2)}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <section className="rounded-lg border border-border p-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div><h3 className="text-sm font-semibold">Vaiseshikamsa · BPHS</h3><p className="text-xs text-muted-foreground">Own, exaltation or moolatrikona in the selected vargas.</p></div>
+          <label className="text-xs"><input type="checkbox" checked={kendraAL} onChange={(event) => setKendraAL(event.target.checked)} /> Also count signs of kendra lords from Arudha Lagna</label>
+        </div>
+        <div className="mt-3 divide-y divide-border">
+          {vaiseshikamsaReport.map((row) => (
+            <div key={row.planet} className="flex items-center gap-3 py-2">
+              <span className="w-16 text-sm font-medium">{row.planet}</span>
+              <span className="w-12 text-xs tabular-nums">{row.count} / {row.total}</span>
+              <span className="w-28 text-xs font-medium">{row.name || "—"}</span>
+              <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto" aria-label={`${row.planet} Vaiseshikamsa`}>
+                {row.hits.map((hit) => (
+                  <span key={hit.varga} title={`${hit.varga} ${VARGA_NAMES[hit.varga]}: ${hit.signName}${hit.reason ? ` — ${hit.reason}` : ""}`} className={`size-3 shrink-0 rounded-full ${hit.reason ? hit.reason === "exalted" ? "bg-amber-500" : hit.reason === "moolatrikona" ? "bg-teal-500" : hit.reason === "kendra lord from AL" ? "bg-blue-500" : "bg-emerald-700" : "border border-border"}`} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </section>
+  );
+}
+
 export default function StrengthAnalysisTab({ data }: { data: EphemerisResponse | null }) {
   if (!data) {
     return <p className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">Load a chart to view Ashtakavarga and strength analysis.</p>;
   }
   return (
     <div className="space-y-5">
+      <VimshopakaModule data={data} />
       <ShadbalaModule planets={data.planets} />
       <AdvancedAstrologyModule data={data} />
     </div>

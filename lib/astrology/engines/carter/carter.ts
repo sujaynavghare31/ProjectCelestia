@@ -1,6 +1,8 @@
 // ---------------------------------------------------------------------------
-// Birth details → RAMC → MC / Ascendant → Carter (Poli-Equatorial) house cusps
-// Port of Birth_to_Carter_Cusps_v2.xlsx (sheet "Birth to Cusps").
+// Birth details → RAMC → MC / Ascendant → Carter (Poli-Equatorial) house cusps + Equal house
+// Port of Birth_to_Carter_Cusps_v3.xlsx (sheet "Birth to Cusps"):
+//   Step 1 RAMC · Step 2 MC / Asc / ayanamsa · Step 3 Carter cusps (Method A & B, house widths)
+//   Step 4 Equal house (Asc + 30°) with "same sign as Carter?" and "Carter − Equal" columns.
 // Pure, synchronous, no dependencies. Angles in decimal degrees, time in day fractions.
 // ---------------------------------------------------------------------------
 import { formatDMS, formatHMS, norm1, norm360, zodiac, type ZodiacPosition } from "./format";
@@ -36,30 +38,41 @@ export interface CarterInput {
    * ~3m56s ≈ 1°. Default true (correct). Set false to reproduce the spreadsheet exactly.
    */
   fixLmtDayRollover?: boolean;
-  /**
-   * How the 12 cusps are built once the Ascendant is known (Ascendant itself always comes from RAMC / RA):
-   * - "ascPlus30" (default): each cusp advances 30° in longitude from the Ascendant.
-   * - "raSteps": each cusp advances 30° in right ascension before conversion to longitude.
-   */
-  cuspMethod?: CuspMethod;
 }
-
-export type CuspMethod = "ascPlus30" | "raSteps";
 
 export interface CuspRow {
   house: number;
-  /** "raSteps": RA used for this cusp. "ascPlus30": RA of the cusp, for display only. */
+  /** RA of cusp = RA(Asc) + (n−1)×30 */
   ra: number;
   sayana: ZodiacPosition;
-  /** Method A: Sayana cusp − ayanamsa. With "ascPlus30", each cusp advances 30° from the sidereal Ascendant. */
+  /** Method A: Sayana cusp − ayanamsa (standard; same as Swiss Ephemeris sidereal houses) */
   nirayanaA: ZodiacPosition;
-  /** RA used by Method B. With "ascPlus30", this is RA(Asc) − ayanamsa for every cusp. */
+  /** RA used by Method B = RA(Asc) − ayanamsa + (n−1)×30 */
   raB: number;
-  /** Method B: ecliptic longitude of RA(Asc) − ayanamsa, then 30° longitude steps for "ascPlus30". */
+  /** Method B: ecliptic longitude of RA(Asc) − ayanamsa + (n−1)×30 */
   nirayanaB: ZodiacPosition;
   kpA?: KpLords;
   kpB?: KpLords;
+  /** Carter house width = next sayana cusp − this cusp (27.5°–32.7°; Excel column H) */
+  width: number;
 }
+
+/** Step 4 – Equal house row (Excel rows 61–72). */
+export interface EqualRow {
+  house: number;
+  /** Asc + (n−1)×30° */
+  sayana: ZodiacPosition;
+  /** Asc − ayanamsa + (n−1)×30° */
+  nirayana: ZodiacPosition;
+  /** Equal cusp is in the same (sayana) sign as the Carter cusp */
+  sameSignAsCarter: boolean;
+  /** Carter sayana cusp − Equal sayana cusp, wrapped to −180…+180 (Excel column G) */
+  carterMinusEqual: number;
+  kp?: KpLords;
+}
+
+export type HouseSystem = "carter" | "equal";
+export type CuspZodiac = "sayana" | "nirayanaA" | "nirayanaB";
 
 function parseDate(s: string) {
   const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s.trim());
@@ -127,34 +140,35 @@ export function carterCusps(input: CarterInput) {
   const ayanCalc = lahiriMean(daysFromJ2000At0h(y, m, d) + birth - tz / 24);
   const ayan = input.ayanamsaOverride ?? ayanCalc;
   const raAscMinusAyan = norm360(raAsc - ayan);
-  const ascB = longitudeFromRA(raAscMinusAyan, eps);
 
-  // ---------- STEP 3: Carter cusps ----------
+  // ---------- STEP 3: Carter cusps (30° steps of RA) ----------
   const withKp = input.withKpLords ?? true;
-  const method: CuspMethod = input.cuspMethod ?? "ascPlus30";
   const cusps: CuspRow[] = [];
   for (let n = 1; n <= 12; n++) {
-    const step = (n - 1) * 30;
-    let say: number, nb: number, ra: number, raB: number;
-    if (method === "ascPlus30") {
-      say = norm360(asc + step);
-      nb = norm360(ascB + step);
-      ra = raFromLongitude(say, eps);
-      raB = raAscMinusAyan;
-    } else {
-      ra = norm360(raAsc + step);
-      say = longitudeFromRA(ra, eps);
-      raB = norm360(raAscMinusAyan + step);
-      nb = longitudeFromRA(raB, eps);
-    }
-    const row: CuspRow = { house: n, ra, sayana: zodiac(say), nirayanaA: zodiac(say - ayan), raB, nirayanaB: zodiac(nb) };
+    const ra = norm360(raAsc + (n - 1) * 30);
+    const say = longitudeFromRA(ra, eps);
+    const raB = norm360(raAscMinusAyan + (n - 1) * 30);
+    const nb = longitudeFromRA(raB, eps);
+    const row: CuspRow = { house: n, ra, sayana: zodiac(say), nirayanaA: zodiac(say - ayan), raB, nirayanaB: zodiac(nb), width: 0 };
     if (withKp) { row.kpA = kpLords(say - ayan); row.kpB = kpLords(nb); }
     cusps.push(row);
   }
+  cusps.forEach((c, i) => { c.width = norm360(cusps[(i + 1) % 12].sayana.longitude - c.sayana.longitude); });
+
+  // ---------- STEP 4: Equal house (Ascendant + 30° of zodiac per house, no RA) ----------
+  const equal: EqualRow[] = cusps.map((c, i) => {
+    const say = norm360(asc + i * 30), nir = norm360(asc - ayan + i * 30);
+    const row: EqualRow = {
+      house: i + 1, sayana: zodiac(say), nirayana: zodiac(nir),
+      sameSignAsCarter: Math.floor(say / 30) === Math.floor(c.sayana.longitude / 30),
+      carterMinusEqual: norm360(c.sayana.longitude - say + 180) - 180,
+    };
+    if (withKp) row.kp = kpLords(nir);
+    return row;
+  });
 
   return {
-    input: { ...input, fixLmtDayRollover: fix, cuspMethod: method },
-    cuspMethod: method,
+    input: { ...input, fixLmtDayRollover: fix },
     step1: {
       longitude: { value: lon, text: formatDMS(lon) },
       latitude: { value: lat, text: formatDMS(lat) },
@@ -181,18 +195,24 @@ export function carterCusps(input: CarterInput) {
       raAscMinusAyanamsa: { value: raAscMinusAyan, text: formatDMS(raAscMinusAyan) },
     },
     cusps,
+    equal,
     notes: [
       "Sayana = tropical; Nirayana = tropical − ayanamsa.",
-      "Cusp 1 = Ascendant (always found from RAMC → RA). Cusp 10 is generally NOT the MC.",
-      method === "ascPlus30"
-        ? "Cusps: Ascendant + 30° per house (longitude). RA is NOT computed per house."
-        : "Cusps: RA(Asc) + 30° of RA per house, each converted to longitude (old workbook method).",
-      "Method A: ayanamsa subtracted from the Ascendant/cusps (standard).",
-      "Method B: ayanamsa subtracted from the RA of the Ascendant, converted to longitude, then the same 30° steps.",
+      "Cusp 1 = Ascendant. In Carter's system cusp 10 is generally NOT the MC.",
+      "Method A (standard, as Swiss Ephemeris): cusps computed tropically, then ayanamsa subtracted from each cusp.",
+      "Method B: ayanamsa subtracted from the RA of the Ascendant, then 30° RA steps converted to longitude.",
+      "Equal house: every cusp = Ascendant + multiple of 30° of zodiac (same degree in each sign); Nirayana = Asc − ayanamsa + 30° steps.",
+      "Carter (Poli-Equatorial): 30° steps in RA along the equator, converted back to the zodiac, so houses are about 27.5°–32.7° wide.",
     ],
   };
 }
 export type CarterResult = ReturnType<typeof carterCusps>;
+
+/** 12 cusp longitudes for placing planets: Carter (Method A / B / sayana) or Equal (sayana / nirayana). */
+export function placementCusps(r: CarterResult, system: HouseSystem, zodiac: CuspZodiac): number[] {
+  if (system === "equal") return r.equal.map((e) => (zodiac === "sayana" ? e.sayana.longitude : e.nirayana.longitude));
+  return r.cusps.map((c) => c[zodiac].longitude);
+}
 
 /**
  * House (1..12) containing ecliptic longitude `lambda`, given the 12 cusp longitudes in house order

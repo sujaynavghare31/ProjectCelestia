@@ -123,7 +123,7 @@ export const useKundaliStore = create<KundaliState>((set) => ({
     notes: "",
   },
   chartStyle: "diamond",
-  houseSystem: "placidus",
+  houseSystem: "equal",
   carterZodiac: "nirayanaA",
   midpointPreferences: {
     mode: "hard45",
